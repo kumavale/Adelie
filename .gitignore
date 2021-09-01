@@ -1,2 +1,5 @@
 cargo.lock
 /target
+
+test.exe
+test.il

@@ -16,7 +16,7 @@ pub enum BinaryOpKind {
     Sub,  // -
     Mul,  // *
     Div,  // /
-    Mod,  // %
+    Rem,  // %
 }
 
 #[derive(Debug, PartialEq)]
@@ -73,7 +73,7 @@ fn mul(mut tok: &mut Tokens) -> Option<Box<Node>> {
         } else if consume(TokenKind::Slash, &mut tok) {
             node = new_binary_op_node(BinaryOpKind::Div, node, primary(&mut tok));
         } else if consume(TokenKind::Percent, &mut tok) {
-            node = new_binary_op_node(BinaryOpKind::Mod, node, primary(&mut tok));
+            node = new_binary_op_node(BinaryOpKind::Rem, node, primary(&mut tok));
         } else {
             return node;
         }
