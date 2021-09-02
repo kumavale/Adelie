@@ -4,7 +4,7 @@ pub enum TokenKind {
     Minus,         // -
     Asterisk,      // *
     Slash,         // /
-    Percent,       // /
+    Percent,       // %
     Integer(u64),  // [1-9][0-9]*
 
     Illegal(String),

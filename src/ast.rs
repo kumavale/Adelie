@@ -2,13 +2,19 @@ use super::token::*;
 
 /// EBNF
 ///
-/// expr    : mul ( '+' mul | '-' mul ) * ;
-/// mul     : primary ( '*' primary | '/' primary | '%' primary ) * ;
-/// primary : dec_digit ;
+/// expr    = mul ( '+' mul | '-' mul ) * ;
+/// mul     = unary ( '*' unary | '/' unary | '%' unary ) * ;
+/// unary   = ( '-' ) ? primary ;
+/// primary = nonzero_dec dec_digit * ;
 ///
-/// dec_digit   : '0' | nonzero_dec ;
-/// nonzero_dec : '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+/// dec_digit   = '0' | nonzero_dec ;
+/// nonzero_dec = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
 ///
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum UnaryOpKind {
+    Neg,  // -
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BinaryOpKind {
@@ -22,10 +28,14 @@ pub enum BinaryOpKind {
 #[derive(Debug, PartialEq)]
 pub enum Node {
     Integer(u64),  // [1-9][0-9]*
+    UnaryOp {
+        kind: UnaryOpKind,
+        expr: Box<Node>,
+    },
     BinaryOp {
         kind: BinaryOpKind,
-        lhs: Option<Box<Node>>,
-        rhs: Option<Box<Node>>,
+        lhs: Box<Node>,
+        rhs: Box<Node>,
     },
 }
 
@@ -35,7 +45,7 @@ struct Tokens<'a> {
     idx: usize,
 }
 
-pub fn gen_ast(tokens: &[Token]) -> Option<Box<Node>> {
+pub fn gen_ast(tokens: &[Token]) -> Box<Node> {
     let mut tok = Tokens {
         tokens,
         idx: 0,
@@ -44,11 +54,15 @@ pub fn gen_ast(tokens: &[Token]) -> Option<Box<Node>> {
     expr(&mut tok)
 }
 
-fn new_binary_op_node(kind: BinaryOpKind, lhs: Option<Box<Node>>, rhs: Option<Box<Node>>) -> Option<Box<Node>> {
-    Some(Box::new(Node::BinaryOp{ kind, lhs, rhs }))
+fn new_binary_op_node(kind: BinaryOpKind, lhs: Box<Node>, rhs: Box<Node>) -> Box<Node> {
+    Box::new(Node::BinaryOp{ kind, lhs, rhs })
 }
 
-fn expr(mut tok: &mut Tokens) -> Option<Box<Node>> {
+fn new_unary_op_node(kind: UnaryOpKind, expr: Box<Node>) -> Box<Node> {
+    Box::new(Node::UnaryOp { kind, expr })
+}
+
+fn expr(mut tok: &mut Tokens) ->Box<Node> {
     let mut node = mul(&mut tok);
 
     loop {
@@ -63,27 +77,35 @@ fn expr(mut tok: &mut Tokens) -> Option<Box<Node>> {
     }
 }
 
-fn mul(mut tok: &mut Tokens) -> Option<Box<Node>> {
-    let mut node = primary(&mut tok);
+fn mul(mut tok: &mut Tokens) -> Box<Node> {
+    let mut node = unary(&mut tok);
 
     loop {
         tok.check_illegal();
         if consume(TokenKind::Asterisk, &mut tok) {
-            node = new_binary_op_node(BinaryOpKind::Mul, node, primary(&mut tok));
+            node = new_binary_op_node(BinaryOpKind::Mul, node, unary(&mut tok));
         } else if consume(TokenKind::Slash, &mut tok) {
-            node = new_binary_op_node(BinaryOpKind::Div, node, primary(&mut tok));
+            node = new_binary_op_node(BinaryOpKind::Div, node, unary(&mut tok));
         } else if consume(TokenKind::Percent, &mut tok) {
-            node = new_binary_op_node(BinaryOpKind::Rem, node, primary(&mut tok));
+            node = new_binary_op_node(BinaryOpKind::Rem, node, unary(&mut tok));
         } else {
             return node;
         }
     }
 }
 
-fn primary(tok: &mut Tokens) -> Option<Box<Node>> {
+fn unary(mut tok: &mut Tokens) ->Box<Node> {
+    if consume(TokenKind::Minus, &mut tok) {
+        new_unary_op_node(UnaryOpKind::Neg, unary(&mut tok))
+    } else {
+        primary(&mut tok)
+    }
+}
+
+fn primary(tok: &mut Tokens) ->Box<Node> {
     match tok.tokens[tok.idx].kind {
-        TokenKind::Integer(_) => Some(Box::new(Node::Integer(tok.expect_number()))),
-        _ => None,
+        TokenKind::Integer(_) => Box::new(Node::Integer(tok.expect_number())),
+        _ => todo!("primary"),
     }
 }
 
