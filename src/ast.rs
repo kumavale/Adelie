@@ -1,15 +1,15 @@
 use super::token::*;
 
-/// EBNF
-///
-/// expr    = mul ( '+' mul | '-' mul ) * ;
-/// mul     = unary ( '*' unary | '/' unary | '%' unary ) * ;
-/// unary   = ( '-' ) ? primary ;
-/// primary = nonzero_dec dec_digit * ;
-///
-/// dec_digit   = '0' | nonzero_dec ;
-/// nonzero_dec = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
-///
+// EBNF
+//
+// expr    = mul ( '+' mul | '-' mul ) * ;
+// mul     = unary ( '*' unary | '/' unary | '%' unary ) * ;
+// unary   = ( '-' ) ? primary ;
+// primary = nonzero_dec dec_digit * ;
+//
+// dec_digit   = '0' | nonzero_dec ;
+// nonzero_dec = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+//
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UnaryOpKind {
@@ -102,10 +102,22 @@ fn unary(mut tok: &mut Tokens) ->Box<Node> {
     }
 }
 
-fn primary(tok: &mut Tokens) ->Box<Node> {
+fn primary(mut tok: &mut Tokens) ->Box<Node> {
+    if consume(TokenKind::LParen, &mut tok) {
+        let node = expr(&mut tok);
+        tok.expect(TokenKind::RParen);
+        return node;
+    }
+
     match tok.tokens[tok.idx].kind {
-        TokenKind::Integer(_) => Box::new(Node::Integer(tok.expect_number())),
-        _ => todo!("primary"),
+        TokenKind::Integer(num) => {
+            tok.idx += 1;
+            Box::new(Node::Integer(num))
+        }
+        _ => {
+            eprintln!("{}^", " ".repeat(tok.tokens[tok.idx].cur));
+            panic!("illegal TokenKind {:?}", tok.tokens[tok.idx].kind);
+        }
     }
 }
 
@@ -125,19 +137,6 @@ impl<'a> Tokens<'a> {
         } else {
             eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
             panic!("expected {:?}, but got {:?}", kind, self.tokens[self.idx].kind);
-        }
-    }
-
-    fn expect_number(&mut self) -> u64 {
-        match self.tokens[self.idx].kind {
-            TokenKind::Integer(num) => {
-                self.idx += 1;
-                num
-            },
-            _ => {
-                eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
-                panic!("expected Integer(u64). but got {:?}", self.tokens[self.idx].kind);
-            },
         }
     }
 

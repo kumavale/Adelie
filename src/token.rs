@@ -1,10 +1,14 @@
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {
-    Plus,          // +
-    Minus,         // -
-    Asterisk,      // *
-    Slash,         // /
-    Percent,       // %
+    Plus,      // +
+    Minus,     // -
+    Asterisk,  // *
+    Slash,     // /
+    Percent,   // %
+
+    LParen,  // (
+    RParen,  // )
+
     Integer(u64),  // [1-9][0-9]*
 
     Illegal(String),

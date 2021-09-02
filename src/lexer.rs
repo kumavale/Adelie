@@ -49,7 +49,11 @@ impl<'a> Lexer<'a> {
             Some('*') => new_token(TokenKind::Asterisk, self.read_position),
             Some('/') => new_token(TokenKind::Slash,    self.read_position),
             Some('%') => new_token(TokenKind::Percent,  self.read_position),
-            None      => new_token(TokenKind::Eof,      self.read_position),
+
+            Some('(') => new_token(TokenKind::LParen, self.read_position),
+            Some(')') => new_token(TokenKind::RParen, self.read_position),
+
+            None => new_token(TokenKind::Eof, self.read_position),
             _ =>
             if is_digit(&self.ch) {
                 let mut num = char2num(&self.ch);

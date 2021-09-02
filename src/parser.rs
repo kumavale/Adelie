@@ -3,7 +3,7 @@ use super::ast::*;
 pub fn eval(node: Node) -> i64 {
     match node {
         Node::Integer(n) => n as i64,
-        Node::UnaryOp { _kind, expr } => {
+        Node::UnaryOp { kind, expr } => {
             -eval(*expr)
         }
         Node::BinaryOp { kind, lhs, rhs } => {
@@ -21,7 +21,7 @@ pub fn eval(node: Node) -> i64 {
 pub fn gen_il(node: Node) {
     match node {
         Node::Integer(n) => println!("ldc.i4 {}", n as i32),
-        Node::UnaryOp { _kind, expr } => {
+        Node::UnaryOp { kind, expr } => {
             gen_il(*expr);
             println!("neg");
         }

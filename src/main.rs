@@ -4,7 +4,7 @@ mod ast;
 mod parser;
 
 fn main() {
-    let input = " -1 + 2 * --3 ";
+    let input = " -(1 + 2) * --3";
 
     let mut lexer = lexer::Lexer::new(input);
     let tokens = lexer::tokenize(&mut lexer);
