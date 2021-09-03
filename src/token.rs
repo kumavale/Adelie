@@ -9,6 +9,13 @@ pub enum TokenKind {
     LParen,  // (
     RParen,  // )
 
+    Eq,   // ==
+    Lt,   // <
+    Le,   // <=
+    Ne,   // !=
+    Gt,   // >
+    Ge,   // >=
+
     Integer(u64),  // [1-9][0-9]*
 
     Illegal(String),

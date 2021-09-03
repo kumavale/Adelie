@@ -53,6 +53,35 @@ impl<'a> Lexer<'a> {
             Some('(') => new_token(TokenKind::LParen, self.read_position),
             Some(')') => new_token(TokenKind::RParen, self.read_position),
 
+            Some('=') => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    new_token(TokenKind::Eq, self.read_position)
+                }
+                _ => todo!("Assign"),
+            }
+            Some('<') => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    new_token(TokenKind::Le, self.read_position)
+                }
+                _ =>         new_token(TokenKind::Lt, self.read_position),
+            }
+            Some('>') => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    new_token(TokenKind::Ge, self.read_position)
+                }
+                _ =>         new_token(TokenKind::Gt, self.read_position),
+            }
+            Some('!') => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    new_token(TokenKind::Ne, self.read_position)
+                }
+                _ => todo!("Not"),
+            }
+
             None => new_token(TokenKind::Eof, self.read_position),
             _ =>
             if is_digit(&self.ch) {

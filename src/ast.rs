@@ -2,9 +2,15 @@ use super::token::*;
 
 // EBNF
 //
-// expr    = mul ( '+' mul | '-' mul ) * ;
+// expr = equality
+//
+// equality   = relational ( '==' relational | '!=' relational ) * ;
+// relational = add ( '<' add | '<=' add | '>' add | '>=' add ) * ;
+//
+// add     = mul ( '+' mul | '-' mul ) * ;
 // mul     = unary ( '*' unary | '/' unary | '%' unary ) * ;
 // unary   = ( '-' ) ? primary ;
+//
 // primary = nonzero_dec dec_digit * ;
 //
 // dec_digit   = '0' | nonzero_dec ;
@@ -23,6 +29,12 @@ pub enum BinaryOpKind {
     Mul,  // *
     Div,  // /
     Rem,  // %
+    Eq,   // ==
+    Lt,   // <
+    Le,   // <=
+    Ne,   // !=
+    Gt,   // >
+    Ge,   // >=
 }
 
 #[derive(Debug, PartialEq)]
@@ -63,6 +75,44 @@ fn new_unary_op_node(kind: UnaryOpKind, expr: Box<Node>) -> Box<Node> {
 }
 
 fn expr(mut tok: &mut Tokens) ->Box<Node> {
+    equality(&mut tok)
+}
+
+fn equality(mut tok: &mut Tokens) ->Box<Node> {
+    let mut node = relational(&mut tok);
+
+    loop {
+        tok.check_illegal();
+        if consume(TokenKind::Eq, &mut tok) {
+            node = new_binary_op_node(BinaryOpKind::Eq, node, relational(&mut tok));
+        } else if consume(TokenKind::Ne, &mut tok) {
+            node = new_binary_op_node(BinaryOpKind::Ne, node, relational(&mut tok));
+        } else {
+            return node;
+        }
+    }
+}
+
+fn relational(mut tok: &mut Tokens) ->Box<Node> {
+    let mut node = add(&mut tok);
+
+    loop {
+        tok.check_illegal();
+        if consume(TokenKind::Lt, &mut tok) {
+            node = new_binary_op_node(BinaryOpKind::Lt, node, add(&mut tok));
+        } else if consume(TokenKind::Le, &mut tok) {
+            node = new_binary_op_node(BinaryOpKind::Le, node, add(&mut tok));
+        } else if consume(TokenKind::Gt, &mut tok) {
+            node = new_binary_op_node(BinaryOpKind::Gt, node, add(&mut tok));
+        } else if consume(TokenKind::Ge, &mut tok) {
+            node = new_binary_op_node(BinaryOpKind::Ge, node, add(&mut tok));
+        } else {
+            return node;
+        }
+    }
+}
+
+fn add(mut tok: &mut Tokens) ->Box<Node> {
     let mut node = mul(&mut tok);
 
     loop {

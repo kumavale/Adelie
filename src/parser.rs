@@ -1,22 +1,22 @@
 use super::ast::*;
 
-pub fn eval(node: Node) -> i64 {
-    match node {
-        Node::Integer(n) => n as i64,
-        Node::UnaryOp { kind, expr } => {
-            -eval(*expr)
-        }
-        Node::BinaryOp { kind, lhs, rhs } => {
-            match kind {
-                BinaryOpKind::Add => eval(*lhs) + eval(*rhs),
-                BinaryOpKind::Sub => eval(*lhs) - eval(*rhs),
-                BinaryOpKind::Mul => eval(*lhs) * eval(*rhs),
-                BinaryOpKind::Div => eval(*lhs) / eval(*rhs),
-                BinaryOpKind::Rem => eval(*lhs) % eval(*rhs),
-            }
-        }
-    }
-}
+//pub fn eval(node: Node) -> i64 {
+//    match node {
+//        Node::Integer(n) => n as i64,
+//        Node::UnaryOp { kind, expr } => {
+//            -eval(*expr)
+//        }
+//        Node::BinaryOp { kind, lhs, rhs } => {
+//            match kind {
+//                BinaryOpKind::Add => eval(*lhs) + eval(*rhs),
+//                BinaryOpKind::Sub => eval(*lhs) - eval(*rhs),
+//                BinaryOpKind::Mul => eval(*lhs) * eval(*rhs),
+//                BinaryOpKind::Div => eval(*lhs) / eval(*rhs),
+//                BinaryOpKind::Rem => eval(*lhs) % eval(*rhs),
+//            }
+//        }
+//    }
+//}
 
 pub fn gen_il(node: Node) {
     match node {
@@ -34,6 +34,25 @@ pub fn gen_il(node: Node) {
                 BinaryOpKind::Mul => println!("mul"),
                 BinaryOpKind::Div => println!("div"),
                 BinaryOpKind::Rem => println!("rem"),
+
+                BinaryOpKind::Eq => println!("ceq"),
+                BinaryOpKind::Lt => println!("clt"),
+                BinaryOpKind::Le => {
+                    println!("cgt");
+                    println!("ldc.i4.0");
+                    println!("ceq");
+                }
+                BinaryOpKind::Ne => {
+                    println!("ceq");
+                    println!("ldc.i4.0");
+                    println!("ceq");
+                }
+                BinaryOpKind::Gt => println!("cgt"),
+                BinaryOpKind::Ge => {
+                    println!("clt");
+                    println!("ldc.i4.0");
+                    println!("ceq");
+                }
             }
         }
     }
