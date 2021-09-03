@@ -33,15 +33,18 @@ impl<'a> Lexer<'a> {
         self.input.chars().nth(self.read_position)
     }
 
-    fn skip_space(&mut self) {
-        while self.ch == Some(' ')  || self.ch == Some('\n') ||
-              self.ch == Some('\r') || self.ch == Some('\t') {
-            self.read_char();
+    fn skip_whitespace(&mut self) {
+        while let Some(c) = self.ch {
+            if c.is_ascii_whitespace() {
+                self.read_char();
+            } else {
+                break;
+            }
         }
     }
 
     fn next_token(&mut self) -> Token {
-        self.skip_space();
+        self.skip_whitespace();
 
         let tok = match self.ch {
             Some('+') => new_token(TokenKind::Plus,     self.read_position),
@@ -65,14 +68,14 @@ impl<'a> Lexer<'a> {
                     self.read_char();
                     new_token(TokenKind::Le, self.read_position)
                 }
-                _ =>         new_token(TokenKind::Lt, self.read_position),
+                _ => new_token(TokenKind::Lt, self.read_position),
             }
             Some('>') => match self.peek_char() {
                 Some('=') => {
                     self.read_char();
                     new_token(TokenKind::Ge, self.read_position)
                 }
-                _ =>         new_token(TokenKind::Gt, self.read_position),
+                _ => new_token(TokenKind::Gt, self.read_position),
             }
             Some('!') => match self.peek_char() {
                 Some('=') => {
@@ -82,18 +85,33 @@ impl<'a> Lexer<'a> {
                 _ => todo!("Not"),
             }
 
+            Some(';') => new_token(TokenKind::Semicolon, self.read_position),
+
             None => new_token(TokenKind::Eof, self.read_position),
-            _ =>
-            if is_digit(&self.ch) {
+
+            Some('a'..='z' | 'A'..='Z') => {
+                if let Some('r') = self.ch {
+                    self.read_char(); // r
+                    self.read_char(); // e
+                    self.read_char(); // t
+                    self.read_char(); // u
+                    self.read_char(); // r
+                    new_token(TokenKind::Keyword(Keywords::Return), self.read_position)
+                } else {
+                    new_token(TokenKind::Ident(self.ch.unwrap().to_string()), self.read_position)
+                }
+            }
+
+            Some('0'..='9') => {
                 let mut num = char2num(&self.ch);
                 while is_digit(&self.peek_char()) {
                     num = num * 10 + char2num(&self.peek_char());
                     self.read_char();
                 }
                 new_token(TokenKind::Integer(num), self.read_position)
-            } else {
-                new_token(TokenKind::Illegal(self.ch.unwrap().to_string()), self.read_position + 1)
             }
+
+            _ => new_token(TokenKind::Illegal(self.ch.unwrap().to_string()), self.read_position + 1)
         };
 
         self.read_char();

@@ -16,10 +16,20 @@ pub enum TokenKind {
     Gt,   // >
     Ge,   // >=
 
+    Semicolon,  // ;
+
     Integer(u64),  // [1-9][0-9]*
+
+    Ident(String),  // [a-zA-Z]
+    Keyword(Keywords),
 
     Illegal(String),
     Eof,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Keywords {
+    Return,
 }
 
 #[derive(Clone, Debug)]

@@ -1,26 +1,18 @@
 use super::ast::*;
 
-//pub fn eval(node: Node) -> i64 {
-//    match node {
-//        Node::Integer(n) => n as i64,
-//        Node::UnaryOp { kind, expr } => {
-//            -eval(*expr)
-//        }
-//        Node::BinaryOp { kind, lhs, rhs } => {
-//            match kind {
-//                BinaryOpKind::Add => eval(*lhs) + eval(*rhs),
-//                BinaryOpKind::Sub => eval(*lhs) - eval(*rhs),
-//                BinaryOpKind::Mul => eval(*lhs) * eval(*rhs),
-//                BinaryOpKind::Div => eval(*lhs) / eval(*rhs),
-//                BinaryOpKind::Rem => eval(*lhs) % eval(*rhs),
-//            }
-//        }
-//    }
-//}
-
 pub fn gen_il(node: Node) {
     match node {
         Node::Integer(n) => println!("ldc.i4 {}", n as i32),
+        Node::Variable { name, offset } => {
+            todo!()
+        }
+        Node::Assign { kind, lhs, rhs } => {
+            todo!()
+        }
+        Node::Return { expr } => {
+            gen_il(*expr);
+            println!("ret");
+        }
         Node::UnaryOp { kind, expr } => {
             gen_il(*expr);
             println!("neg");

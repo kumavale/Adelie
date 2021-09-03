@@ -8,16 +8,17 @@ fn main() {
 
     let mut lexer = lexer::Lexer::new(&input);
     let tokens = lexer::tokenize(&mut lexer);
-    let ast = ast::gen_ast(&tokens);
+    let code_ast = ast::gen_ast(&tokens);
 
     println!(".assembly tmp {{}}");
 
     println!(".method static int32 Main() cil managed {{");
     println!(".entrypoint");
 
-    //let result = parser::eval(&ast);
-    //println!("{} = {}", input, result);
-    parser::gen_il(*ast);
+    for code in code_ast {
+        parser::gen_il(*code);
+        println!("pop");
+    }
 
     println!("ret");
     println!("}}");
