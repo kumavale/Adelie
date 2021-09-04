@@ -16,19 +16,19 @@ fn main() {
     println!(".assembly tmp {{}}");
 
     println!(".method static int32 Main() cil managed {{");
-    println!(".entrypoint");
+    println!("\t.entrypoint");
 
     // prepare local variables
-    println!(".locals init (");
+    println!("\t.locals init (");
     for i in 0..symbol_table.len() {
-        println!("[{}] int32 V_{}{}", i, i, if i+1<symbol_table.len(){","}else{""});
+        println!("\t\t[{}] int32 V_{}{}", i, i, if i+1<symbol_table.len(){","}else{""});
     }
-    println!(")");
+    println!("\t)");
 
     for code in code_ast {
         codegen::gen_il(*code);
     }
 
-    println!("ret");
+    println!("\tret");
     println!("}}");
 }

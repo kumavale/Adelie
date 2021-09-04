@@ -95,8 +95,8 @@ assert 5 'let i=5; let j=0; while i>0 { j+=1; i-=1; } return j;'
 assert 1 'while 1==0 { return 0; } return 1;'
 assert 55 'let i=0; let j=0; while i<=10 { j=i+j; i+=1; } return j;'
 
-#assert 3 '{1; {2;} return 3;}'
-#
+assert 3 '{1; {2;} return 3;}'
+
 #assert 3 'return ret3();'
 #assert 5 'return ret5();'
 

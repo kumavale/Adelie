@@ -2,9 +2,9 @@ use super::ast::*;
 
 pub fn gen_il(node: Node) {
     match node {
-        Node::Integer(n) => println!("ldc.i4 {}", n as i32),
+        Node::Integer(n) => println!("\tldc.i4 {}", n as i32),
         Node::Variable(obj) => {
-            println!("ldloc {}", obj.offset);
+            println!("\tldloc {}", obj.offset);
         }
         Node::Block { stmts } => {
             for stmt in stmts {
@@ -17,9 +17,9 @@ pub fn gen_il(node: Node) {
             let else_label = format!("IL_else{}", unsafe { SEQ });
             let end_label = format!("IL_end{}", unsafe { SEQ });
             unsafe { SEQ += 1; }
-            println!("brfalse {}", else_label);
+            println!("\tbrfalse {}", else_label);
             gen_il(*then);
-            println!("br {}", end_label);
+            println!("\tbr {}", end_label);
             println!("{}:", else_label);
             if let Some(els) = els {
                 gen_il(*els);
@@ -33,59 +33,59 @@ pub fn gen_il(node: Node) {
             unsafe { SEQ += 1; }
             println!("{}:", begin_label);
             gen_il(*cond);
-            println!("brfalse {}", end_label);
+            println!("\tbrfalse {}", end_label);
             gen_il(*then);
-            println!("br {}", begin_label);
+            println!("\tbr {}", begin_label);
             println!("{}:", end_label);
         }
         Node::Assign { lhs, rhs } => {
             if let Node::Variable(obj) = *lhs {
                 gen_il(*rhs);
-                println!("stloc {}", obj.offset);
-                println!("ldc.i4.0");
+                println!("\tstloc {}", obj.offset);
+                println!("\tldc.i4.0");
             } else {
                 panic!("The left-hand side of an assignment must be a variable");
             }
         }
         Node::Pop { expr } => {
             gen_il(*expr);
-            println!("pop");
+            println!("\tpop");
         }
         Node::Return { expr } => {
             gen_il(*expr);
-            println!("ret");
+            println!("\tret");
         }
         Node::UnaryOp { kind: _, expr } => {
             gen_il(*expr);
-            println!("neg");
+            println!("\tneg");
         }
         Node::BinaryOp { kind, lhs, rhs } => {
             gen_il(*lhs);
             gen_il(*rhs);
             match kind {
-                BinaryOpKind::Add => println!("add"),
-                BinaryOpKind::Sub => println!("sub"),
-                BinaryOpKind::Mul => println!("mul"),
-                BinaryOpKind::Div => println!("div"),
-                BinaryOpKind::Rem => println!("rem"),
+                BinaryOpKind::Add => println!("\tadd"),
+                BinaryOpKind::Sub => println!("\tsub"),
+                BinaryOpKind::Mul => println!("\tmul"),
+                BinaryOpKind::Div => println!("\tdiv"),
+                BinaryOpKind::Rem => println!("\trem"),
 
-                BinaryOpKind::Eq => println!("ceq"),
-                BinaryOpKind::Lt => println!("clt"),
+                BinaryOpKind::Eq => println!("\tceq"),
+                BinaryOpKind::Lt => println!("\tclt"),
                 BinaryOpKind::Le => {
-                    println!("cgt");
-                    println!("ldc.i4.0");
-                    println!("ceq");
+                    println!("\tcgt");
+                    println!("\tldc.i4.0");
+                    println!("\tceq");
                 }
                 BinaryOpKind::Ne => {
-                    println!("ceq");
-                    println!("ldc.i4.0");
-                    println!("ceq");
+                    println!("\tceq");
+                    println!("\tldc.i4.0");
+                    println!("\tceq");
                 }
-                BinaryOpKind::Gt => println!("cgt"),
+                BinaryOpKind::Gt => println!("\tcgt"),
                 BinaryOpKind::Ge => {
-                    println!("clt");
-                    println!("ldc.i4.0");
-                    println!("ceq");
+                    println!("\tclt");
+                    println!("\tldc.i4.0");
+                    println!("\tceq");
                 }
             }
         }

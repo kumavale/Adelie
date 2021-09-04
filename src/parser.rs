@@ -102,8 +102,8 @@ fn new_while_node(cond: Box<Node>, then: Box<Node>) -> Box<Node> {
     Box::new(Node::While { cond, then })
 }
 
-fn new_block_node() -> Box<Node> {
-    Box::new(Node::Block { stmts: vec![] })
+fn new_block_node(stmts: Vec<Box<Node>>) -> Box<Node> {
+    Box::new(Node::Block { stmts })
 }
 
 fn new_pop_node(expr: Box<Node>) -> Box<Node> {
@@ -136,35 +136,35 @@ fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str) -> Box
     }
 }
 
-fn program(mut tok: &mut Parser) -> Vec<Box<Node>> {
+fn program(mut p: &mut Parser) -> Vec<Box<Node>> {
     let mut code = vec![];
-    while !tok.is_eof() {
-        code.push(stmt(&mut tok));
+    while !p.is_eof() {
+        code.push(stmt(&mut p));
     }
     code
 }
 
-fn stmt(mut tok: &mut Parser) -> Box<Node> {
-    let node = if tok.consume(TokenKind::LBlock) {
-        compound_stmt(&mut tok)
-    } else if tok.consume(TokenKind::Keyword(Keywords::Return)) {
-        new_return_node(expr(&mut tok))
-    } else if tok.consume(TokenKind::Keyword(Keywords::Let)) {
-        if let TokenKind::Ident(name) = &tok.tokens[tok.idx].kind {
-            tok.idx += 1;
-            let mut node = new_variable_node_with_let(&mut tok.symbol_table, name);
-            if tok.consume(TokenKind::Assign) {
-                node = new_assign_node(node, expr(&mut tok))
+fn stmt(mut p: &mut Parser) -> Box<Node> {
+    let node = if p.consume(TokenKind::LBlock) {
+        compound_stmt(&mut p)
+    } else if p.consume(TokenKind::Keyword(Keywords::Return)) {
+        new_return_node(expr(&mut p))
+    } else if p.consume(TokenKind::Keyword(Keywords::Let)) {
+        if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
+            p.idx += 1;
+            let mut node = new_variable_node_with_let(&mut p.symbol_table, name);
+            if p.consume(TokenKind::Assign) {
+                node = new_assign_node(node, expr(&mut p))
             }
             node
         } else {
             panic!("The left-hand side of an assignment must be a variable")
         }
     } else {
-        expr(&mut tok)
+        expr(&mut p)
     };
 
-    if tok.consume(TokenKind::Semicolon) {
+    if p.consume(TokenKind::Semicolon) {
         new_pop_node(node)
     } else {
         node
@@ -172,163 +172,163 @@ fn stmt(mut tok: &mut Parser) -> Box<Node> {
     }
 }
 
-fn compound_stmt(mut tok: &mut Parser) -> Box<Node> {
-    let mut block = new_block_node();
-    while !tok.consume(TokenKind::RBlock) {
+fn compound_stmt(mut p: &mut Parser) -> Box<Node> {
+    let mut block = new_block_node(vec![]);
+    while !p.consume(TokenKind::RBlock) {
         if let Node::Block{ ref mut stmts } = *block {
-            stmts.push(stmt(&mut tok));
+            stmts.push(stmt(&mut p));
         }
     }
     block
 }
 
-fn expr(mut tok: &mut Parser) -> Box<Node> {
-    if tok.consume(TokenKind::Keyword(Keywords::If)) {
-        let cond = expr(&mut tok);
-        if tok.tokens[tok.idx].kind == TokenKind::LBlock {
-            let then = stmt(&mut tok);
-            let els = if tok.consume(TokenKind::Keyword(Keywords::Else)) {
-                Some(stmt(&mut tok))
+fn expr(mut p: &mut Parser) -> Box<Node> {
+    if p.consume(TokenKind::Keyword(Keywords::If)) {
+        let cond = expr(&mut p);
+        if p.tokens[p.idx].kind == TokenKind::LBlock {
+            let then = stmt(&mut p);
+            let els = if p.consume(TokenKind::Keyword(Keywords::Else)) {
+                Some(stmt(&mut p))
             } else {
                 None
             };
             new_if_node(cond, then, els)
         } else {
-            tok.expect(TokenKind::LBlock);
+            p.expect(TokenKind::LBlock);
             unreachable!();
         }
-    } else if tok.consume(TokenKind::Keyword(Keywords::While)) {
-        let cond = expr(&mut tok);
-        if tok.tokens[tok.idx].kind == TokenKind::LBlock {
-            let then = stmt(&mut tok);
+    } else if p.consume(TokenKind::Keyword(Keywords::While)) {
+        let cond = expr(&mut p);
+        if p.tokens[p.idx].kind == TokenKind::LBlock {
+            let then = stmt(&mut p);
             new_while_node(cond, then)
         } else {
-            tok.expect(TokenKind::LBlock);
+            p.expect(TokenKind::LBlock);
             unreachable!();
         }
     } else {
-        assign(&mut tok)
+        assign(&mut p)
     }
 }
 
-fn assign(mut tok: &mut Parser) -> Box<Node> {
-    let node = equality(&mut tok);
+fn assign(mut p: &mut Parser) -> Box<Node> {
+    let node = equality(&mut p);
 
-    if tok.consume(TokenKind::Assign) {
-        new_assign_node(node, assign(&mut tok))
-    } else if tok.consume(TokenKind::AddAssign) {
+    if p.consume(TokenKind::Assign) {
+        new_assign_node(node, assign(&mut p))
+    } else if p.consume(TokenKind::AddAssign) {
         let lhs = node.clone();
-        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Add, node, expr(&mut tok)))
-    } else if tok.consume(TokenKind::SubAssign) {
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Add, node, expr(&mut p)))
+    } else if p.consume(TokenKind::SubAssign) {
         let lhs = node.clone();
-        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Sub, node, expr(&mut tok)))
-    } else if tok.consume(TokenKind::MulAssign) {
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Sub, node, expr(&mut p)))
+    } else if p.consume(TokenKind::MulAssign) {
         let lhs = node.clone();
-        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Mul, node, expr(&mut tok)))
-    } else if tok.consume(TokenKind::DivAssign) {
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Mul, node, expr(&mut p)))
+    } else if p.consume(TokenKind::DivAssign) {
         let lhs = node.clone();
-        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Div, node, expr(&mut tok)))
-    } else if tok.consume(TokenKind::RemAssign) {
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Div, node, expr(&mut p)))
+    } else if p.consume(TokenKind::RemAssign) {
         let lhs = node.clone();
-        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Rem, node, expr(&mut tok)))
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Rem, node, expr(&mut p)))
     } else {
         node
     }
 }
 
-fn equality(mut tok: &mut Parser) -> Box<Node> {
-    let mut node = relational(&mut tok);
+fn equality(mut p: &mut Parser) -> Box<Node> {
+    let mut node = relational(&mut p);
 
     loop {
-        tok.check_illegal();
-        if tok.consume(TokenKind::Eq) {
-            node = new_binary_op_node(BinaryOpKind::Eq, node, relational(&mut tok));
-        } else if tok.consume(TokenKind::Ne) {
-            node = new_binary_op_node(BinaryOpKind::Ne, node, relational(&mut tok));
+        p.check_illegal();
+        if p.consume(TokenKind::Eq) {
+            node = new_binary_op_node(BinaryOpKind::Eq, node, relational(&mut p));
+        } else if p.consume(TokenKind::Ne) {
+            node = new_binary_op_node(BinaryOpKind::Ne, node, relational(&mut p));
         } else {
             return node;
         }
     }
 }
 
-fn relational(mut tok: &mut Parser) -> Box<Node> {
-    let mut node = add(&mut tok);
+fn relational(mut p: &mut Parser) -> Box<Node> {
+    let mut node = add(&mut p);
 
     loop {
-        tok.check_illegal();
-        if tok.consume(TokenKind::Lt) {
-            node = new_binary_op_node(BinaryOpKind::Lt, node, add(&mut tok));
-        } else if tok.consume(TokenKind::Le) {
-            node = new_binary_op_node(BinaryOpKind::Le, node, add(&mut tok));
-        } else if tok.consume(TokenKind::Gt) {
-            node = new_binary_op_node(BinaryOpKind::Gt, node, add(&mut tok));
-        } else if tok.consume(TokenKind::Ge) {
-            node = new_binary_op_node(BinaryOpKind::Ge, node, add(&mut tok));
+        p.check_illegal();
+        if p.consume(TokenKind::Lt) {
+            node = new_binary_op_node(BinaryOpKind::Lt, node, add(&mut p));
+        } else if p.consume(TokenKind::Le) {
+            node = new_binary_op_node(BinaryOpKind::Le, node, add(&mut p));
+        } else if p.consume(TokenKind::Gt) {
+            node = new_binary_op_node(BinaryOpKind::Gt, node, add(&mut p));
+        } else if p.consume(TokenKind::Ge) {
+            node = new_binary_op_node(BinaryOpKind::Ge, node, add(&mut p));
         } else {
             return node;
         }
     }
 }
 
-fn add(mut tok: &mut Parser) -> Box<Node> {
-    let mut node = mul(&mut tok);
+fn add(mut p: &mut Parser) -> Box<Node> {
+    let mut node = mul(&mut p);
 
     loop {
-        tok.check_illegal();
-        if tok.consume(TokenKind::Plus) {
-            node = new_binary_op_node(BinaryOpKind::Add, node, mul(&mut tok));
-        } else if tok.consume(TokenKind::Minus) {
-            node = new_binary_op_node(BinaryOpKind::Sub, node, mul(&mut tok));
+        p.check_illegal();
+        if p.consume(TokenKind::Plus) {
+            node = new_binary_op_node(BinaryOpKind::Add, node, mul(&mut p));
+        } else if p.consume(TokenKind::Minus) {
+            node = new_binary_op_node(BinaryOpKind::Sub, node, mul(&mut p));
         } else {
             return node;
         }
     }
 }
 
-fn mul(mut tok: &mut Parser) -> Box<Node> {
-    let mut node = unary(&mut tok);
+fn mul(mut p: &mut Parser) -> Box<Node> {
+    let mut node = unary(&mut p);
 
     loop {
-        tok.check_illegal();
-        if tok.consume(TokenKind::Asterisk) {
-            node = new_binary_op_node(BinaryOpKind::Mul, node, unary(&mut tok));
-        } else if tok.consume(TokenKind::Slash) {
-            node = new_binary_op_node(BinaryOpKind::Div, node, unary(&mut tok));
-        } else if tok.consume(TokenKind::Percent) {
-            node = new_binary_op_node(BinaryOpKind::Rem, node, unary(&mut tok));
+        p.check_illegal();
+        if p.consume(TokenKind::Asterisk) {
+            node = new_binary_op_node(BinaryOpKind::Mul, node, unary(&mut p));
+        } else if p.consume(TokenKind::Slash) {
+            node = new_binary_op_node(BinaryOpKind::Div, node, unary(&mut p));
+        } else if p.consume(TokenKind::Percent) {
+            node = new_binary_op_node(BinaryOpKind::Rem, node, unary(&mut p));
         } else {
             return node;
         }
     }
 }
 
-fn unary(mut tok: &mut Parser) -> Box<Node> {
-    if tok.consume(TokenKind::Minus) {
-        new_unary_op_node(UnaryOpKind::Neg, unary(&mut tok))
+fn unary(mut p: &mut Parser) -> Box<Node> {
+    if p.consume(TokenKind::Minus) {
+        new_unary_op_node(UnaryOpKind::Neg, unary(&mut p))
     } else {
-        primary(&mut tok)
+        primary(&mut p)
     }
 }
 
-fn primary(mut tok: &mut Parser) -> Box<Node> {
-    if tok.consume(TokenKind::LParen) {
-        let node = expr(&mut tok);
-        tok.expect(TokenKind::RParen);
+fn primary(mut p: &mut Parser) -> Box<Node> {
+    if p.consume(TokenKind::LParen) {
+        let node = expr(&mut p);
+        p.expect(TokenKind::RParen);
         return node;
     }
 
-    match &tok.tokens[tok.idx].kind {
+    match &p.tokens[p.idx].kind {
         TokenKind::Integer(num) => {
-            tok.idx += 1;
+            p.idx += 1;
             new_num_node(*num)
         }
         TokenKind::Ident(name) => {
-            tok.idx += 1;
-            new_variable_node(&mut tok.symbol_table, name)
+            p.idx += 1;
+            new_variable_node(&mut p.symbol_table, name)
         }
         _ => {
-            eprintln!("{}^", " ".repeat(tok.tokens[tok.idx].cur));
-            panic!("illegal TokenKind {:?}", tok.tokens[tok.idx].kind);
+            eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
+            panic!("illegal TokenKind {:?}", p.tokens[p.idx].kind);
         }
     }
 }
