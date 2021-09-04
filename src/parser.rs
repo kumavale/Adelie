@@ -8,7 +8,9 @@ use super::object::*;
 // program = stmt *
 // stmt    = 'return' ? expr ';'
 //         | 'let' ident ( '=' expr ) ? ';'
+//
 // expr    = assign
+//         | 'if' expr '{' stmt '}' ( 'else' '{' stmt '}' ) ?
 //
 // assign           = equality ( ( '=' | binary_assign_op ) assign ) ?
 // binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%='
@@ -89,6 +91,22 @@ fn new_assign_node(lhs: Box<Node>, rhs: Box<Node>) -> Box<Node> {
     Box::new(Node::Assign { lhs, rhs })
 }
 
+fn new_if_node(cond: Box<Node>, then: Box<Node>, els: Option<Box<Node>>) -> Box<Node> {
+    Box::new(Node::If { cond, then, els })
+}
+
+fn new_block_node() -> Box<Node> {
+    Box::new(Node::Block { stmts: vec![] })
+}
+
+fn new_pop_node(expr: Box<Node>) -> Box<Node> {
+    Box::new(Node::Pop { expr })
+}
+
+fn new_return_node(expr: Box<Node>) -> Box<Node> {
+    Box::new(Node::Return { expr })
+}
+
 fn new_num_node(num: i32) -> Box<Node> {
     Box::new(Node::Integer(num))
 }
@@ -111,10 +129,6 @@ fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str) -> Box
     }
 }
 
-fn new_return_node(expr: Box<Node>) -> Box<Node> {
-    Box::new(Node::Return { expr })
-}
-
 fn program(mut tok: &mut Parser) -> Vec<Box<Node>> {
     let mut code = vec![];
     while !tok.is_eof() {
@@ -124,7 +138,9 @@ fn program(mut tok: &mut Parser) -> Vec<Box<Node>> {
 }
 
 fn stmt(mut tok: &mut Parser) -> Box<Node> {
-    let node = if tok.consume(TokenKind::Keyword(Keywords::Return)) {
+    let node = if tok.consume(TokenKind::LBlock) {
+        compound_stmt(&mut tok)
+    } else if tok.consume(TokenKind::Keyword(Keywords::Return)) {
         new_return_node(expr(&mut tok))
     } else if tok.consume(TokenKind::Keyword(Keywords::Let)) {
         if let TokenKind::Ident(name) = &tok.tokens[tok.idx].kind {
@@ -142,14 +158,41 @@ fn stmt(mut tok: &mut Parser) -> Box<Node> {
     };
 
     if tok.consume(TokenKind::Semicolon) {
-        node
+        new_pop_node(node)
     } else {
-        todo!("implicit return")
+        node
+        //todo!("implicit return")
     }
 }
 
+fn compound_stmt(mut tok: &mut Parser) -> Box<Node> {
+    let mut block = new_block_node();
+    while !tok.consume(TokenKind::RBlock) {
+        if let Node::Block{ ref mut stmts } = *block {
+            stmts.push(stmt(&mut tok));
+        }
+    }
+    block
+}
+
 fn expr(mut tok: &mut Parser) -> Box<Node> {
-    assign(&mut tok)
+    if tok.consume(TokenKind::Keyword(Keywords::If)) {
+        let cond = expr(&mut tok);
+        if tok.tokens[tok.idx].kind == TokenKind::LBlock {
+            let then = stmt(&mut tok);
+            let els = if tok.consume(TokenKind::Keyword(Keywords::Else)) {
+                Some(stmt(&mut tok))
+            } else {
+                None
+            };
+            new_if_node(cond, then, els)
+        } else {
+            tok.expect(TokenKind::LBlock);
+            unreachable!();
+        }
+    } else {
+        assign(&mut tok)
+    }
 }
 
 fn assign(mut tok: &mut Parser) -> Box<Node> {

@@ -6,6 +6,8 @@ pub enum TokenKind {
     Slash,     // /
     Percent,   // %
 
+    LBlock,  // {
+    RBlock,  // }
     LParen,  // (
     RParen,  // )
 
@@ -36,6 +38,8 @@ pub enum TokenKind {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Keywords {
+    Else,
+    If,
     Let,
     Return,
 }

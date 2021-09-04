@@ -6,6 +6,26 @@ pub fn gen_il(node: Node) {
         Node::Variable(obj) => {
             println!("ldloc {}", obj.offset);
         }
+        Node::Block { stmts } => {
+            for stmt in stmts {
+                gen_il(*stmt);
+            }
+        }
+        Node::If { cond, then, els } => {
+            static mut SEQ: usize = 0;
+            gen_il(*cond);
+            let else_label = format!("IL_else{}", unsafe { SEQ });
+            let end_label = format!("IL_end{}", unsafe { SEQ });
+            unsafe { SEQ += 1; }
+            println!("brfalse {}", else_label);
+            gen_il(*then);
+            println!("br {}", end_label);
+            println!("{}:", else_label);
+            if let Some(els) = els {
+                gen_il(*els);
+            }
+            println!("{}:", end_label);
+        }
         Node::Assign { lhs, rhs } => {
             if let Node::Variable(obj) = *lhs {
                 gen_il(*rhs);
@@ -14,6 +34,10 @@ pub fn gen_il(node: Node) {
             } else {
                 panic!("The left-hand side of an assignment must be a variable");
             }
+        }
+        Node::Pop { expr } => {
+            gen_il(*expr);
+            println!("pop");
         }
         Node::Return { expr } => {
             gen_il(*expr);

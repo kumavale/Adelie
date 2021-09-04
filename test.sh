@@ -81,15 +81,16 @@ assert 8 'let foo_123=3; let bar=5; return foo_123+bar;'
 assert 1 'let f1=-1; let f2=2; return f1+f2;'
 assert 3 'let A=1; let _B=2; let c99=A+_B; return c99;'
 
-#assert 1 'if(1) return 1; return 0;'
-#assert 0 'if(0) return 1; return 0;'
-#assert 1 'if(1*2==5-3) return 1; return 0;'
-#assert 3 'if(1) if(2) return 3; return 4;'
-#
-#assert 1 'if(1) return 1; else return 2;'
-#assert 2 'if(0) return 1; else if(1) return 2;'
-#assert 3 'if(0) return 1; else if(0) return 2; else return 3;'
-#
+assert 1 'if 1==1 { return 1; } return 0;'
+assert 0 'if 1==0 { return 1; } return 0;'
+assert 1 'if 1*2==5-3 { return 1; } return 0;'
+assert 3 'if 1==1 { if 2==2 { return 3; } return 4; }'
+
+assert 1 'if 1==1 { return 1; } else { return 2; }'
+assert 2 'if 1==0 { return 1; } else { if 1==1 { return 2; } }'
+assert 3 'if 1==0 { return 1; } else { if 1==0 { return 2; } else { return 3; } }'
+assert 4 'if 1==1 { let a=4; return a; } else { if 1 { return 2; } }'
+
 #assert 4 'i=5; j=0; while(i=i-1) j=j+1; return j;'
 #assert 1 'while(0) return 0; return 1;'
 #assert 55 'i=0; j=0; while(i<=10) {j=i+j; i=i+1;} return j;'

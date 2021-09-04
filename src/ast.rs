@@ -25,9 +25,20 @@ pub enum BinaryOpKind {
 pub enum Node {
     Integer(i32),  // -?[1-9][0-9]*
     Variable(Rc<Object>),
+    Block {
+        stmts: Vec<Box<Node>>,
+    },
+    If {
+        cond: Box<Node>,
+        then: Box<Node>,
+        els: Option<Box<Node>>,
+    },
     Assign {
         lhs: Box<Node>,
         rhs: Box<Node>,
+    },
+    Pop {
+        expr: Box<Node>,
     },
     Return {
         expr: Box<Node>,
