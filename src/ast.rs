@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use super::object::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -28,7 +29,7 @@ pub enum AssignOpKind {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Integer(i32),  // -?[1-9][0-9]*
-    Variable(Object),
+    Variable(Rc<Object>),
     Assign {
         kind: AssignOpKind,
         lhs: Box<Node>,
@@ -46,14 +47,4 @@ pub enum Node {
         lhs: Box<Node>,
         rhs: Box<Node>,
     },
-}
-
-impl Node {
-    pub fn offset(&self) -> Option<usize> {
-        if let Node::Variable(obj) = self {
-            Some(obj.offset)
-        } else {
-            None
-        }
-    }
 }

@@ -7,9 +7,9 @@ pub fn gen_il(node: Node) {
             println!("ldloc {}", obj.offset);
         }
         Node::Assign { kind, lhs, rhs } => {
-            if let Some(offset) = lhs.offset() {
+            if let Node::Variable(obj) = *lhs {
                 gen_il(*rhs);
-                println!("stloc {}", offset);
+                println!("stloc {}", obj.offset);
                 println!("ldc.i4.0");
             } else {
                 panic!("The left-hand side of an assignment must be a variable");

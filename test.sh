@@ -77,7 +77,7 @@ assert 3 'a=9; a+=-3*2; return a;'
 assert 3 'foo = 3; return foo;'
 assert 8 'foo_123=3; bar=5; return foo_123+bar;'
 assert 1 'f1=-1; f2=2; return f1+f2;'
-assert 3 'A=1; _B=2; c99=a+b; return c99;'
+assert 3 'A=1; _B=2; c99=A+_B; return c99;'
 
 #assert 1 'if(1) return 1; return 0;'
 #assert 0 'if(0) return 1; return 0;'

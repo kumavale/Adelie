@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use super::ast::*;
 use super::token::*;
 use super::object::*;
@@ -29,7 +30,7 @@ use super::object::*;
 
 #[derive(Debug)]
 struct Parser<'a> {
-    symbol_table: &'a SymbolTable<'a>,
+    symbol_table: &'a mut SymbolTable,
     tokens: &'a [Token],
     idx: usize,
 }
@@ -65,7 +66,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-pub fn gen_ast(tokens: &[Token], symbol_table: &mut SymbolTable) -> Vec<Box<Node>> {
+pub fn gen_ast<'a>(tokens: &'a [Token], symbol_table: &'a mut SymbolTable) -> Vec<Box<Node>> {
     let mut parser = Parser {
         symbol_table,
         tokens,
@@ -91,8 +92,17 @@ fn new_num_node(num: i32) -> Box<Node> {
     Box::new(Node::Integer(num))
 }
 
-fn new_variable_node(name: &str) -> Box<Node> {
-    Box::new(Node::Variable(Object::new(name.to_string(), name.chars().next().unwrap() as usize - 97)))
+fn new_variable_node(symbol_table: &mut SymbolTable, name: &str) -> Box<Node> {
+    if let Some(obj) = symbol_table.find_lvar(name) {
+        Box::new(Node::Variable(obj))
+    } else {
+        let obj = Rc::new(Object {
+            name: name.to_string(),
+            offset: symbol_table.len(),
+        });
+        symbol_table.push(Rc::clone(&obj));
+        Box::new(Node::Variable(obj))
+    }
 }
 
 fn new_return_node(expr: Box<Node>) -> Box<Node> {
@@ -238,7 +248,7 @@ fn primary(mut tok: &mut Parser) -> Box<Node> {
         }
         TokenKind::Ident(name) => {
             tok.idx += 1;
-            new_variable_node(name)
+            new_variable_node(&mut tok.symbol_table, name)
         }
         _ => {
             eprintln!("{}^", " ".repeat(tok.tokens[tok.idx].cur));
