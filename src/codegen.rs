@@ -3,6 +3,9 @@ use super::ast::*;
 pub fn gen_il(node: Node) {
     match node {
         Node::Integer(n) => println!("\tldc.i4 {}", n as i32),
+        Node::Function(obj) => {
+            println!("\tcall int32 {}()", obj.name);
+        }
         Node::Variable(obj) => {
             println!("\tldloc {}", obj.offset);
         }

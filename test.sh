@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# cat <<EOF > tmp.cs
+# class Program {
+#     static int ret3() {
+#         return 3;
+#     }
+# }
+# EOF
+# /mnt/c/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe /nologo /target:library tmp.cs
+
 OKCNT=0
 NGCNT=0
 
@@ -97,7 +106,7 @@ assert 55 'let i=0; let j=0; while i<=10 { j=i+j; i+=1; } return j;'
 
 assert 3 '{1; {2;} return 3;}'
 
-#assert 3 'return ret3();'
+assert 3 'return ret3();'
 #assert 5 'return ret5();'
 
 echo
@@ -111,5 +120,5 @@ echo "$OKCNT passed; $NGCNT failed;"
 echo
 
 # clean up
-rm tmp.il tmp.exe
+rm tmp.il tmp.exe # ttmp.cs mp.dll
 

@@ -24,7 +24,9 @@ use super::object::*;
 // mul     = unary ( '*' unary | '/' unary | '%' unary ) *
 // unary   = ( '-' ) ? primary
 //
-// primary = num | ident | '(' expr ')'
+// primary = num
+//         | ident ( '(' ')' ) ?
+//         | '(' expr ')'
 //
 // ident    = alphabet + ( num | alphabet ) *
 // alphabet = 'a'..'z' | 'A'..'Z' | '_'
@@ -116,6 +118,17 @@ fn new_return_node(expr: Box<Node>) -> Box<Node> {
 
 fn new_num_node(num: i32) -> Box<Node> {
     Box::new(Node::Integer(num))
+}
+
+fn new_function_node(symbol_table: &mut SymbolTable, name: &str) -> Box<Node> {
+    if let Some(obj) = symbol_table.find_lvar(name) {
+        Box::new(Node::Function(Rc::clone(obj)))
+    } else {
+        eprintln!("The name '{}' does not exist in the current context", name);
+        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len()));
+        symbol_table.push(Rc::clone(&obj));
+        Box::new(Node::Function(obj))
+    }
 }
 
 fn new_variable_node(symbol_table: &mut SymbolTable, name: &str) -> Box<Node> {
@@ -324,7 +337,15 @@ fn primary(mut p: &mut Parser) -> Box<Node> {
         }
         TokenKind::Ident(name) => {
             p.idx += 1;
-            new_variable_node(&mut p.symbol_table, name)
+            if p.consume(TokenKind::LParen) {
+                // function
+                let node = new_function_node(&mut p.symbol_table, name);
+                p.expect(TokenKind::RParen);
+                node
+            } else {
+                // variable
+                new_variable_node(&mut p.symbol_table, name)
+            }
         }
         _ => {
             eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));

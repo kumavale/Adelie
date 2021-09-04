@@ -24,6 +24,7 @@ pub enum BinaryOpKind {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Integer(i32),  // -?[1-9][0-9]*
+    Function(Rc<Object>),
     Variable(Rc<Object>),
     Block {
         stmts: Vec<Box<Node>>,
