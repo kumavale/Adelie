@@ -26,6 +26,18 @@ pub fn gen_il(node: Node) {
             }
             println!("{}:", end_label);
         }
+        Node::While { cond, then } => {
+            static mut SEQ: usize = 0;
+            let begin_label = format!("IL_begin{}", unsafe { SEQ });
+            let end_label = format!("IL_end{}", unsafe { SEQ });
+            unsafe { SEQ += 1; }
+            println!("{}:", begin_label);
+            gen_il(*cond);
+            println!("brfalse {}", end_label);
+            gen_il(*then);
+            println!("br {}", begin_label);
+            println!("{}:", end_label);
+        }
         Node::Assign { lhs, rhs } => {
             if let Node::Variable(obj) = *lhs {
                 gen_il(*rhs);

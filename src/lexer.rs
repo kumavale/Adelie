@@ -139,6 +139,7 @@ impl<'a> Lexer<'a> {
                     "if" => new_token(TokenKind::Keyword(Keywords::If), self.read_position),
                     "let" => new_token(TokenKind::Keyword(Keywords::Let), self.read_position),
                     "return" => new_token(TokenKind::Keyword(Keywords::Return), self.read_position),
+                    "while" => new_token(TokenKind::Keyword(Keywords::While), self.read_position),
                     _ => new_token(TokenKind::Ident(ident), self.read_position)
                 }
             }

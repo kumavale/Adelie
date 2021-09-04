@@ -91,13 +91,10 @@ assert 2 'if 1==0 { return 1; } else { if 1==1 { return 2; } }'
 assert 3 'if 1==0 { return 1; } else { if 1==0 { return 2; } else { return 3; } }'
 assert 4 'if 1==1 { let a=4; return a; } else { if 1 { return 2; } }'
 
-#assert 4 'i=5; j=0; while(i=i-1) j=j+1; return j;'
-#assert 1 'while(0) return 0; return 1;'
-#assert 55 'i=0; j=0; while(i<=10) {j=i+j; i=i+1;} return j;'
-#
-#assert 10 'j=0; for(i=0; i<5; i=i+1) j=j+i; return j;'
-#assert 1 'for(;;) return 1; return 0;'
-#
+assert 5 'let i=5; let j=0; while i>0 { j+=1; i-=1; } return j;'
+assert 1 'while 1==0 { return 0; } return 1;'
+assert 55 'let i=0; let j=0; while i<=10 { j=i+j; i+=1; } return j;'
+
 #assert 3 '{1; {2;} return 3;}'
 #
 #assert 3 'return ret3();'

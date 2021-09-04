@@ -42,6 +42,7 @@ pub enum Keywords {
     If,
     Let,
     Return,
+    While,
 }
 
 #[derive(Clone, Debug)]

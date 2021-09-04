@@ -10,7 +10,10 @@ use super::object::*;
 //         | 'let' ident ( '=' expr ) ? ';'
 //
 // expr    = assign
-//         | 'if' expr '{' stmt '}' ( 'else' '{' stmt '}' ) ?
+//         | 'if' expr compound_stmt ( 'else' compound_stmt ) ?
+//         | 'while' expr compound_stmt
+//
+// compound_stmt = '{' stmt * '}'
 //
 // assign           = equality ( ( '=' | binary_assign_op ) assign ) ?
 // binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%='
@@ -93,6 +96,10 @@ fn new_assign_node(lhs: Box<Node>, rhs: Box<Node>) -> Box<Node> {
 
 fn new_if_node(cond: Box<Node>, then: Box<Node>, els: Option<Box<Node>>) -> Box<Node> {
     Box::new(Node::If { cond, then, els })
+}
+
+fn new_while_node(cond: Box<Node>, then: Box<Node>) -> Box<Node> {
+    Box::new(Node::While { cond, then })
 }
 
 fn new_block_node() -> Box<Node> {
@@ -186,6 +193,15 @@ fn expr(mut tok: &mut Parser) -> Box<Node> {
                 None
             };
             new_if_node(cond, then, els)
+        } else {
+            tok.expect(TokenKind::LBlock);
+            unreachable!();
+        }
+    } else if tok.consume(TokenKind::Keyword(Keywords::While)) {
+        let cond = expr(&mut tok);
+        if tok.tokens[tok.idx].kind == TokenKind::LBlock {
+            let then = stmt(&mut tok);
+            new_while_node(cond, then)
         } else {
             tok.expect(TokenKind::LBlock);
             unreachable!();

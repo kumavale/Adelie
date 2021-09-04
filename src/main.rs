@@ -27,7 +27,6 @@ fn main() {
 
     for code in code_ast {
         codegen::gen_il(*code);
-        //println!("pop");
     }
 
     println!("ret");
