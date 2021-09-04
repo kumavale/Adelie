@@ -55,11 +55,41 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
 
         let tok = match self.ch {
-            Some('+') => new_token(TokenKind::Plus,     self.read_position),
-            Some('-') => new_token(TokenKind::Minus,    self.read_position),
-            Some('*') => new_token(TokenKind::Asterisk, self.read_position),
-            Some('/') => new_token(TokenKind::Slash,    self.read_position),
-            Some('%') => new_token(TokenKind::Percent,  self.read_position),
+            Some('+') => match self.peek_char() {
+                Some('=') => {
+                    self.seek(1);
+                    new_token(TokenKind::AddAssign, self.read_position)
+                }
+                _ => new_token(TokenKind::Plus, self.read_position)
+            }
+            Some('-') => match self.peek_char() {
+                Some('=') => {
+                    self.seek(1);
+                    new_token(TokenKind::SubAssign, self.read_position)
+                }
+                _ => new_token(TokenKind::Minus, self.read_position)
+            }
+            Some('*') => match self.peek_char() {
+                Some('=') => {
+                    self.seek(1);
+                    new_token(TokenKind::MulAssign, self.read_position)
+                }
+                _ => new_token(TokenKind::Asterisk, self.read_position)
+            }
+            Some('/') => match self.peek_char() {
+                Some('=') => {
+                    self.seek(1);
+                    new_token(TokenKind::DivAssign, self.read_position)
+                }
+                _ => new_token(TokenKind::Slash, self.read_position)
+            }
+            Some('%') => match self.peek_char() {
+                Some('=') => {
+                    self.seek(1);
+                    new_token(TokenKind::RemAssign, self.read_position)
+                }
+                _ => new_token(TokenKind::Percent, self.read_position)
+            }
 
             Some('(') => new_token(TokenKind::LParen, self.read_position),
             Some(')') => new_token(TokenKind::RParen, self.read_position),
@@ -97,12 +127,15 @@ impl<'a> Lexer<'a> {
 
             None => new_token(TokenKind::Eof, self.read_position),
 
-            Some('a'..='z') => {
-                if self.chars[self.position..].iter().collect::<String>().starts_with("return") {
-                    self.seek(5);
-                    new_token(TokenKind::Keyword(Keywords::Return), self.read_position)
-                } else {
-                    new_token(TokenKind::Ident(self.ch.unwrap().to_string()), self.read_position)
+            Some('a'..='z'|'A'..='Z'|'_') => {
+                let mut ident = self.ch.unwrap().to_string();
+                while let Some('0'..='9'|'a'..='z'|'A'..='Z'|'_') = self.peek_char() {
+                    ident.push(self.peek_char().unwrap());
+                    self.seek(1);
+                }
+                match &*ident {
+                    "return" => new_token(TokenKind::Keyword(Keywords::Return), self.read_position),
+                    _ => new_token(TokenKind::Ident(ident), self.read_position)
                 }
             }
 

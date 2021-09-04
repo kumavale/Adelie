@@ -65,6 +65,11 @@ assert 3 '1; 2; return 3;'
 
 assert 3 'a = 3; return a;'
 assert 8 'a=3; b=5; return a+b;'
+assert 7 'a=2; a+=5; return a;'
+assert 3 'a=5; a-=2; return a;'
+assert 6 'a=3; a*=2; return a;'
+assert 3 'a=6; a/=2; return a;'
+assert 3 'a=7; a%=4; return a;'
 
 #assert 3 'foo = 3; return foo;'
 #assert 8 'foo_123=3; bar=5; return foo_123+bar;'

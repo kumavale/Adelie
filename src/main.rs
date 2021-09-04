@@ -2,13 +2,14 @@ mod token;
 mod lexer;
 mod ast;
 mod parser;
+mod object;
 
 fn main() {
     let input = std::env::args().nth(1).unwrap();
 
     let mut lexer = lexer::Lexer::new(&input);
     let tokens = lexer::tokenize(&mut lexer);
-    //eprintln!("{:?}", &tokens);
+    let symbol_table = object::SymbolTable::new();
     let code_ast = ast::gen_ast(&tokens);
 
     println!(".assembly tmp {{}}");

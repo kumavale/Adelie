@@ -1,4 +1,5 @@
 use super::token::*;
+use super::object::*;
 
 // EBNF
 //
@@ -6,9 +7,10 @@ use super::token::*;
 // stmt    = 'return' ? expr ';'
 // expr    = assign
 //
-// assign     = equality ( ( '=' | BinaryAssignOp ) assign ) ?
-// equality   = relational ( '==' relational | '!=' relational ) *
-// relational = add ( '<' add | '<=' add | '>' add | '>=' add ) *
+// assign           = equality ( ( '=' | binary_assign_op ) assign ) ?
+// binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%='
+// equality         = relational ( '==' relational | '!=' relational ) *
+// relational       = add ( '<' add | '<=' add | '>' add | '>=' add ) *
 //
 // add     = mul ( '+' mul | '-' mul ) *
 // mul     = unary ( '*' unary | '/' unary | '%' unary ) *
@@ -16,7 +18,8 @@ use super::token::*;
 //
 // primary = num | ident | '(' expr ')'
 //
-// ident = 'a'..'z' | 'A'..'Z'
+// ident    = alphabet + ( num | alphabet ) *
+// alphabet = 'a'..'z' | 'A'..'Z' | '_'
 //
 // num         = nonzero_dec dec_digit *
 // dec_digit   = '0' | nonzero_dec
@@ -46,19 +49,9 @@ pub enum BinaryOpKind {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AssignOpKind {
     Assign,  // =
-    BinaryAssignOpKind,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BinaryAssignOpKind {
-    Add,  // +=
-    Sub,  // -=
-    Mul,  // *=
-    Div,  // /=
-    Rem,  // %=
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Integer(u64),  // [1-9][0-9]*
     Variable {
@@ -117,8 +110,8 @@ fn new_unary_op_node(kind: UnaryOpKind, expr: Box<Node>) -> Box<Node> {
     Box::new(Node::UnaryOp { kind, expr })
 }
 
-fn new_assign_node(kind: AssignOpKind, lhs: Box<Node>, rhs: Box<Node>) -> Box<Node> {
-    Box::new(Node::Assign { kind, lhs, rhs })
+fn new_assign_node(lhs: Box<Node>, rhs: Box<Node>) -> Box<Node> {
+    Box::new(Node::Assign { kind: AssignOpKind::Assign, lhs, rhs })
 }
 
 fn new_num_node(num: u64) -> Box<Node> {
@@ -163,7 +156,22 @@ fn assign(mut tok: &mut Tokens) -> Box<Node> {
     let node = equality(&mut tok);
 
     if tok.consume(TokenKind::Assign) {
-        new_assign_node(AssignOpKind::Assign, node, assign(&mut tok))
+        new_assign_node(node, assign(&mut tok))
+    } else if tok.consume(TokenKind::AddAssign) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Add, node, expr(&mut tok)))
+    } else if tok.consume(TokenKind::SubAssign) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Sub, node, expr(&mut tok)))
+    } else if tok.consume(TokenKind::MulAssign) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Mul, node, expr(&mut tok)))
+    } else if tok.consume(TokenKind::DivAssign) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Div, node, expr(&mut tok)))
+    } else if tok.consume(TokenKind::RemAssign) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Rem, node, expr(&mut tok)))
     } else {
         node
     }
