@@ -1,7 +1,7 @@
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Object {
-    name: String,
-    offset: usize,
+    pub name: String,
+    pub offset: usize,
 }
 
 impl Object {
@@ -11,12 +11,16 @@ impl Object {
 }
 
 #[derive(Debug)]
-pub struct SymbolTable {
-    objs: Vec<Object>,
+pub struct SymbolTable<'a> {
+    objs: Vec<&'a Object>,
 }
 
-impl SymbolTable {
+impl<'a> SymbolTable<'a> {
     pub fn new() -> Self {
         SymbolTable { objs: vec![] }
+    }
+
+    pub fn push(&mut self, obj: &'a Object) {
+        self.objs.push(obj);
     }
 }

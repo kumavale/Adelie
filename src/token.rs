@@ -25,7 +25,7 @@ pub enum TokenKind {
 
     Semicolon,  // ;
 
-    Integer(u64),  // [1-9][0-9]*
+    Integer(i32),  // -?[1-9][0-9]*
 
     Ident(String),  // [a-zA-Z_][0-9a-zA-Z_]*
     Keyword(Keywords),

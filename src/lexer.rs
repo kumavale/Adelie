@@ -160,8 +160,8 @@ fn new_token(kind: TokenKind, cur: usize) -> Token {
     Token { kind, cur }
 }
 
-fn char2num(ch: &Option<char>) -> u64 {
-    ch.unwrap() as u64 - 48
+fn char2num(ch: &Option<char>) -> i32 {
+    ch.unwrap() as i32 - 48
 }
 
 pub fn tokenize(l: &mut Lexer) -> Vec<Token> {

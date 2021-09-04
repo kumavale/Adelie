@@ -2,6 +2,7 @@ mod token;
 mod lexer;
 mod ast;
 mod parser;
+mod codegen;
 mod object;
 
 fn main() {
@@ -9,8 +10,8 @@ fn main() {
 
     let mut lexer = lexer::Lexer::new(&input);
     let tokens = lexer::tokenize(&mut lexer);
-    let symbol_table = object::SymbolTable::new();
-    let code_ast = ast::gen_ast(&tokens);
+    let mut symbol_table = object::SymbolTable::new();
+    let code_ast = parser::gen_ast(&tokens, &mut symbol_table);
 
     println!(".assembly tmp {{}}");
 
@@ -26,7 +27,7 @@ fn main() {
     println!(")");
 
     for code in code_ast {
-        parser::gen_il(*code);
+        codegen::gen_il(*code);
         println!("pop");
     }
 
