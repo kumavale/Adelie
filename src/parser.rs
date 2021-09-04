@@ -25,7 +25,7 @@ use super::object::*;
 // unary   = ( '-' ) ? primary
 //
 // primary = num
-//         | ident ( '(' ')' ) ?
+//         | ident ( '(' ( assign ( ',' assign ) * ) ? ')' ) ?
 //         | '(' expr ')'
 //
 // ident    = alphabet + ( num | alphabet ) *
@@ -120,14 +120,21 @@ fn new_num_node(num: i32) -> Box<Node> {
     Box::new(Node::Integer(num))
 }
 
-fn new_function_node(symbol_table: &mut SymbolTable, name: &str) -> Box<Node> {
+fn new_function_call_node(symbol_table: &mut SymbolTable, name: &str, args: Vec<Box<Node>>) -> Box<Node> {
     if let Some(obj) = symbol_table.find_lvar(name) {
-        Box::new(Node::Function(Rc::clone(obj)))
+        Box::new(Node::Function {
+            obj: Rc::clone(obj),
+            args,
+        })
     } else {
-        eprintln!("The name '{}' does not exist in the current context", name);
+        //todo!("use");
+        //eprintln!("The name '{}' does not exist in the current context", name);
         let obj = Rc::new(Object::new(name.to_string(), symbol_table.len()));
         symbol_table.push(Rc::clone(&obj));
-        Box::new(Node::Function(obj))
+        Box::new(Node::Function {
+            obj,
+            args,
+        })
     }
 }
 
@@ -339,9 +346,12 @@ fn primary(mut p: &mut Parser) -> Box<Node> {
             p.idx += 1;
             if p.consume(TokenKind::LParen) {
                 // function
-                let node = new_function_node(&mut p.symbol_table, name);
-                p.expect(TokenKind::RParen);
-                node
+                let mut args = vec![];
+                while !p.consume(TokenKind::RParen) {
+                    args.push(assign(&mut p));
+                    p.consume(TokenKind::Comma);
+                }
+                new_function_call_node(&mut p.symbol_table, name, args)
             } else {
                 // variable
                 new_variable_node(&mut p.symbol_table, name)

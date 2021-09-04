@@ -25,6 +25,7 @@ pub enum TokenKind {
     DivAssign,  // /=
     RemAssign,  // %=
 
+    Comma,      // ,
     Semicolon,  // ;
 
     Integer(i32),  // -?[1-9][0-9]*

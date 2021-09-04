@@ -124,6 +124,7 @@ impl<'a> Lexer<'a> {
                 _ => todo!("Not"),
             }
 
+            Some(',') => new_token(TokenKind::Comma,     self.read_position),
             Some(';') => new_token(TokenKind::Semicolon, self.read_position),
 
             None => new_token(TokenKind::Eof, self.read_position),

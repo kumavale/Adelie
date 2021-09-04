@@ -26,6 +26,18 @@ fn main() {
     println!("\tldloc.0");
     println!("\tret");
     println!("}}");
+    println!(".method private hidebysig static int32 plus(int32 a, int32 b) cil managed {{");
+    println!("\t.locals init (");
+    println!("\t\t[0] int32 V_0");
+    println!("\t)");
+    println!("\tnop");
+    println!("\tldarg.0");
+    println!("\tldarg.1");
+    println!("\tadd");
+    println!("\tstloc.0");
+    println!("\tldloc.0");
+    println!("\tret");
+    println!("}}");
     // ========================================================================
 
     println!(".method static int32 Main() cil managed {{");
