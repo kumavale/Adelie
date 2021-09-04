@@ -16,11 +16,13 @@ pub enum TokenKind {
     Gt,   // >
     Ge,   // >=
 
+    Assign,  // =
+
     Semicolon,  // ;
 
     Integer(u64),  // [1-9][0-9]*
 
-    Ident(String),  // [a-zA-Z]
+    Ident(String),  // [a-z]
     Keyword(Keywords),
 
     Illegal(String),

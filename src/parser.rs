@@ -4,10 +4,16 @@ pub fn gen_il(node: Node) {
     match node {
         Node::Integer(n) => println!("ldc.i4 {}", n as i32),
         Node::Variable { name, offset } => {
-            todo!()
+            println!("ldloc {}", offset);
         }
         Node::Assign { kind, lhs, rhs } => {
-            todo!()
+            if let Some(offset) = lhs.offset() {
+                gen_il(*rhs);
+                println!("stloc {}", offset);
+                println!("ldc.i4.0");
+            } else {
+                panic!("The left-hand side of an assignment must be a variable");
+            }
         }
         Node::Return { expr } => {
             gen_il(*expr);

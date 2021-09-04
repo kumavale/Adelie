@@ -63,6 +63,9 @@ assert 1 'return 1; 2; 3;'
 assert 2 '1; return 2; 3;'
 assert 3 '1; 2; return 3;'
 
+assert 3 'a = 3; return a;'
+assert 8 'a=3; b=5; return a+b;'
+
 #assert 3 'foo = 3; return foo;'
 #assert 8 'foo_123=3; bar=5; return foo_123+bar;'
 #assert 1 'f1=-1; f2=2; return f1+f2;'

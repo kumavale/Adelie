@@ -5,6 +5,7 @@ pub struct Lexer<'a> {
     position: usize,
     read_position: usize,
     pub ch: Option<char>,
+    pub chars: Vec<char>,
 }
 
 impl<'a> Lexer<'a> {
@@ -14,29 +15,36 @@ impl<'a> Lexer<'a> {
             position: 0,
             read_position: 0,
             ch: None,
+            chars: input.chars().collect(),
         };
-        l.read_char();
+        l.seek(1);
         l
     }
 
-    fn read_char(&mut self) {
-        if self.read_position >= self.input.len() {
-            self.ch = None;
-        } else {
-            self.ch = self.input.chars().nth(self.read_position);
-        }
+    fn seek(&mut self, offset: i32) {
+        self.ch = self.peek_char();
         self.position = self.read_position;
-        self.read_position += 1;
+        if offset < 0 {
+            self.read_position -= offset.abs() as usize;
+        } else if offset > 0 {
+            self.read_position += offset as usize;
+        } else {
+            // Do nothing
+        }
     }
 
     fn peek_char(&self) -> Option<char> {
-        self.input.chars().nth(self.read_position)
+        if self.read_position >= self.chars.len() {
+            None
+        } else {
+            Some(self.chars[self.read_position])
+        }
     }
 
     fn skip_whitespace(&mut self) {
         while let Some(c) = self.ch {
             if c.is_ascii_whitespace() {
-                self.read_char();
+                self.seek(1);
             } else {
                 break;
             }
@@ -58,28 +66,28 @@ impl<'a> Lexer<'a> {
 
             Some('=') => match self.peek_char() {
                 Some('=') => {
-                    self.read_char();
+                    self.seek(1);
                     new_token(TokenKind::Eq, self.read_position)
                 }
-                _ => todo!("Assign"),
+                _ => new_token(TokenKind::Assign, self.read_position)
             }
             Some('<') => match self.peek_char() {
                 Some('=') => {
-                    self.read_char();
+                    self.seek(1);
                     new_token(TokenKind::Le, self.read_position)
                 }
                 _ => new_token(TokenKind::Lt, self.read_position),
             }
             Some('>') => match self.peek_char() {
                 Some('=') => {
-                    self.read_char();
+                    self.seek(1);
                     new_token(TokenKind::Ge, self.read_position)
                 }
                 _ => new_token(TokenKind::Gt, self.read_position),
             }
             Some('!') => match self.peek_char() {
                 Some('=') => {
-                    self.read_char();
+                    self.seek(1);
                     new_token(TokenKind::Ne, self.read_position)
                 }
                 _ => todo!("Not"),
@@ -89,13 +97,9 @@ impl<'a> Lexer<'a> {
 
             None => new_token(TokenKind::Eof, self.read_position),
 
-            Some('a'..='z' | 'A'..='Z') => {
-                if let Some('r') = self.ch {
-                    self.read_char(); // r
-                    self.read_char(); // e
-                    self.read_char(); // t
-                    self.read_char(); // u
-                    self.read_char(); // r
+            Some('a'..='z') => {
+                if self.chars[self.position..].iter().collect::<String>().starts_with("return") {
+                    self.seek(5);
                     new_token(TokenKind::Keyword(Keywords::Return), self.read_position)
                 } else {
                     new_token(TokenKind::Ident(self.ch.unwrap().to_string()), self.read_position)
@@ -104,9 +108,9 @@ impl<'a> Lexer<'a> {
 
             Some('0'..='9') => {
                 let mut num = char2num(&self.ch);
-                while is_digit(&self.peek_char()) {
+                while let Some('0'..='9') = self.peek_char() {
                     num = num * 10 + char2num(&self.peek_char());
-                    self.read_char();
+                    self.seek(1);
                 }
                 new_token(TokenKind::Integer(num), self.read_position)
             }
@@ -114,21 +118,13 @@ impl<'a> Lexer<'a> {
             _ => new_token(TokenKind::Illegal(self.ch.unwrap().to_string()), self.read_position + 1)
         };
 
-        self.read_char();
+        self.seek(1);
         tok
     }
 }
 
 fn new_token(kind: TokenKind, cur: usize) -> Token {
     Token { kind, cur }
-}
-
-fn is_digit(ch: &Option<char>) -> bool {
-    let ascii = match ch {
-        Some(_) => ch.unwrap() as i32 - 48,
-        None => -1,
-    };
-    (0..=9).contains(&ascii)
 }
 
 fn char2num(ch: &Option<char>) -> u64 {

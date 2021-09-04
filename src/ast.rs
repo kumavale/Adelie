@@ -84,6 +84,16 @@ pub enum Node {
     },
 }
 
+impl Node {
+    pub fn offset(&self) -> Option<usize> {
+        if let Node::Variable { name, offset } = self {
+            Some(*offset)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Tokens<'a> {
     tokens: &'a [Token],
@@ -107,9 +117,16 @@ fn new_unary_op_node(kind: UnaryOpKind, expr: Box<Node>) -> Box<Node> {
     Box::new(Node::UnaryOp { kind, expr })
 }
 
+fn new_assign_node(kind: AssignOpKind, lhs: Box<Node>, rhs: Box<Node>) -> Box<Node> {
+    Box::new(Node::Assign { kind, lhs, rhs })
+}
+
+fn new_num_node(num: u64) -> Box<Node> {
+    Box::new(Node::Integer(num))
+}
+
 fn new_variable_node(name: &str) -> Box<Node> {
-    let offset = 0;
-    Box::new(Node::Variable { name: name.to_string(), offset })
+    Box::new(Node::Variable { name: name.to_string(), offset: name.chars().next().unwrap() as usize - 97 })
 }
 
 fn new_return_node(expr: Box<Node>) -> Box<Node> {
@@ -132,14 +149,24 @@ fn stmt(mut tok: &mut Tokens) -> Box<Node> {
     };
 
     if tok.consume(TokenKind::Semicolon) {
-        return node
+        node
     } else {
         todo!("implicit return")
     }
 }
 
 fn expr(mut tok: &mut Tokens) -> Box<Node> {
-    equality(&mut tok)
+    assign(&mut tok)
+}
+
+fn assign(mut tok: &mut Tokens) -> Box<Node> {
+    let node = equality(&mut tok);
+
+    if tok.consume(TokenKind::Assign) {
+        new_assign_node(AssignOpKind::Assign, node, assign(&mut tok))
+    } else {
+        node
+    }
 }
 
 fn equality(mut tok: &mut Tokens) -> Box<Node> {
@@ -226,10 +253,11 @@ fn primary(mut tok: &mut Tokens) -> Box<Node> {
     match &tok.tokens[tok.idx].kind {
         TokenKind::Integer(num) => {
             tok.idx += 1;
-            Box::new(Node::Integer(*num))
+            new_num_node(*num)
         }
         TokenKind::Ident(name) => {
-            new_variable_node(&name)
+            tok.idx += 1;
+            new_variable_node(name)
         }
         _ => {
             eprintln!("{}^", " ".repeat(tok.tokens[tok.idx].cur));
