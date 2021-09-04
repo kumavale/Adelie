@@ -20,10 +20,9 @@ fn main() {
 
     // prepare local variables
     println!(".locals init (");
-    for i in 0..25 {
-        println!("[{}] int32 V_{},", i, i);
+    for i in 0..symbol_table.len() {
+        println!("[{}] int32 V_{}{}", i, i, if i+1<symbol_table.len(){","}else{""});
     }
-    println!("[25] int32 V_25");
     println!(")");
 
     for code in code_ast {

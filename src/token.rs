@@ -36,6 +36,7 @@ pub enum TokenKind {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Keywords {
+    Let,
     Return,
 }
 

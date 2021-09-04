@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use super::token::*;
 
 pub struct Lexer<'a> {
@@ -24,12 +25,10 @@ impl<'a> Lexer<'a> {
     fn seek(&mut self, offset: i32) {
         self.ch = self.peek_char();
         self.position = self.read_position;
-        if offset < 0 {
-            self.read_position -= offset.abs() as usize;
-        } else if offset > 0 {
-            self.read_position += offset as usize;
-        } else {
-            // Do nothing
+        match offset.cmp(&0) {
+            Ordering::Greater => self.read_position += offset as usize,
+            Ordering::Less => self.read_position -= offset.abs() as usize,
+            Ordering::Equal => (),  // Do nothing
         }
     }
 
@@ -134,6 +133,7 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                 }
                 match &*ident {
+                    "let" => new_token(TokenKind::Keyword(Keywords::Let), self.read_position),
                     "return" => new_token(TokenKind::Keyword(Keywords::Return), self.read_position),
                     _ => new_token(TokenKind::Ident(ident), self.read_position)
                 }

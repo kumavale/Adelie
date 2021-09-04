@@ -21,17 +21,11 @@ pub enum BinaryOpKind {
     Ge,   // >=
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum AssignOpKind {
-    Assign,  // =
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Integer(i32),  // -?[1-9][0-9]*
     Variable(Rc<Object>),
     Assign {
-        kind: AssignOpKind,
         lhs: Box<Node>,
         rhs: Box<Node>,
     },

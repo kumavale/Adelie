@@ -7,6 +7,7 @@ use super::object::*;
 //
 // program = stmt *
 // stmt    = 'return' ? expr ';'
+//         | 'let' ident ( '=' expr ) ? ';'
 // expr    = assign
 //
 // assign           = equality ( ( '=' | binary_assign_op ) assign ) ?
@@ -85,7 +86,7 @@ fn new_unary_op_node(kind: UnaryOpKind, expr: Box<Node>) -> Box<Node> {
 }
 
 fn new_assign_node(lhs: Box<Node>, rhs: Box<Node>) -> Box<Node> {
-    Box::new(Node::Assign { kind: AssignOpKind::Assign, lhs, rhs })
+    Box::new(Node::Assign { lhs, rhs })
 }
 
 fn new_num_node(num: i32) -> Box<Node> {
@@ -94,12 +95,17 @@ fn new_num_node(num: i32) -> Box<Node> {
 
 fn new_variable_node(symbol_table: &mut SymbolTable, name: &str) -> Box<Node> {
     if let Some(obj) = symbol_table.find_lvar(name) {
-        Box::new(Node::Variable(obj))
+        Box::new(Node::Variable(Rc::clone(obj)))
     } else {
-        let obj = Rc::new(Object {
-            name: name.to_string(),
-            offset: symbol_table.len(),
-        });
+        panic!("The name '{}' does not exist in the current context", name)
+    }
+}
+
+fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str) -> Box<Node> {
+    if symbol_table.find_lvar(name).is_some() {
+        panic!("A local variable or function named '{}' is already defined in this scope", name)
+    } else {
+        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len()));
         symbol_table.push(Rc::clone(&obj));
         Box::new(Node::Variable(obj))
     }
@@ -120,6 +126,17 @@ fn program(mut tok: &mut Parser) -> Vec<Box<Node>> {
 fn stmt(mut tok: &mut Parser) -> Box<Node> {
     let node = if tok.consume(TokenKind::Keyword(Keywords::Return)) {
         new_return_node(expr(&mut tok))
+    } else if tok.consume(TokenKind::Keyword(Keywords::Let)) {
+        if let TokenKind::Ident(name) = &tok.tokens[tok.idx].kind {
+            tok.idx += 1;
+            let mut node = new_variable_node_with_let(&mut tok.symbol_table, name);
+            if tok.consume(TokenKind::Assign) {
+                node = new_assign_node(node, expr(&mut tok))
+            }
+            node
+        } else {
+            panic!("The left-hand side of an assignment must be a variable")
+        }
     } else {
         expr(&mut tok)
     };

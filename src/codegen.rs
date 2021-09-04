@@ -6,7 +6,7 @@ pub fn gen_il(node: Node) {
         Node::Variable(obj) => {
             println!("ldloc {}", obj.offset);
         }
-        Node::Assign { kind, lhs, rhs } => {
+        Node::Assign { lhs, rhs } => {
             if let Node::Variable(obj) = *lhs {
                 gen_il(*rhs);
                 println!("stloc {}", obj.offset);
@@ -19,7 +19,7 @@ pub fn gen_il(node: Node) {
             gen_il(*expr);
             println!("ret");
         }
-        Node::UnaryOp { kind, expr } => {
+        Node::UnaryOp { kind: _, expr } => {
             gen_il(*expr);
             println!("neg");
         }
