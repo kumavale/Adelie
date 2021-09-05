@@ -4,6 +4,7 @@ use super::token::*;
 use super::keyword::*;
 use super::object::*;
 use super::function::*;
+use super::builtin::*;
 
 // EBNF
 //
@@ -31,6 +32,7 @@ use super::function::*;
 // unary = ( '-' ) ? primary
 //
 // primary = num
+//         | builtin
 //         | ident ( '(' ( assign ( ',' assign ) * ) ? ')' ) ?
 //         | '(' expr ')'
 //
@@ -40,6 +42,10 @@ use super::function::*;
 // num         = nonzero_dec dec_digit *
 // dec_digit   = '0' | nonzero_dec
 // nonzero_dec = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+//
+// type = 'i32' | 'String'
+//
+// builtin = 'println'
 //
 
 #[derive(Debug)]
@@ -130,6 +136,10 @@ fn new_num_node(num: i32) -> Box<Node> {
 
 fn new_string_node(s: &str) -> Box<Node> {
     Box::new(Node::String(s.to_string()))
+}
+
+fn new_builtin_call_node(kind: Builtin, args: Vec<Box<Node>>) -> Box<Node> {
+    Box::new(Node::Builtin { kind, args })
 }
 
 fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Box<Node>>) -> Box<Node> {
@@ -419,6 +429,16 @@ fn primary(mut p: &mut Parser) -> Box<Node> {
                 // local variable or parameter
                 new_variable_node(&mut p.current_function.as_mut().unwrap(), name)
             }
+        }
+        TokenKind::Builtin(kind) => {
+            p.idx += 1;
+            p.expect(TokenKind::LParen);
+            let mut args = vec![];
+            while !p.consume(TokenKind::RParen) {
+                args.push(assign(&mut p));
+                p.consume(TokenKind::Comma);
+            }
+            new_builtin_call_node(*kind, args)
         }
         _ => {
             eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));

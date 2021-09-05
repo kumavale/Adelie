@@ -6,6 +6,7 @@ mod parser;
 mod codegen;
 mod object;
 mod function;
+mod builtin;
 
 fn main() {
     let input = std::env::args().nth(1).unwrap();
@@ -17,6 +18,7 @@ fn main() {
     let mut fn_symbol_table  = object::SymbolTable::new();
     let code_ast = parser::gen_ast(&tokens, &mut fn_symbol_table);
 
+    println!(".assembly extern mscorlib {{}}");
     println!(".assembly tmp {{}}");
 
     for func in code_ast {

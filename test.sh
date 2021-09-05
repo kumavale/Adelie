@@ -106,6 +106,9 @@ assert 55 'fn main() { return fib(9); } fn fib(x: i32) { if x<=1 { return 1; } e
 
 assert 0 'fn main() { let s: String = "Hello, World!"; return 0; }'
 
+assert 0 'fn main() { println("Hello, World!"); return 0; }'
+assert 0 'fn main() { let s: String = "Hello, World!"; println(s); return 0; }'
+
 echo
 echo -ne "test result: "
 if [ $NGCNT -eq 0 ]; then

@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use super::object::*;
+use super::builtin::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UnaryOpKind {
@@ -25,6 +26,10 @@ pub enum BinaryOpKind {
 pub enum Node {
     Integer(i32),  // -?[1-9][0-9]*
     String(String),  // ".*"
+    Builtin {
+        kind: Builtin,
+        args: Vec<Box<Node>>,
+    },
     Function {
         obj: Rc<Object>,
         args: Vec<Box<Node>>,

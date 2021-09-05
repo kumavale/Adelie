@@ -1,9 +1,11 @@
 use super::ast::*;
+use super::builtin::*;
 
 pub fn gen_il(node: Node) {
     match node {
         Node::Integer(n) => println!("\tldc.i4 {}", n as i32),
         Node::String(s) => println!("\tldstr \"{}\"", s),
+        Node::Builtin { kind, args } => gen_builtin_il(kind, args),
         Node::Function { obj, args } => {
             let argc = args.len();
             for arg in args {

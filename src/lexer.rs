@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use super::token::*;
 use super::keyword::*;
+use super::builtin::*;
 
 pub struct Lexer<'a> {
     input: &'a str,
@@ -151,6 +152,8 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                 }
                 match &*ident {
+                    "println" => new_token(TokenKind::Builtin(Builtin::Println), self.read_position),
+
                     "i32"    => new_token(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),
                     "String" => new_token(TokenKind::Type(Type::String),                self.read_position),
 

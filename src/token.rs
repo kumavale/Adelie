@@ -1,4 +1,5 @@
 use super::keyword::*;
+use super::builtin::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {
@@ -37,6 +38,7 @@ pub enum TokenKind {
     Ident(String),  // [a-zA-Z_][0-9a-zA-Z_]*
     Keyword(Keyword),
     Type(Type),
+    Builtin(Builtin),
 
     Illegal(String),
     Eof,
