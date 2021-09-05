@@ -128,6 +128,10 @@ fn new_num_node(num: i32) -> Box<Node> {
     Box::new(Node::Integer(num))
 }
 
+fn new_string_node(s: &str) -> Box<Node> {
+    Box::new(Node::String(s.to_string()))
+}
+
 fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Box<Node>>) -> Box<Node> {
     if let Some(obj) = function.lvar_symbol_table.find_lvar(name) {
         Box::new(Node::Function {
@@ -399,6 +403,10 @@ fn primary(mut p: &mut Parser) -> Box<Node> {
         TokenKind::Integer(num) => {
             p.idx += 1;
             new_num_node(*num)
+        }
+        TokenKind::String(s) => {
+            p.idx += 1;
+            new_string_node(s)
         }
         TokenKind::Ident(name) => {
             p.idx += 1;

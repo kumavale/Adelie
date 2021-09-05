@@ -31,7 +31,8 @@ pub enum TokenKind {
     Colon,      // :
     Semicolon,  // ;
 
-    Integer(i32),  // -?[1-9][0-9]*
+    Integer(i32),    // -?[1-9][0-9]*
+    String(String),  // ".*"
 
     Ident(String),  // [a-zA-Z_][0-9a-zA-Z_]*
     Keyword(Keyword),

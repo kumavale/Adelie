@@ -3,6 +3,7 @@ use super::ast::*;
 pub fn gen_il(node: Node) {
     match node {
         Node::Integer(n) => println!("\tldc.i4 {}", n as i32),
+        Node::String(s) => println!("\tldstr \"{}\"", s),
         Node::Function { obj, args } => {
             let argc = args.len();
             for arg in args {

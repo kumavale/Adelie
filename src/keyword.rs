@@ -11,6 +11,7 @@ pub enum Keyword {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Type {
     Numeric(Numeric),
+    String,
     Inference,
 }
 
@@ -25,6 +26,7 @@ impl Type {
         match self {
             Type::Numeric(Numeric::I32) => "int32",
             Type::Numeric(Numeric::Inference) => "int32",
+            Type::String => "string",
             Type::Inference => "int32",
         }
     }

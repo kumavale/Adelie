@@ -129,6 +129,20 @@ impl<'a> Lexer<'a> {
             Some(':') => new_token(TokenKind::Colon,     self.read_position),
             Some(';') => new_token(TokenKind::Semicolon, self.read_position),
 
+            Some('"') => {
+                let mut s = String::new();
+                self.seek(1);
+                while self.ch.is_some() {
+                    if let Some('"') = self.ch {
+                        break;
+                    }
+                    s.push(self.ch.unwrap());
+                    self.seek(1);
+                }
+                self.seek(1);
+                new_token(TokenKind::String(s), self.read_position)
+            }
+
             None => new_token(TokenKind::Eof, self.read_position),
 
             Some('a'..='z'|'A'..='Z'|'_') => {
@@ -139,6 +153,7 @@ impl<'a> Lexer<'a> {
                 }
                 match &*ident {
                     "i32"    => new_token(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),
+                    "String" => new_token(TokenKind::Type(Type::String),                self.read_position),
 
                     "else"   => new_token(TokenKind::Keyword(Keyword::Else),   self.read_position),
                     "fn"     => new_token(TokenKind::Keyword(Keyword::Fn),     self.read_position),

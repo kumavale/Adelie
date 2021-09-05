@@ -107,6 +107,8 @@ assert 66 'fn main() { return add6(1,2,add6(3,4,5,6,7,8),9,10,11); }
 fn add6(a:i32 ,b:i32, c:i32, d:i32, e:i32, f:i32) { return a+b+c+d+e+f; }'
 assert 55 'fn main() { return fib(9); } fn fib(x: i32) { if x<=1 { return 1; } else { return fib(x-1)+fib(x-2); } }'
 
+assert 0 'fn main() { let s: String = "Hello, World!"; return 0; }'
+
 echo
 echo -ne "test result: "
 if [ $NGCNT -eq 0 ]; then

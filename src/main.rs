@@ -30,8 +30,8 @@ fn main() {
 
         // prepare local variables
         println!("\t.locals init (");
-        for i in 0..func.lvar_symbol_table.len() {
-            println!("\t\t[{}] int32 V_{}{}", i, i, if i+1<func.lvar_symbol_table.len(){","}else{""});
+        for (i, obj) in func.lvar_symbol_table.objs.iter().enumerate() {
+            println!("\t\t[{}] {} V_{}{}", i, obj.typekind.as_ilstr(), i, if i+1<func.lvar_symbol_table.len(){","}else{""});
         }
         println!("\t)");
 
