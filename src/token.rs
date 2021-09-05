@@ -1,3 +1,5 @@
+use super::keyword::*;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {
     Plus,      // +
@@ -26,25 +28,17 @@ pub enum TokenKind {
     RemAssign,  // %=
 
     Comma,      // ,
+    Colon,      // :
     Semicolon,  // ;
 
     Integer(i32),  // -?[1-9][0-9]*
 
     Ident(String),  // [a-zA-Z_][0-9a-zA-Z_]*
-    Keyword(Keywords),
+    Keyword(Keyword),
+    Type(Type),
 
     Illegal(String),
     Eof,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Keywords {
-    Else,
-    Fn,
-    If,
-    Let,
-    Return,
-    While,
 }
 
 #[derive(Clone, Debug)]

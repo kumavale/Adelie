@@ -1,4 +1,5 @@
 mod token;
+mod keyword;
 mod lexer;
 mod ast;
 mod parser;
@@ -23,7 +24,7 @@ fn main() {
             println!(".method static int32 Main() cil managed {{");
             println!("\t.entrypoint");
         } else {
-            let args = func.param_symbol_table.objs.iter().map(|o|format!("int32 {}", o.name)).collect::<Vec<String>>().join(", ");
+            let args = func.param_symbol_table.objs.iter().map(|o|format!("{} {}", o.typekind.as_ilstr(), o.name)).collect::<Vec<String>>().join(", ");
             println!(".method static int32 {}({}) cil managed {{", func.name, args);
         }
 

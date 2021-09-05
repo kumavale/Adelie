@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use super::ast::*;
 use super::token::*;
+use super::keyword::*;
 use super::object::*;
 use super::function::*;
 
@@ -9,7 +10,7 @@ use super::function::*;
 // program = function *
 //
 // function = 'fn' ident '(' ( param ( ',' param ) * ) ? ')' compound_stmt
-// param    = ident
+// param    = ident ':' type
 //
 // compound_stmt = '{' stmt * '}'
 //
@@ -135,11 +136,9 @@ fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Box<Nod
         })
     } else {
         //todo!("use");
-        //eprintln!("The name '{}' does not exist in the current context", name);
-        let obj = Rc::new(Object::new(name.to_string(), function.lvar_symbol_table.len(), false));
-        function.lvar_symbol_table.push(Rc::clone(&obj));
+        //panic!("The name '{}' does not exist in the current context", name);
         Box::new(Node::Function {
-            obj,
+            obj: Rc::new(Object::new(name.to_string(), 0, false, Type::Inference)),
             args,
         })
     }
@@ -155,11 +154,11 @@ fn new_variable_node(function: &mut Function, name: &str) -> Box<Node> {
     }
 }
 
-fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str) -> Box<Node> {
+fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str, typekind: Type) -> Box<Node> {
     if symbol_table.find_lvar(name).is_some() {
         panic!("A local variable or function named '{}' is already defined in this scope", name)
     } else {
-        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len(), false));
+        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len(), false, typekind));
         symbol_table.push(Rc::clone(&obj));
         Box::new(Node::Variable(obj))
     }
@@ -174,12 +173,12 @@ fn program(mut p: &mut Parser) -> Vec<Function> {
 }
 
 fn function(mut p: &mut Parser) -> Function {
-    p.expect(TokenKind::Keyword(Keywords::Fn));
+    p.expect(TokenKind::Keyword(Keyword::Fn));
     if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
         if p.symbol_table.find_lvar(name).is_some() {
             panic!("The name '{}' does not exist in the current context", name);
         }
-        let obj = Rc::new(Object::new(name.to_string(), p.symbol_table.len(), false));
+        let obj = Rc::new(Object::new(name.to_string(), p.symbol_table.len(), false, Type::Numeric(Numeric::I32)));
         p.symbol_table.push(Rc::clone(&obj));
         p.current_function = Some(Function::new(name));
         p.idx += 1;
@@ -190,8 +189,16 @@ fn function(mut p: &mut Parser) -> Function {
                 if p.current_function.as_mut().unwrap().param_symbol_table.find_lvar(name).is_some() {
                     panic!("A local variable or function named '{}' is already defined in this scope", name)
                 } else {
+                    p.expect(TokenKind::Colon);
+                    let typekind = if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
+                        typekind
+                    } else {
+                        eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
+                        panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
+                    };
+                    p.idx += 1;
                     let current_function = p.current_function.as_mut().unwrap();
-                    let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true));
+                    let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true, typekind));
                     current_function.param_symbol_table.push(Rc::clone(&obj));
                 }
             } else {
@@ -217,12 +224,22 @@ fn function(mut p: &mut Parser) -> Function {
 fn stmt(mut p: &mut Parser) -> Box<Node> {
     let node = if p.tokens[p.idx].kind == TokenKind::LBlock {
         compound_stmt(&mut p)
-    } else if p.consume(TokenKind::Keyword(Keywords::Return)) {
+    } else if p.consume(TokenKind::Keyword(Keyword::Return)) {
         new_return_node(expr(&mut p))
-    } else if p.consume(TokenKind::Keyword(Keywords::Let)) {
+    } else if p.consume(TokenKind::Keyword(Keyword::Let)) {
         if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
             p.idx += 1;
-            let mut node = new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name);
+            let mut node = if p.consume(TokenKind::Colon) {
+                if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
+                    p.idx += 1;
+                    new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind)
+                } else {
+                    eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
+                    panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
+                }
+            } else {
+                new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, Type::Inference)
+            };
             if p.consume(TokenKind::Assign) {
                 node = new_assign_node(node, expr(&mut p))
             }
@@ -254,16 +271,16 @@ fn compound_stmt(mut p: &mut Parser) -> Box<Node> {
 }
 
 fn expr(mut p: &mut Parser) -> Box<Node> {
-    if p.consume(TokenKind::Keyword(Keywords::If)) {
+    if p.consume(TokenKind::Keyword(Keyword::If)) {
         let cond = expr(&mut p);
         let then = compound_stmt(&mut p);
-        let els = if p.consume(TokenKind::Keyword(Keywords::Else)) {
+        let els = if p.consume(TokenKind::Keyword(Keyword::Else)) {
             Some(compound_stmt(&mut p))
         } else {
             None
         };
         new_if_node(cond, then, els)
-    } else if p.consume(TokenKind::Keyword(Keywords::While)) {
+    } else if p.consume(TokenKind::Keyword(Keyword::While)) {
         let cond = expr(&mut p);
         let then = compound_stmt(&mut p);
         new_while_node(cond, then)

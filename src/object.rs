@@ -1,18 +1,21 @@
 use std::rc::Rc;
+use super::keyword::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Object {
     pub name: String,
     pub offset: usize,
     pub is_param: bool,
+    pub typekind: Type,
 }
 
 impl Object {
-    pub fn new(name: String, offset: usize, is_param: bool) -> Self {
+    pub fn new(name: String, offset: usize, is_param: bool, typekind: Type) -> Self {
         Object {
             name,
             offset,
             is_param,
+            typekind,
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use super::token::*;
+use super::keyword::*;
 
 pub struct Lexer<'a> {
     input: &'a str,
@@ -125,6 +126,7 @@ impl<'a> Lexer<'a> {
             }
 
             Some(',') => new_token(TokenKind::Comma,     self.read_position),
+            Some(':') => new_token(TokenKind::Colon,     self.read_position),
             Some(';') => new_token(TokenKind::Semicolon, self.read_position),
 
             None => new_token(TokenKind::Eof, self.read_position),
@@ -136,12 +138,14 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                 }
                 match &*ident {
-                    "else"   => new_token(TokenKind::Keyword(Keywords::Else),   self.read_position),
-                    "fn"     => new_token(TokenKind::Keyword(Keywords::Fn),     self.read_position),
-                    "if"     => new_token(TokenKind::Keyword(Keywords::If),     self.read_position),
-                    "let"    => new_token(TokenKind::Keyword(Keywords::Let),    self.read_position),
-                    "return" => new_token(TokenKind::Keyword(Keywords::Return), self.read_position),
-                    "while"  => new_token(TokenKind::Keyword(Keywords::While),  self.read_position),
+                    "i32"    => new_token(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),
+
+                    "else"   => new_token(TokenKind::Keyword(Keyword::Else),   self.read_position),
+                    "fn"     => new_token(TokenKind::Keyword(Keyword::Fn),     self.read_position),
+                    "if"     => new_token(TokenKind::Keyword(Keyword::If),     self.read_position),
+                    "let"    => new_token(TokenKind::Keyword(Keyword::Let),    self.read_position),
+                    "return" => new_token(TokenKind::Keyword(Keyword::Return), self.read_position),
+                    "while"  => new_token(TokenKind::Keyword(Keyword::While),  self.read_position),
                     _ => new_token(TokenKind::Ident(ident), self.read_position)
                 }
             }

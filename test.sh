@@ -1,14 +1,5 @@
 #!/bin/bash
 
-# cat <<EOF > tmp.cs
-# class Program {
-#     static int ret3() {
-#         return 3;
-#     }
-# }
-# EOF
-# /mnt/c/Windows/Microsoft.NET/Framework/v4.0.30319/csc.exe /nologo /target:library tmp.cs
-
 OKCNT=0
 NGCNT=0
 
@@ -83,6 +74,9 @@ assert 9 'fn main() { let a=2; a+=5+2; return a; }'
 assert 8 'fn main() { let a=2; a+=3*2; return a; }'
 assert 3 'fn main() { let a=9; a+=-3*2; return a; }'
 
+assert 3 'fn main() { let a: i32 = 3; return a; }'
+assert 8 'fn main() { let a: i32 = 3; let b=5; return a+b; }'
+
 assert 3 'fn main() { let foo; foo=3; return foo; }'
 assert 6 'fn main() { let foo=2*3; return foo; }'
 assert 3 'fn main() { let foo = 3; return foo; }'
@@ -108,9 +102,10 @@ assert 3 'fn main() { {1; {2;} return 3;} }'
 
 assert 3 'fn ret3() { return 3; } fn main() { return ret3(); }'
 assert 5 'fn main() { return ret5(); } fn ret5() { return 5; }'
-assert 7 'fn main() { return plus(3, 4); } fn plus(a, b) { return a+b; }'
-assert 66 'fn main() { return add6(1,2,add6(3,4,5,6,7,8),9,10,11); } fn add6(a,b,c,d,e,f) { return a+b+c+d+e+f; }'
-assert 55 'fn main() { return fib(9); } fn fib(x) { if x<=1 { return 1; } else { return fib(x-1)+fib(x-2); } }'
+assert 7 'fn main() { return plus(3, 4); } fn plus(a: i32, b: i32) { return a+b; }'
+assert 66 'fn main() { return add6(1,2,add6(3,4,5,6,7,8),9,10,11); }
+fn add6(a:i32 ,b:i32, c:i32, d:i32, e:i32, f:i32) { return a+b+c+d+e+f; }'
+assert 55 'fn main() { return fib(9); } fn fib(x: i32) { if x<=1 { return 1; } else { return fib(x-1)+fib(x-2); } }'
 
 echo
 echo -ne "test result: "
