@@ -34,7 +34,7 @@ impl SymbolTable {
         self.objs.push(obj);
     }
 
-    pub fn find_lvar(&self, name: &str) -> Option<&Rc<Object>> {
+    pub fn find_name(&self, name: &str) -> Option<&Rc<Object>> {
         for obj in &self.objs {
             if obj.name == name {
                 return Some(obj);

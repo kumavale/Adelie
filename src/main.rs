@@ -15,8 +15,9 @@ fn main() {
     let tokens = lexer::tokenize(&mut lexer);
     //eprintln!("{:?}", tokens);
 
-    let mut fn_symbol_table  = object::SymbolTable::new();
+    let mut fn_symbol_table = object::SymbolTable::new();
     let code_ast = parser::gen_ast(&tokens, &mut fn_symbol_table);
+    let fst = function::FunctionSymbolTable::new(&code_ast);
 
     println!(".assembly extern mscorlib {{}}");
     println!(".assembly tmp {{}}");
@@ -38,7 +39,7 @@ fn main() {
         println!("\t)");
 
         if let Some(statements) = func.statements {
-            codegen::gen_il(statements);
+            codegen::gen_il(statements, &fst);
         }
 
         println!("\tret");

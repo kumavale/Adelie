@@ -50,7 +50,7 @@ use super::builtin::*;
 
 #[derive(Debug)]
 struct Parser<'a> {
-    symbol_table: &'a mut SymbolTable,
+    fn_symbol_table: &'a mut SymbolTable,
     current_function: Option<Function>,
     tokens: &'a [Token],
     idx: usize,
@@ -87,9 +87,9 @@ impl<'a> Parser<'a> {
     }
 }
 
-pub fn gen_ast<'a>(tokens: &'a [Token], symbol_table: &'a mut SymbolTable) -> Vec<Function> {
+pub fn gen_ast<'a>(tokens: &'a [Token], fn_symbol_table: &'a mut SymbolTable) -> Vec<Function> {
     let mut parser = Parser {
-        symbol_table,
+        fn_symbol_table,
         current_function: None,
         tokens,
         idx: 0,
@@ -131,11 +131,11 @@ fn new_return_node(expr: Box<Node>) -> Box<Node> {
 }
 
 fn new_num_node(num: i32) -> Box<Node> {
-    Box::new(Node::Integer(num))
+    Box::new(Node::Integer { typekind: Type::Numeric(Numeric::I32), num })
 }
 
 fn new_string_node(s: &str) -> Box<Node> {
-    Box::new(Node::String(s.to_string()))
+    Box::new(Node::String { typekind: Type::String, str: s.to_string() })
 }
 
 fn new_builtin_call_node(kind: Builtin, args: Vec<Box<Node>>) -> Box<Node> {
@@ -143,7 +143,7 @@ fn new_builtin_call_node(kind: Builtin, args: Vec<Box<Node>>) -> Box<Node> {
 }
 
 fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Box<Node>>) -> Box<Node> {
-    if let Some(obj) = function.lvar_symbol_table.find_lvar(name) {
+    if let Some(obj) = function.lvar_symbol_table.find_name(name) {
         Box::new(Node::Function {
             obj: Rc::clone(obj),
             args,
@@ -159,22 +159,22 @@ fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Box<Nod
 }
 
 fn new_variable_node(function: &mut Function, name: &str) -> Box<Node> {
-    if let Some(obj) = function.lvar_symbol_table.find_lvar(name) {
-        Box::new(Node::Variable(Rc::clone(obj)))
-    } else if let Some(obj) = function.param_symbol_table.find_lvar(name) {
-        Box::new(Node::Variable(Rc::clone(obj)))
+    if let Some(obj) = function.lvar_symbol_table.find_name(name) {
+        Box::new(Node::Variable { typekind: obj.typekind, obj: Rc::clone(obj) })
+    } else if let Some(obj) = function.param_symbol_table.find_name(name) {
+        Box::new(Node::Variable { typekind: obj.typekind, obj: Rc::clone(obj) })
     } else {
         panic!("The name '{}' does not exist in the current context", name)
     }
 }
 
 fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str, typekind: Type) -> Box<Node> {
-    if symbol_table.find_lvar(name).is_some() {
+    if symbol_table.find_name(name).is_some() {
         panic!("A local variable or function named '{}' is already defined in this scope", name)
     } else {
         let obj = Rc::new(Object::new(name.to_string(), symbol_table.len(), false, typekind));
         symbol_table.push(Rc::clone(&obj));
-        Box::new(Node::Variable(obj))
+        Box::new(Node::Variable { typekind, obj })
     }
 }
 
@@ -189,18 +189,19 @@ fn program(mut p: &mut Parser) -> Vec<Function> {
 fn function(mut p: &mut Parser) -> Function {
     p.expect(TokenKind::Keyword(Keyword::Fn));
     if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
-        if p.symbol_table.find_lvar(name).is_some() {
+        if p.fn_symbol_table.find_name(name).is_some() {
             panic!("The name '{}' does not exist in the current context", name);
         }
-        let obj = Rc::new(Object::new(name.to_string(), p.symbol_table.len(), false, Type::Numeric(Numeric::I32)));
-        p.symbol_table.push(Rc::clone(&obj));
+        let rettype = Type::Numeric(Numeric::I32);
+        let obj = Rc::new(Object::new(name.to_string(), p.fn_symbol_table.len(), false, rettype));
+        p.fn_symbol_table.push(Rc::clone(&obj));
         p.current_function = Some(Function::new(name));
         p.idx += 1;
         p.expect(TokenKind::LParen);
         while !p.consume(TokenKind::RParen) {
             if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
                 p.idx += 1;
-                if p.current_function.as_mut().unwrap().param_symbol_table.find_lvar(name).is_some() {
+                if p.current_function.as_mut().unwrap().param_symbol_table.find_name(name).is_some() {
                     panic!("A local variable or function named '{}' is already defined in this scope", name)
                 } else {
                     p.expect(TokenKind::Colon);

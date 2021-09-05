@@ -19,3 +19,26 @@ impl Function {
         }
     }
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FunctionSymbolTable {
+    pub functions: Vec<(String, SymbolTable)>,
+}
+
+impl FunctionSymbolTable {
+    pub fn new(code_ast: &[Function]) -> Self {
+        FunctionSymbolTable {
+            functions: code_ast.iter().map(|f|(f.name.clone(), f.param_symbol_table.clone())).collect(),
+        }
+    }
+
+    pub fn params(&self, name: &str) -> Option<&SymbolTable> {
+        for f in &self.functions {
+            if f.0 == name {
+                return Some(&f.1);
+            }
+        }
+        None
+    }
+}
+

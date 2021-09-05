@@ -1,23 +1,20 @@
 use super::ast::*;
 use super::builtin::*;
+use super::function::*;
 
-pub fn gen_il(node: Node) {
+pub fn gen_il(node: Node, fst: &FunctionSymbolTable) {
     match node {
-        Node::Integer(n) => println!("\tldc.i4 {}", n as i32),
-        Node::String(s) => println!("\tldstr \"{}\"", s),
-        Node::Builtin { kind, args } => gen_builtin_il(kind, args),
+        Node::Integer { typekind, num } => println!("\tldc.i4 {}", num as i32),
+        Node::String { typekind, str } => println!("\tldstr \"{}\"", str),
+        Node::Builtin { kind, args } => gen_builtin_il(kind, args, fst),
         Node::Function { obj, args } => {
-            let argc = args.len();
             for arg in args {
-                gen_il(*arg);
+                gen_il(*arg, fst);
             }
-            print!("\tcall int32 {}(", obj.name);
-            for i in 0..argc {
-                print!("int32{}", if i+1<argc{","}else{""});
-            }
-            println!(")");
+            let args = fst.params(&obj.name).unwrap().objs.iter().map(|o|o.typekind.as_ilstr()).collect::<Vec<&str>>().join(", ");
+            println!("\tcall int32 {}({})", obj.name, args);
         }
-        Node::Variable(obj) => {
+        Node::Variable { typekind, obj } => {
             if obj.is_param {
                 println!("\tldarg {}", obj.offset);
             } else {
@@ -26,21 +23,21 @@ pub fn gen_il(node: Node) {
         }
         Node::Block { stmts } => {
             for stmt in stmts {
-                gen_il(*stmt);
+                gen_il(*stmt, fst);
             }
         }
         Node::If { cond, then, els } => {
             static mut SEQ: usize = 0;
-            gen_il(*cond);
+            gen_il(*cond, fst);
             let else_label = format!("IL_else{}", unsafe { SEQ });
             let end_label = format!("IL_end{}", unsafe { SEQ });
             unsafe { SEQ += 1; }
             println!("\tbrfalse {}", else_label);
-            gen_il(*then);
+            gen_il(*then, fst);
             println!("\tbr {}", end_label);
             println!("{}:", else_label);
             if let Some(els) = els {
-                gen_il(*els);
+                gen_il(*els, fst);
             }
             println!("{}:", end_label);
         }
@@ -50,15 +47,15 @@ pub fn gen_il(node: Node) {
             let end_label = format!("IL_end{}", unsafe { SEQ });
             unsafe { SEQ += 1; }
             println!("{}:", begin_label);
-            gen_il(*cond);
+            gen_il(*cond, fst);
             println!("\tbrfalse {}", end_label);
-            gen_il(*then);
+            gen_il(*then, fst);
             println!("\tbr {}", begin_label);
             println!("{}:", end_label);
         }
         Node::Assign { lhs, rhs } => {
-            if let Node::Variable(obj) = *lhs {
-                gen_il(*rhs);
+            if let Node::Variable { typekind, obj } = *lhs {
+                gen_il(*rhs, fst);
                 println!("\tstloc {}", obj.offset);
                 println!("\tldc.i4.0");
             } else {
@@ -66,20 +63,20 @@ pub fn gen_il(node: Node) {
             }
         }
         Node::Pop { expr } => {
-            gen_il(*expr);
+            gen_il(*expr, fst);
             println!("\tpop");
         }
         Node::Return { expr } => {
-            gen_il(*expr);
+            gen_il(*expr, fst);
             println!("\tret");
         }
         Node::UnaryOp { kind: _, expr } => {
-            gen_il(*expr);
+            gen_il(*expr, fst);
             println!("\tneg");
         }
         Node::BinaryOp { kind, lhs, rhs } => {
-            gen_il(*lhs);
-            gen_il(*rhs);
+            gen_il(*lhs, fst);
+            gen_il(*rhs, fst);
             match kind {
                 BinaryOpKind::Add => println!("\tadd"),
                 BinaryOpKind::Sub => println!("\tsub"),

@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use super::object::*;
+use super::keyword::*;
 use super::builtin::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -24,8 +25,14 @@ pub enum BinaryOpKind {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
-    Integer(i32),  // -?[1-9][0-9]*
-    String(String),  // ".*"
+    Integer {
+        typekind: Type,
+        num: i32,  // -?[1-9][0-9]*
+    },
+    String {
+        typekind: Type,
+        str: String,  // ".*"
+    },
     Builtin {
         kind: Builtin,
         args: Vec<Box<Node>>,
@@ -34,7 +41,10 @@ pub enum Node {
         obj: Rc<Object>,
         args: Vec<Box<Node>>,
     },
-    Variable(Rc<Object>),
+    Variable {
+        typekind: Type,
+        obj: Rc<Object>,
+    },
     Block {
         stmts: Vec<Box<Node>>,
     },
