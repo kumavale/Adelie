@@ -40,6 +40,7 @@ pub enum TokenKind {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Keywords {
     Else,
+    Fn,
     If,
     Let,
     Return,

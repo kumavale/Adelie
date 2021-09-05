@@ -15,7 +15,7 @@ impl Object {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
     objs: Vec<Rc<Object>>,
 }

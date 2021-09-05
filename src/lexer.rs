@@ -137,6 +137,7 @@ impl<'a> Lexer<'a> {
                 }
                 match &*ident {
                     "else"   => new_token(TokenKind::Keyword(Keywords::Else),   self.read_position),
+                    "fn"     => new_token(TokenKind::Keyword(Keywords::Fn),     self.read_position),
                     "if"     => new_token(TokenKind::Keyword(Keywords::If),     self.read_position),
                     "let"    => new_token(TokenKind::Keyword(Keywords::Let),    self.read_position),
                     "return" => new_token(TokenKind::Keyword(Keywords::Return), self.read_position),

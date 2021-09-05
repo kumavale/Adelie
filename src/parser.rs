@@ -2,27 +2,32 @@ use std::rc::Rc;
 use super::ast::*;
 use super::token::*;
 use super::object::*;
+use super::function::*;
 
 // EBNF
 //
-// program = stmt *
-// stmt    = 'return' ? expr ';'
-//         | 'let' ident ( '=' expr ) ? ';'
+// program = function *
 //
-// expr    = assign
-//         | 'if' expr compound_stmt ( 'else' compound_stmt ) ?
-//         | 'while' expr compound_stmt
+// function = 'fn' ident '(' ( param ( ',' param ) * ) ? ')' compound_stmt
+// param    = ident
 //
 // compound_stmt = '{' stmt * '}'
+//
+// stmt = 'return' ? expr ';'
+//      | 'let' ident ( '=' expr ) ? ';'
+//
+// expr = assign
+//      | 'if' expr compound_stmt ( 'else' compound_stmt ) ?
+//      | 'while' expr compound_stmt
 //
 // assign           = equality ( ( '=' | binary_assign_op ) assign ) ?
 // binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%='
 // equality         = relational ( '==' relational | '!=' relational ) *
 // relational       = add ( '<' add | '<=' add | '>' add | '>=' add ) *
 //
-// add     = mul ( '+' mul | '-' mul ) *
-// mul     = unary ( '*' unary | '/' unary | '%' unary ) *
-// unary   = ( '-' ) ? primary
+// add   = mul ( '+' mul | '-' mul ) *
+// mul   = unary ( '*' unary | '/' unary | '%' unary ) *
+// unary = ( '-' ) ? primary
 //
 // primary = num
 //         | ident ( '(' ( assign ( ',' assign ) * ) ? ')' ) ?
@@ -39,6 +44,7 @@ use super::object::*;
 #[derive(Debug)]
 struct Parser<'a> {
     symbol_table: &'a mut SymbolTable,
+    current_function: Option<Function>,
     tokens: &'a [Token],
     idx: usize,
 }
@@ -74,9 +80,10 @@ impl<'a> Parser<'a> {
     }
 }
 
-pub fn gen_ast<'a>(tokens: &'a [Token], symbol_table: &'a mut SymbolTable) -> Vec<Box<Node>> {
+pub fn gen_ast<'a>(tokens: &'a [Token], symbol_table: &'a mut SymbolTable) -> Vec<Function> {
     let mut parser = Parser {
         symbol_table,
+        current_function: None,
         tokens,
         idx: 0,
     };
@@ -156,12 +163,46 @@ fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str) -> Box
     }
 }
 
-fn program(mut p: &mut Parser) -> Vec<Box<Node>> {
-    let mut code = vec![];
+fn program(mut p: &mut Parser) -> Vec<Function> {
+    let mut functions = vec![];
     while !p.is_eof() {
-        code.push(stmt(&mut p));
+        functions.push(function(&mut p));
     }
-    code
+    functions
+}
+
+fn function(mut p: &mut Parser) -> Function {
+    p.expect(TokenKind::Keyword(Keywords::Fn));
+    if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
+        p.idx += 1;
+        p.expect(TokenKind::LParen);
+        let mut args = vec![];
+        while !p.consume(TokenKind::RParen) {
+            args.push(assign(&mut p));
+            p.consume(TokenKind::Comma);
+        }
+        if p.symbol_table.find_lvar(name).is_some() {
+            panic!("The name '{}' does not exist in the current context", name);
+        }
+        let obj = Rc::new(Object::new(name.to_string(), p.symbol_table.len()));
+        p.symbol_table.push(Rc::clone(&obj));
+        p.current_function = Some(Function::new(name));
+    } else {
+        eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
+        panic!("expected identifier");
+    }
+
+    if p.tokens[p.idx].kind != TokenKind::LBlock {
+        p.expect(TokenKind::LBlock);
+    }
+    let statements = stmt(&mut p);
+
+    p.current_function.as_mut().unwrap().statements = match *statements {
+        Node::Block { ref stmts } if !stmts.is_empty() => Some(*statements),
+        _ => None
+    };
+
+    p.current_function.take().unwrap()
 }
 
 fn stmt(mut p: &mut Parser) -> Box<Node> {
@@ -172,7 +213,7 @@ fn stmt(mut p: &mut Parser) -> Box<Node> {
     } else if p.consume(TokenKind::Keyword(Keywords::Let)) {
         if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
             p.idx += 1;
-            let mut node = new_variable_node_with_let(&mut p.symbol_table, name);
+            let mut node = new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().symbol_table, name);
             if p.consume(TokenKind::Assign) {
                 node = new_assign_node(node, expr(&mut p))
             }
@@ -194,7 +235,7 @@ fn stmt(mut p: &mut Parser) -> Box<Node> {
 
 fn compound_stmt(mut p: &mut Parser) -> Box<Node> {
     let mut block = new_block_node(vec![]);
-    while !p.consume(TokenKind::RBlock) {
+    while !p.consume(TokenKind::RBlock) && !p.is_eof() {
         if let Node::Block{ ref mut stmts } = *block {
             stmts.push(stmt(&mut p));
         }
@@ -351,10 +392,10 @@ fn primary(mut p: &mut Parser) -> Box<Node> {
                     args.push(assign(&mut p));
                     p.consume(TokenKind::Comma);
                 }
-                new_function_call_node(&mut p.symbol_table, name, args)
+                new_function_call_node(&mut p.current_function.as_mut().unwrap().symbol_table, name, args)
             } else {
                 // variable
-                new_variable_node(&mut p.symbol_table, name)
+                new_variable_node(&mut p.current_function.as_mut().unwrap().symbol_table, name)
             }
         }
         _ => {
