@@ -107,7 +107,10 @@ assert 55 'fn main() { let i=0; let j=0; while i<=10 { j=i+j; i+=1; } return j; 
 assert 3 'fn main() { {1; {2;} return 3;} }'
 
 assert 3 'fn ret3() { return 3; } fn main() { return ret3(); }'
-assert 9 'fn ret3() { return 3; } fn main() { return plus(2*3, ret3()); }'
+assert 5 'fn main() { return ret5(); } fn ret5() { return 5; }'
+assert 7 'fn main() { return plus(3, 4); } fn plus(a, b) { return a+b; }'
+assert 66 'fn main() { return add6(1,2,add6(3,4,5,6,7,8),9,10,11); } fn add6(a,b,c,d,e,f) { return a+b+c+d+e+f; }'
+assert 55 'fn main() { return fib(9); } fn fib(x) { if x<=1 { return 1; } else { return fib(x-1)+fib(x-2); } }'
 
 echo
 echo -ne "test result: "

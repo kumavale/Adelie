@@ -4,20 +4,22 @@ use std::rc::Rc;
 pub struct Object {
     pub name: String,
     pub offset: usize,
+    pub is_param: bool,
 }
 
 impl Object {
-    pub fn new(name: String, offset: usize) -> Self {
+    pub fn new(name: String, offset: usize, is_param: bool) -> Self {
         Object {
             name,
             offset,
+            is_param,
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
-    objs: Vec<Rc<Object>>,
+    pub objs: Vec<Rc<Object>>,
 }
 
 impl SymbolTable {

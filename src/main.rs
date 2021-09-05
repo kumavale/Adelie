@@ -18,33 +18,19 @@ fn main() {
 
     println!(".assembly tmp {{}}");
 
-    // TEST ===================================================================
-    println!(".method private hidebysig static int32 plus(int32 a, int32 b) cil managed {{");
-    println!("\t.locals init (");
-    println!("\t\t[0] int32 V_0");
-    println!("\t)");
-    println!("\tnop");
-    println!("\tldarg.0");
-    println!("\tldarg.1");
-    println!("\tadd");
-    println!("\tstloc.0");
-    println!("\tldloc.0");
-    println!("\tret");
-    println!("}}");
-    // ========================================================================
-
     for func in code_ast {
         if func.name == "main" {
             println!(".method static int32 Main() cil managed {{");
             println!("\t.entrypoint");
         } else {
-            println!(".method static int32 {}() cil managed {{", func.name);
+            let args = func.param_symbol_table.objs.iter().map(|o|format!("int32 {}", o.name)).collect::<Vec<String>>().join(", ");
+            println!(".method static int32 {}({}) cil managed {{", func.name, args);
         }
 
         // prepare local variables
         println!("\t.locals init (");
-        for i in 0..func.symbol_table.len() {
-            println!("\t\t[{}] int32 V_{}{}", i, i, if i+1<func.symbol_table.len(){","}else{""});
+        for i in 0..func.lvar_symbol_table.len() {
+            println!("\t\t[{}] int32 V_{}{}", i, i, if i+1<func.lvar_symbol_table.len(){","}else{""});
         }
         println!("\t)");
 

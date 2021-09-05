@@ -15,7 +15,11 @@ pub fn gen_il(node: Node) {
             println!(")");
         }
         Node::Variable(obj) => {
-            println!("\tldloc {}", obj.offset);
+            if obj.is_param {
+                println!("\tldarg {}", obj.offset);
+            } else {
+                println!("\tldloc {}", obj.offset);
+            }
         }
         Node::Block { stmts } => {
             for stmt in stmts {

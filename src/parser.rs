@@ -127,8 +127,8 @@ fn new_num_node(num: i32) -> Box<Node> {
     Box::new(Node::Integer(num))
 }
 
-fn new_function_call_node(symbol_table: &mut SymbolTable, name: &str, args: Vec<Box<Node>>) -> Box<Node> {
-    if let Some(obj) = symbol_table.find_lvar(name) {
+fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Box<Node>>) -> Box<Node> {
+    if let Some(obj) = function.lvar_symbol_table.find_lvar(name) {
         Box::new(Node::Function {
             obj: Rc::clone(obj),
             args,
@@ -136,8 +136,8 @@ fn new_function_call_node(symbol_table: &mut SymbolTable, name: &str, args: Vec<
     } else {
         //todo!("use");
         //eprintln!("The name '{}' does not exist in the current context", name);
-        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len()));
-        symbol_table.push(Rc::clone(&obj));
+        let obj = Rc::new(Object::new(name.to_string(), function.lvar_symbol_table.len(), false));
+        function.lvar_symbol_table.push(Rc::clone(&obj));
         Box::new(Node::Function {
             obj,
             args,
@@ -145,8 +145,10 @@ fn new_function_call_node(symbol_table: &mut SymbolTable, name: &str, args: Vec<
     }
 }
 
-fn new_variable_node(symbol_table: &mut SymbolTable, name: &str) -> Box<Node> {
-    if let Some(obj) = symbol_table.find_lvar(name) {
+fn new_variable_node(function: &mut Function, name: &str) -> Box<Node> {
+    if let Some(obj) = function.lvar_symbol_table.find_lvar(name) {
+        Box::new(Node::Variable(Rc::clone(obj)))
+    } else if let Some(obj) = function.param_symbol_table.find_lvar(name) {
         Box::new(Node::Variable(Rc::clone(obj)))
     } else {
         panic!("The name '{}' does not exist in the current context", name)
@@ -157,7 +159,7 @@ fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str) -> Box
     if symbol_table.find_lvar(name).is_some() {
         panic!("A local variable or function named '{}' is already defined in this scope", name)
     } else {
-        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len()));
+        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len(), false));
         symbol_table.push(Rc::clone(&obj));
         Box::new(Node::Variable(obj))
     }
@@ -174,19 +176,29 @@ fn program(mut p: &mut Parser) -> Vec<Function> {
 fn function(mut p: &mut Parser) -> Function {
     p.expect(TokenKind::Keyword(Keywords::Fn));
     if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
-        p.idx += 1;
-        p.expect(TokenKind::LParen);
-        let mut args = vec![];
-        while !p.consume(TokenKind::RParen) {
-            args.push(assign(&mut p));
-            p.consume(TokenKind::Comma);
-        }
         if p.symbol_table.find_lvar(name).is_some() {
             panic!("The name '{}' does not exist in the current context", name);
         }
-        let obj = Rc::new(Object::new(name.to_string(), p.symbol_table.len()));
+        let obj = Rc::new(Object::new(name.to_string(), p.symbol_table.len(), false));
         p.symbol_table.push(Rc::clone(&obj));
         p.current_function = Some(Function::new(name));
+        p.idx += 1;
+        p.expect(TokenKind::LParen);
+        while !p.consume(TokenKind::RParen) {
+            if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
+                p.idx += 1;
+                if p.current_function.as_mut().unwrap().param_symbol_table.find_lvar(name).is_some() {
+                    panic!("A local variable or function named '{}' is already defined in this scope", name)
+                } else {
+                    let current_function = p.current_function.as_mut().unwrap();
+                    let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true));
+                    current_function.param_symbol_table.push(Rc::clone(&obj));
+                }
+            } else {
+                panic!("Identifier expected");
+            }
+            p.consume(TokenKind::Comma);
+        }
     } else {
         eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
         panic!("expected identifier");
@@ -210,7 +222,7 @@ fn stmt(mut p: &mut Parser) -> Box<Node> {
     } else if p.consume(TokenKind::Keyword(Keywords::Let)) {
         if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
             p.idx += 1;
-            let mut node = new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().symbol_table, name);
+            let mut node = new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name);
             if p.consume(TokenKind::Assign) {
                 node = new_assign_node(node, expr(&mut p))
             }
@@ -380,10 +392,10 @@ fn primary(mut p: &mut Parser) -> Box<Node> {
                     args.push(assign(&mut p));
                     p.consume(TokenKind::Comma);
                 }
-                new_function_call_node(&mut p.current_function.as_mut().unwrap().symbol_table, name, args)
+                new_function_call_node(&mut p.current_function.as_mut().unwrap(), name, args)
             } else {
-                // variable
-                new_variable_node(&mut p.current_function.as_mut().unwrap().symbol_table, name)
+                // local variable or parameter
+                new_variable_node(&mut p.current_function.as_mut().unwrap(), name)
             }
         }
         _ => {
