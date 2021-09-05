@@ -31,11 +31,9 @@ pub fn gen_il(node: Node, fst: &FunctionSymbolTable) {
             }
         }
         Node::If { cond, then, els } => {
-            static mut SEQ: usize = 0;
             gen_il(*cond, fst);
-            let else_label = format!("IL_else{}", unsafe { SEQ });
-            let end_label = format!("IL_end{}", unsafe { SEQ });
-            unsafe { SEQ += 1; }
+            let else_label = format!("IL_else{}", seq());
+            let end_label = format!("IL_end{}", seq());
             println!("\tbrfalse {}", else_label);
             gen_il(*then, fst);
             println!("\tbr {}", end_label);
@@ -46,10 +44,8 @@ pub fn gen_il(node: Node, fst: &FunctionSymbolTable) {
             println!("{}:", end_label);
         }
         Node::While { cond, then } => {
-            static mut SEQ: usize = 0;
-            let begin_label = format!("IL_begin{}", unsafe { SEQ });
-            let end_label = format!("IL_end{}", unsafe { SEQ });
-            unsafe { SEQ += 1; }
+            let begin_label = format!("IL_begin{}", seq());
+            let end_label = format!("IL_end{}", seq());
             println!("{}:", begin_label);
             gen_il(*cond, fst);
             println!("\tbrfalse {}", end_label);
@@ -108,5 +104,13 @@ pub fn gen_il(node: Node, fst: &FunctionSymbolTable) {
                 }
             }
         }
+    }
+}
+
+fn seq() -> usize {
+    unsafe {
+        static mut SEQ: usize = 0;
+        SEQ += 1;
+        SEQ
     }
 }

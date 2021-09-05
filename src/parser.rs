@@ -33,7 +33,7 @@ use super::builtin::*;
 //
 // primary = num
 //         | builtin
-//         | ident ( '(' ( assign ( ',' assign ) * ) ? ')' ) ?
+//         | ident ( '(' ( expr ( ',' expr ) * ) ? ')' ) ?
 //         | '(' expr ')'
 //
 // ident    = alphabet + ( num | alphabet ) *
@@ -422,7 +422,7 @@ fn primary(mut p: &mut Parser) -> Box<Node> {
                 // function
                 let mut args = vec![];
                 while !p.consume(TokenKind::RParen) {
-                    args.push(assign(&mut p));
+                    args.push(expr(&mut p));
                     p.consume(TokenKind::Comma);
                 }
                 new_function_call_node(&mut p.current_function.as_mut().unwrap(), name, args)
