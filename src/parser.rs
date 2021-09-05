@@ -15,7 +15,7 @@ use super::function::*;
 // compound_stmt = '{' stmt * '}'
 //
 // stmt = 'return' ? expr ';'
-//      | 'let' ident ( '=' expr ) ? ';'
+//      | 'let' ident ':' type ( '=' expr ) ? ';'
 //
 // expr = assign
 //      | 'if' expr compound_stmt ( 'else' compound_stmt ) ?
@@ -142,7 +142,7 @@ fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Box<Nod
         //todo!("use");
         //panic!("The name '{}' does not exist in the current context", name);
         Box::new(Node::Function {
-            obj: Rc::new(Object::new(name.to_string(), 0, false, Type::Inference)),
+            obj: Rc::new(Object::new(name.to_string(), 0, false, Type::Unknown)),
             args,
         })
     }
@@ -233,20 +233,17 @@ fn stmt(mut p: &mut Parser) -> Box<Node> {
     } else if p.consume(TokenKind::Keyword(Keyword::Let)) {
         if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
             p.idx += 1;
-            let mut node = if p.consume(TokenKind::Colon) {
-                if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
-                    p.idx += 1;
-                    new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind)
-                } else {
-                    eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
-                    panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
-                }
+            p.expect(TokenKind::Colon);
+            let mut node = if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
+                p.idx += 1;
+                new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind)
             } else {
-                new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, Type::Inference)
+                eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
+                panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
             };
             if p.consume(TokenKind::Assign) {
                 node = new_assign_node(node, expr(&mut p))
-            }
+            };
             node
         } else {
             panic!("The left-hand side of an assignment must be a variable")

@@ -12,22 +12,20 @@ pub enum Keyword {
 pub enum Type {
     Numeric(Numeric),
     String,
-    Inference,
+    Unknown,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Numeric {
     I32,
-    Inference,
 }
 
 impl Type {
     pub fn as_ilstr(&self) -> &str {
         match self {
             Type::Numeric(Numeric::I32) => "int32",
-            Type::Numeric(Numeric::Inference) => "int32",
             Type::String => "string",
-            Type::Inference => "int32",
+            Type::Unknown => "",
         }
     }
 }

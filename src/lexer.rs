@@ -139,7 +139,6 @@ impl<'a> Lexer<'a> {
                     s.push(self.ch.unwrap());
                     self.seek(1);
                 }
-                self.seek(1);
                 new_token(TokenKind::String(s), self.read_position)
             }
 
