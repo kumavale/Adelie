@@ -192,10 +192,7 @@ fn function(mut p: &mut Parser) -> Function {
         panic!("expected identifier");
     }
 
-    if p.tokens[p.idx].kind != TokenKind::LBlock {
-        p.expect(TokenKind::LBlock);
-    }
-    let statements = stmt(&mut p);
+    let statements = compound_stmt(&mut p);
 
     p.current_function.as_mut().unwrap().statements = match *statements {
         Node::Block { ref stmts } if !stmts.is_empty() => Some(*statements),
@@ -206,7 +203,7 @@ fn function(mut p: &mut Parser) -> Function {
 }
 
 fn stmt(mut p: &mut Parser) -> Box<Node> {
-    let node = if p.consume(TokenKind::LBlock) {
+    let node = if p.tokens[p.idx].kind == TokenKind::LBlock {
         compound_stmt(&mut p)
     } else if p.consume(TokenKind::Keyword(Keywords::Return)) {
         new_return_node(expr(&mut p))
@@ -235,6 +232,7 @@ fn stmt(mut p: &mut Parser) -> Box<Node> {
 
 fn compound_stmt(mut p: &mut Parser) -> Box<Node> {
     let mut block = new_block_node(vec![]);
+    p.expect(TokenKind::LBlock);
     while !p.consume(TokenKind::RBlock) && !p.is_eof() {
         if let Node::Block{ ref mut stmts } = *block {
             stmts.push(stmt(&mut p));
@@ -246,27 +244,17 @@ fn compound_stmt(mut p: &mut Parser) -> Box<Node> {
 fn expr(mut p: &mut Parser) -> Box<Node> {
     if p.consume(TokenKind::Keyword(Keywords::If)) {
         let cond = expr(&mut p);
-        if p.tokens[p.idx].kind == TokenKind::LBlock {
-            let then = stmt(&mut p);
-            let els = if p.consume(TokenKind::Keyword(Keywords::Else)) {
-                Some(stmt(&mut p))
-            } else {
-                None
-            };
-            new_if_node(cond, then, els)
+        let then = compound_stmt(&mut p);
+        let els = if p.consume(TokenKind::Keyword(Keywords::Else)) {
+            Some(compound_stmt(&mut p))
         } else {
-            p.expect(TokenKind::LBlock);
-            unreachable!();
-        }
+            None
+        };
+        new_if_node(cond, then, els)
     } else if p.consume(TokenKind::Keyword(Keywords::While)) {
         let cond = expr(&mut p);
-        if p.tokens[p.idx].kind == TokenKind::LBlock {
-            let then = stmt(&mut p);
-            new_while_node(cond, then)
-        } else {
-            p.expect(TokenKind::LBlock);
-            unreachable!();
-        }
+        let then = compound_stmt(&mut p);
+        new_while_node(cond, then)
     } else {
         assign(&mut p)
     }
