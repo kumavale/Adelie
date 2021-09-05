@@ -152,6 +152,8 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                 }
                 match &*ident {
+                    "print"   => new_token(TokenKind::Builtin(Builtin::Print),   self.read_position),
+                    "printi32_test" => new_token(TokenKind::Builtin(Builtin::PrintI32Test),   self.read_position),
                     "println" => new_token(TokenKind::Builtin(Builtin::Println), self.read_position),
 
                     "i32"    => new_token(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),

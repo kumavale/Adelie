@@ -11,7 +11,11 @@ pub fn gen_il(node: Node, fst: &FunctionSymbolTable) {
             for arg in args {
                 gen_il(*arg, fst);
             }
-            let args = fst.params(&obj.name).unwrap().objs.iter().map(|o|o.typekind.as_ilstr()).collect::<Vec<&str>>().join(", ");
+            let args = if let Some(params) = fst.params(&obj.name) {
+                params.objs.iter().map(|o|o.typekind.as_ilstr()).collect::<Vec<&str>>().join(", ")
+            } else {
+                "".to_string()
+            };
             println!("\tcall int32 {}({})", obj.name, args);
         }
         Node::Variable { typekind, obj } => {
