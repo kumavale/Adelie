@@ -173,15 +173,15 @@ fn main() {
     ngcnt += ASSERT(3, three());
 
     ngcnt += ASSERT(3, if 1==1 { let a : i32 = 3; a } else {0});
-    ngcnt += ASSERT(8, if 1==1 { let a0: i32=3; let b0: i32=5; a0+b0 } else {0});
-    ngcnt += ASSERT(7, if 1==1 { let a1: i32=2; a1+=5; a1 } else {0});
-    ngcnt += ASSERT(3, if 1==1 { let a2: i32=5; a2-=2; a2 } else {0});
-    ngcnt += ASSERT(6, if 1==1 { let a3: i32=3; a3*=2; a3 } else {0});
-    ngcnt += ASSERT(3, if 1==1 { let a4: i32=6; a4/=2; a4 } else {0});
-    ngcnt += ASSERT(3, if 1==1 { let a5: i32=7; a5%=4; a5 } else {0});
-    ngcnt += ASSERT(9, if 1==1 { let a6: i32=2; a6+=5+2; a6 } else {0});
-    ngcnt += ASSERT(8, if 1==1 { let a7: i32=2; a7+=3*2; a7 } else {0});
-    ngcnt += ASSERT(3, if 1==1 { let a8: i32=9; a8+=-3*2; a8 } else {0});
+    ngcnt += ASSERT(8, if 1==1 { let a: i32=3; let b: i32=5; a+b } else {0});
+    ngcnt += ASSERT(7, if 1==1 { let a: i32=2; a+=5; a } else {0});
+    ngcnt += ASSERT(3, if 1==1 { let a: i32=5; a-=2; a } else {0});
+    ngcnt += ASSERT(6, if 1==1 { let a: i32=3; a*=2; a } else {0});
+    ngcnt += ASSERT(3, if 1==1 { let a: i32=6; a/=2; a } else {0});
+    ngcnt += ASSERT(3, if 1==1 { let a: i32=7; a%=4; a } else {0});
+    ngcnt += ASSERT(9, if 1==1 { let a: i32=2; a+=5+2; a } else {0});
+    ngcnt += ASSERT(8, if 1==1 { let a: i32=2; a+=3*2; a } else {0});
+    ngcnt += ASSERT(3, if 1==1 { let a: i32=9; a+=-3*2; a } else {0});
     ngcnt += ASSERT(3, if 1==1 { let foo: i32; foo=3; foo } else {0});
     ngcnt += ASSERT(8, if 1==1 { let foo_123: i32=3; let bar: i32=5; foo_123+bar } else {0});
     ngcnt += ASSERT(1, if 1==1 { let f1: i32=-1; let f2: i32=2; f1+f2 } else {0});
@@ -189,7 +189,7 @@ fn main() {
 
     ngcnt += ASSERT( 5, if 1==1 { let i: i32=5; let j: i32=0; while i>0 { j+=1; i-=1; } j } else {0});
     ngcnt += ASSERT( 1, if 1==1 { while 1==0 { return 0; } 1 } else {0});
-    ngcnt += ASSERT(55, if 1==1 { let i0: i32=0; let j0: i32=0; while i0<=10 { j0=i0+j0; i0+=1; } j0 } else {0});
+    ngcnt += ASSERT(55, if 1==1 { let i: i32=0; let j: i32=0; while i<=10 { j=i+j; i+=1; } j } else {0});
 
     ngcnt += ASSERT( 3, ret3());
     ngcnt += ASSERT( 5, ret5());
@@ -198,6 +198,8 @@ fn main() {
     ngcnt += ASSERT(10, plus(plus(1, plus(2, 3)), 4));
     ngcnt += ASSERT(66, add6(1,2,add6(3,4,5,6,7,8),9,10,11));
     ngcnt += ASSERT(55, fib(9));
+
+    ngcnt += ASSERT(42, if 1==1 { let a:i32=42; if 1==1 { let a:i32=3; } a } else {0});
 
     println("");
     if ngcnt == 0 {

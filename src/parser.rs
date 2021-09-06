@@ -169,7 +169,7 @@ fn new_variable_node(function: &mut Function, name: &str) -> Box<Node> {
 }
 
 fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str, typekind: Type) -> Box<Node> {
-    if symbol_table.find_name(name).is_some() {
+    if symbol_table.find_name_current_scope(name).is_some() {
         panic!("A local variable or function named '{}' is already defined in this scope", name)
     } else {
         let obj = Rc::new(Object::new(name.to_string(), symbol_table.len(), false, typekind));
@@ -273,12 +273,14 @@ fn stmt(mut p: &mut Parser) -> Box<Node> {
 
 fn compound_stmt(mut p: &mut Parser) -> Box<Node> {
     let mut block = new_block_node(vec![]);
+    p.current_function.as_mut().unwrap().lvar_symbol_table.enter_scope();
     p.expect(TokenKind::LBlock);
     while !p.consume(TokenKind::RBlock) && !p.is_eof() {
         if let Node::Block{ ref mut stmts } = *block {
             stmts.push(stmt(&mut p));
         }
     }
+    p.current_function.as_mut().unwrap().lvar_symbol_table.leave_scope();
     block
 }
 
