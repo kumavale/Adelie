@@ -84,11 +84,27 @@ impl<'a> Lexer<'a> {
                 }
                 Some('/') => {
                     self.seek(1);
-                    let mut s = String::new();
+                    let mut s = "//".to_string();
                     while let Some(c) = self.peek_char() {
                         self.seek(1);
                         if c == '\n' {
                             break;
+                        }
+                        s.push(c);
+                    }
+                    Token::new(TokenKind::Comment(s), self.read_position)
+                }
+                Some('*') => {
+                    self.seek(1);
+                    let mut s = "/*".to_string();
+                    while let Some(c) = self.peek_char() {
+                        self.seek(1);
+                        if let Some('/') = self.peek_char() {
+                            if c == '*' {
+                                self.seek(1);
+                                s.push_str("*/");
+                                break;
+                            }
                         }
                         s.push(c);
                     }

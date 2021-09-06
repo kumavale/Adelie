@@ -218,13 +218,16 @@ assert 0 '
 fn a() { // return 1;
     return 2;//comment
 }
+fn b() { /* return 1; */ return 2; /**/ }
 fn main() {
     if a() == 2 {
-        println("ok");
-    } else {
-        println("failed");
+        if b() == 2 {
+            println("ok");
+            return 0;
+        }
     }
-    return 0;
+    println("failed");
+    return 1;
 }'
 
 #echo

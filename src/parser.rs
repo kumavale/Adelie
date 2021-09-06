@@ -145,8 +145,14 @@ fn new_builtin_call_node(kind: Builtin, args: Vec<Node>) -> Node {
     Node::Builtin { kind, args }
 }
 
-fn new_comment_node(kind: CommentKind, comment: &str) -> Node {
-    Node::Comment { kind, comment: comment.to_string() }
+fn new_comment_node(comment: &str) -> Node {
+    if comment.starts_with("//") {
+        Node::Comment { kind: CommentKind::LineComment, comment: comment.to_string() }
+    } else if comment.starts_with("/*") {
+        Node::Comment { kind: CommentKind::BlockComment, comment: comment.to_string() }
+    } else {
+        unimplemented!()
+    }
 }
 
 fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Node>) -> Node {
@@ -268,7 +274,7 @@ fn stmt(mut p: &mut Parser) -> Node {
         }
     } else if let TokenKind::Comment(s) = &p.tokens[p.idx].kind {
         p.idx += 1;
-        new_comment_node(CommentKind::LineComment, s)
+        new_comment_node(s)
     } else {
         expr(&mut p)
     };
