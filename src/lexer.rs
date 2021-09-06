@@ -82,6 +82,18 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                     new_token(TokenKind::DivAssign, self.read_position)
                 }
+                Some('/') => {
+                    self.seek(1);
+                    let mut s = String::new();
+                    while let Some(c) = self.peek_char() {
+                        self.seek(1);
+                        if c == '\n' {
+                            break;
+                        }
+                        s.push(c);
+                    }
+                    new_token(TokenKind::Comment(s), self.read_position)
+                }
                 _ => new_token(TokenKind::Slash, self.read_position)
             }
             Some('%') => match self.peek_char() {
@@ -132,13 +144,12 @@ impl<'a> Lexer<'a> {
 
             Some('"') => {
                 let mut s = String::new();
-                self.seek(1);
-                while self.ch.is_some() {
-                    if let Some('"') = self.ch {
+                while let Some(c) = self.peek_char() {
+                    self.seek(1);
+                    if c == '"' {
                         break;
                     }
-                    s.push(self.ch.unwrap());
-                    self.seek(1);
+                    s.push(c);
                 }
                 new_token(TokenKind::String(s), self.read_position)
             }

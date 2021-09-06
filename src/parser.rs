@@ -17,6 +17,9 @@ use super::builtin::*;
 //
 // stmt = 'return' ? expr ';'
 //      | 'let' ident ':' type ( '=' expr ) ? ';'
+//      | comment
+//
+// comment = '//' .* '\n'
 //
 // expr = assign
 //      | 'if' expr compound_stmt ( 'else' compound_stmt ) ?
@@ -142,6 +145,10 @@ fn new_builtin_call_node(kind: Builtin, args: Vec<Box<Node>>) -> Box<Node> {
     Box::new(Node::Builtin { kind, args })
 }
 
+fn new_comment_node(kind: CommentKind, comment: &str) -> Box<Node> {
+    Box::new(Node::Comment { kind, comment: comment.to_string() })
+}
+
 fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Box<Node>>) -> Box<Node> {
     if let Some(obj) = function.lvar_symbol_table.find_name(name) {
         Box::new(Node::Function {
@@ -259,6 +266,9 @@ fn stmt(mut p: &mut Parser) -> Box<Node> {
         } else {
             panic!("The left-hand side of an assignment must be a variable")
         }
+    } else if let TokenKind::Comment(s) = &p.tokens[p.idx].kind {
+        p.idx += 1;
+        new_comment_node(CommentKind::LineComment, s)
     } else {
         expr(&mut p)
     };

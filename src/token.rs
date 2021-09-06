@@ -39,6 +39,7 @@ pub enum TokenKind {
     Keyword(Keyword),
     Type(Type),
     Builtin(Builtin),
+    Comment(String),
 
     Illegal(String),
     Eof,

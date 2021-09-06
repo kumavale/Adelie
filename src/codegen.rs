@@ -7,6 +7,7 @@ pub fn gen_il(node: Node, fst: &FunctionSymbolTable) {
         Node::Integer { typekind, num } => println!("\tldc.i4 {}", num as i32),
         Node::String { typekind, str } => println!("\tldstr \"{}\"", str),
         Node::Builtin { kind, args } => gen_builtin_il(kind, args, fst),
+        Node::Comment { kind, comment } => (),  // Do nothing
         Node::Function { obj, args } => {
             for arg in args {
                 gen_il(*arg, fst);

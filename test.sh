@@ -212,8 +212,20 @@ fn main() {
 
     return ngcnt;
 }
-fn ret5() { return 5; }
-'
+fn ret5() { return 5; }'
+
+assert 0 '
+fn a() { // return 1;
+    return 2;//comment
+}
+fn main() {
+    if a() == 2 {
+        println("ok");
+    } else {
+        println("failed");
+    }
+    return 0;
+}'
 
 #echo
 #echo -ne "test result: "
