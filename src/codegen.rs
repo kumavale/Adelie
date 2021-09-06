@@ -10,7 +10,7 @@ pub fn gen_il(node: Node, fst: &FunctionSymbolTable) {
         Node::Comment { kind, comment } => (),  // Do nothing
         Node::Function { obj, args } => {
             for arg in args {
-                gen_il(*arg, fst);
+                gen_il(arg, fst);
             }
             let args = if let Some(params) = fst.params(&obj.name) {
                 params.objs.iter().map(|o|o.typekind.as_ilstr()).collect::<Vec<&str>>().join(", ")
@@ -28,7 +28,7 @@ pub fn gen_il(node: Node, fst: &FunctionSymbolTable) {
         }
         Node::Block { stmts } => {
             for stmt in stmts {
-                gen_il(*stmt, fst);
+                gen_il(stmt, fst);
             }
         }
         Node::If { cond, then, els } => {

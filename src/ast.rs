@@ -40,18 +40,18 @@ pub enum Node {
     },
     Builtin {
         kind: Builtin,
-        args: Vec<Box<Node>>,
+        args: Vec<Node>,
     },
     Function {
         obj: Rc<Object>,
-        args: Vec<Box<Node>>,
+        args: Vec<Node>,
     },
     Variable {
         typekind: Type,
         obj: Rc<Object>,
     },
     Block {
-        stmts: Vec<Box<Node>>,
+        stmts: Vec<Node>,
     },
     If {
         cond: Box<Node>,
