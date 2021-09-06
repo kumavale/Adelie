@@ -9,8 +9,8 @@ pub enum TokenKind {
     Slash,     // /
     Percent,   // %
 
-    LBlock,  // {
-    RBlock,  // }
+    LBrace,  // {
+    RBrace,  // }
     LParen,  // (
     RParen,  // )
 
@@ -51,4 +51,10 @@ pub struct Token {
     pub cur: usize,
     //pub line: u32,
     //pub literal: String,
+}
+
+impl Token {
+    pub fn new(kind: TokenKind, cur: usize) -> Self {
+        Token { kind, cur }
+    }
 }

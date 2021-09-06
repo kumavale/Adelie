@@ -244,7 +244,7 @@ fn function(mut p: &mut Parser) -> Function {
 }
 
 fn stmt(mut p: &mut Parser) -> Box<Node> {
-    let node = if p.tokens[p.idx].kind == TokenKind::LBlock {
+    let node = if p.tokens[p.idx].kind == TokenKind::LBrace {
         compound_stmt(&mut p)
     } else if p.consume(TokenKind::Keyword(Keyword::Return)) {
         new_return_node(expr(&mut p))
@@ -284,8 +284,8 @@ fn stmt(mut p: &mut Parser) -> Box<Node> {
 fn compound_stmt(mut p: &mut Parser) -> Box<Node> {
     let mut block = new_block_node(vec![]);
     p.current_function.as_mut().unwrap().lvar_symbol_table.enter_scope();
-    p.expect(TokenKind::LBlock);
-    while !p.consume(TokenKind::RBlock) && !p.is_eof() {
+    p.expect(TokenKind::LBrace );
+    while !p.consume(TokenKind::RBrace) && !p.is_eof() {
         if let Node::Block{ ref mut stmts } = *block {
             stmts.push(stmt(&mut p));
         }

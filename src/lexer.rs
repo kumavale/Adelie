@@ -59,28 +59,28 @@ impl<'a> Lexer<'a> {
             Some('+') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    new_token(TokenKind::AddAssign, self.read_position)
+                    Token::new(TokenKind::AddAssign, self.read_position)
                 }
-                _ => new_token(TokenKind::Plus, self.read_position)
+                _ => Token::new(TokenKind::Plus, self.read_position)
             }
             Some('-') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    new_token(TokenKind::SubAssign, self.read_position)
+                    Token::new(TokenKind::SubAssign, self.read_position)
                 }
-                _ => new_token(TokenKind::Minus, self.read_position)
+                _ => Token::new(TokenKind::Minus, self.read_position)
             }
             Some('*') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    new_token(TokenKind::MulAssign, self.read_position)
+                    Token::new(TokenKind::MulAssign, self.read_position)
                 }
-                _ => new_token(TokenKind::Asterisk, self.read_position)
+                _ => Token::new(TokenKind::Asterisk, self.read_position)
             }
             Some('/') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    new_token(TokenKind::DivAssign, self.read_position)
+                    Token::new(TokenKind::DivAssign, self.read_position)
                 }
                 Some('/') => {
                     self.seek(1);
@@ -92,55 +92,55 @@ impl<'a> Lexer<'a> {
                         }
                         s.push(c);
                     }
-                    new_token(TokenKind::Comment(s), self.read_position)
+                    Token::new(TokenKind::Comment(s), self.read_position)
                 }
-                _ => new_token(TokenKind::Slash, self.read_position)
+                _ => Token::new(TokenKind::Slash, self.read_position)
             }
             Some('%') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    new_token(TokenKind::RemAssign, self.read_position)
+                    Token::new(TokenKind::RemAssign, self.read_position)
                 }
-                _ => new_token(TokenKind::Percent, self.read_position)
+                _ => Token::new(TokenKind::Percent, self.read_position)
             }
 
-            Some('{') => new_token(TokenKind::LBlock, self.read_position),
-            Some('}') => new_token(TokenKind::RBlock, self.read_position),
-            Some('(') => new_token(TokenKind::LParen, self.read_position),
-            Some(')') => new_token(TokenKind::RParen, self.read_position),
+            Some('{') => Token::new(TokenKind::LBrace, self.read_position),
+            Some('}') => Token::new(TokenKind::RBrace, self.read_position),
+            Some('(') => Token::new(TokenKind::LParen, self.read_position),
+            Some(')') => Token::new(TokenKind::RParen, self.read_position),
 
             Some('=') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    new_token(TokenKind::Eq, self.read_position)
+                    Token::new(TokenKind::Eq, self.read_position)
                 }
-                _ => new_token(TokenKind::Assign, self.read_position)
+                _ => Token::new(TokenKind::Assign, self.read_position)
             }
             Some('<') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    new_token(TokenKind::Le, self.read_position)
+                    Token::new(TokenKind::Le, self.read_position)
                 }
-                _ => new_token(TokenKind::Lt, self.read_position),
+                _ => Token::new(TokenKind::Lt, self.read_position),
             }
             Some('>') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    new_token(TokenKind::Ge, self.read_position)
+                    Token::new(TokenKind::Ge, self.read_position)
                 }
-                _ => new_token(TokenKind::Gt, self.read_position),
+                _ => Token::new(TokenKind::Gt, self.read_position),
             }
             Some('!') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    new_token(TokenKind::Ne, self.read_position)
+                    Token::new(TokenKind::Ne, self.read_position)
                 }
                 _ => todo!("Not"),
             }
 
-            Some(',') => new_token(TokenKind::Comma,     self.read_position),
-            Some(':') => new_token(TokenKind::Colon,     self.read_position),
-            Some(';') => new_token(TokenKind::Semicolon, self.read_position),
+            Some(',') => Token::new(TokenKind::Comma,     self.read_position),
+            Some(':') => Token::new(TokenKind::Colon,     self.read_position),
+            Some(';') => Token::new(TokenKind::Semicolon, self.read_position),
 
             Some('"') => {
                 let mut s = String::new();
@@ -151,10 +151,10 @@ impl<'a> Lexer<'a> {
                     }
                     s.push(c);
                 }
-                new_token(TokenKind::String(s), self.read_position)
+                Token::new(TokenKind::String(s), self.read_position)
             }
 
-            None => new_token(TokenKind::Eof, self.read_position),
+            None => Token::new(TokenKind::Eof, self.read_position),
 
             Some('a'..='z'|'A'..='Z'|'_') => {
                 let mut ident = self.ch.unwrap().to_string();
@@ -163,46 +163,38 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                 }
                 match &*ident {
-                    "print"   => new_token(TokenKind::Builtin(Builtin::Print),   self.read_position),
-                    "printi32_test" => new_token(TokenKind::Builtin(Builtin::PrintI32Test),   self.read_position),
-                    "println" => new_token(TokenKind::Builtin(Builtin::Println), self.read_position),
+                    "print"   => Token::new(TokenKind::Builtin(Builtin::Print),   self.read_position),
+                    "printi32_test" => Token::new(TokenKind::Builtin(Builtin::PrintI32Test),   self.read_position),
+                    "println" => Token::new(TokenKind::Builtin(Builtin::Println), self.read_position),
 
-                    "i32"    => new_token(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),
-                    "String" => new_token(TokenKind::Type(Type::String),                self.read_position),
+                    "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),
+                    "String" => Token::new(TokenKind::Type(Type::String),                self.read_position),
 
-                    "else"   => new_token(TokenKind::Keyword(Keyword::Else),   self.read_position),
-                    "fn"     => new_token(TokenKind::Keyword(Keyword::Fn),     self.read_position),
-                    "if"     => new_token(TokenKind::Keyword(Keyword::If),     self.read_position),
-                    "let"    => new_token(TokenKind::Keyword(Keyword::Let),    self.read_position),
-                    "return" => new_token(TokenKind::Keyword(Keyword::Return), self.read_position),
-                    "while"  => new_token(TokenKind::Keyword(Keyword::While),  self.read_position),
-                    _ => new_token(TokenKind::Ident(ident), self.read_position)
+                    "else"   => Token::new(TokenKind::Keyword(Keyword::Else),   self.read_position),
+                    "fn"     => Token::new(TokenKind::Keyword(Keyword::Fn),     self.read_position),
+                    "if"     => Token::new(TokenKind::Keyword(Keyword::If),     self.read_position),
+                    "let"    => Token::new(TokenKind::Keyword(Keyword::Let),    self.read_position),
+                    "return" => Token::new(TokenKind::Keyword(Keyword::Return), self.read_position),
+                    "while"  => Token::new(TokenKind::Keyword(Keyword::While),  self.read_position),
+                    _ => Token::new(TokenKind::Ident(ident), self.read_position)
                 }
             }
 
-            Some('0'..='9') => {
-                let mut num = char2num(&self.ch);
-                while let Some('0'..='9') = self.peek_char() {
-                    num = num * 10 + char2num(&self.peek_char());
+            Some(n@'0'..='9') => {
+                let mut num = n.to_digit(10).unwrap();
+                while let Some(n@'0'..='9') = self.peek_char() {
+                    num = num * 10 + n.to_digit(10).unwrap();
                     self.seek(1);
                 }
-                new_token(TokenKind::Integer(num), self.read_position)
+                Token::new(TokenKind::Integer(num as i32), self.read_position)
             }
 
-            _ => new_token(TokenKind::Illegal(self.ch.unwrap().to_string()), self.read_position + 1)
+            _ => Token::new(TokenKind::Illegal(self.ch.unwrap().to_string()), self.read_position + 1)
         };
 
         self.seek(1);
         tok
     }
-}
-
-fn new_token(kind: TokenKind, cur: usize) -> Token {
-    Token { kind, cur }
-}
-
-fn char2num(ch: &Option<char>) -> i32 {
-    ch.unwrap() as i32 - 48
 }
 
 pub fn tokenize(l: &mut Lexer) -> Vec<Token> {
