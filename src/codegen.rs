@@ -56,9 +56,9 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
         }
         Node::If { cond, then, els } => {
             let cond_type = gen_il(*cond, f);
-            //if cond_type != Type::Bool {
-            //    todo!()
-            //}
+            if cond_type != Type::Bool {
+                panic!("expected `{}`, found `{}`", Type::Bool.as_str(), cond_type.as_str());
+            }
             let else_label = format!("IL_else{}", seq());
             let end_label = format!("IL_end{}", seq());
             println!("\tbrfalse {}", else_label);
@@ -79,9 +79,9 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             let end_label = format!("IL_end{}", seq());
             println!("{}:", begin_label);
             let cond_type = gen_il(*cond, f);
-            //if cond_type != Type::Bool {
-            //    todo!()
-            //}
+            if cond_type != Type::Bool {
+                panic!("expected `{}`, found `{}`", Type::Bool.as_str(), cond_type.as_str());
+            }
             println!("\tbrfalse {}", end_label);
             let then_type = gen_il(*then, f);
             println!("\tbr {}", begin_label);
@@ -117,33 +117,38 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
         Node::BinaryOp { kind, lhs, rhs } => {
             let ltype = gen_il(*lhs, f);
             let rtype = gen_il(*rhs, f);
+            if ltype != rtype {
+                panic!("expected `{}`, found `{}`", ltype.as_str(), rtype.as_str());
+            }
             match kind {
-                BinaryOpKind::Add => println!("\tadd"),
-                BinaryOpKind::Sub => println!("\tsub"),
-                BinaryOpKind::Mul => println!("\tmul"),
-                BinaryOpKind::Div => println!("\tdiv"),
-                BinaryOpKind::Rem => println!("\trem"),
+                BinaryOpKind::Add => { println!("\tadd"); ltype }
+                BinaryOpKind::Sub => { println!("\tsub"); ltype }
+                BinaryOpKind::Mul => { println!("\tmul"); ltype }
+                BinaryOpKind::Div => { println!("\tdiv"); ltype }
+                BinaryOpKind::Rem => { println!("\trem"); ltype }
 
-                BinaryOpKind::Eq => println!("\tceq"),
-                BinaryOpKind::Lt => println!("\tclt"),
+                BinaryOpKind::Eq => { println!("\tceq"); Type::Bool }
+                BinaryOpKind::Lt => { println!("\tclt"); Type::Bool }
                 BinaryOpKind::Le => {
                     println!("\tcgt");
                     println!("\tldc.i4.0");
                     println!("\tceq");
+                    Type::Bool
                 }
                 BinaryOpKind::Ne => {
                     println!("\tceq");
                     println!("\tldc.i4.0");
                     println!("\tceq");
+                    Type::Bool
                 }
-                BinaryOpKind::Gt => println!("\tcgt"),
+                BinaryOpKind::Gt => { println!("\tcgt"); Type::Bool }
                 BinaryOpKind::Ge => {
                     println!("\tclt");
                     println!("\tldc.i4.0");
                     println!("\tceq");
+                    Type::Bool
                 }
             }
-            Type::Numeric(Numeric::I32) //tmp
         }
     }
 }
