@@ -13,22 +13,22 @@ fn main() {
 
     let mut lexer = lexer::Lexer::new(&input);
     let tokens = lexer::tokenize(&mut lexer);
+    //eprintln!("{:?}", tokens.iter().map(|t|t.kind.clone()).collect::<Vec<token::TokenKind>>());
     //eprintln!("{:?}", tokens);
 
     let mut fn_symbol_table = object::SymbolTable::new();
     let code_ast = parser::gen_ast(&tokens, &mut fn_symbol_table);
-    let fst = function::FunctionSymbolTable::new(&code_ast);
 
     println!(".assembly extern mscorlib {{}}");
     println!(".assembly tmp {{}}");
 
-    for func in code_ast {
+    for func in &code_ast {
         if func.name == "main" {
-            println!(".method static int32 Main() cil managed {{");
+            println!(".method static void Main() cil managed {{");
             println!("\t.entrypoint");
         } else {
             let args = func.param_symbol_table.objs.iter().map(|o|format!("{} {}", o.typekind.as_ilstr(), o.name)).collect::<Vec<String>>().join(", ");
-            println!(".method static int32 {}({}) cil managed {{", func.name, args);
+            println!(".method static {} {}({}) cil managed {{", func.rettype.as_ilstr(), func.name, args);
         }
         println!("\t.maxstack 32");
 
@@ -39,8 +39,9 @@ fn main() {
         }
         println!("\t)");
 
-        if let Some(statements) = func.statements {
-            codegen::gen_il(statements, &fst);
+        let rettype = codegen::gen_il(func.statements.clone(), &code_ast);
+        if rettype != func.rettype {
+            panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.as_str(), rettype.as_str());
         }
 
         println!("\tret");

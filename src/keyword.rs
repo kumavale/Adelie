@@ -12,7 +12,7 @@ pub enum Keyword {
 pub enum Type {
     Numeric(Numeric),
     String,
-    Unknown,
+    Void,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -21,11 +21,18 @@ pub enum Numeric {
 }
 
 impl Type {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Type::Numeric(Numeric::I32) => "i32",
+            Type::String => "String",
+            Type::Void => "void",
+        }
+    }
     pub fn as_ilstr(&self) -> &str {
         match self {
             Type::Numeric(Numeric::I32) => "int32",
             Type::String => "string",
-            Type::Unknown => "",
+            Type::Void => "void",
         }
     }
 }

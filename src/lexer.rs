@@ -68,6 +68,10 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                     Token::new(TokenKind::SubAssign, self.read_position)
                 }
+                Some('>') => {
+                    self.seek(1);
+                    Token::new(TokenKind::RArrow, self.read_position)
+                }
                 _ => Token::new(TokenKind::Minus, self.read_position)
             }
             Some('*') => match self.peek_char() {
@@ -92,15 +96,18 @@ impl<'a> Lexer<'a> {
                         }
                         s.push(c);
                     }
-                    Token::new(TokenKind::Comment(s), self.read_position)
+                    //Token::new(TokenKind::Comment(s), self.read_position)
+                    let t = self.next_token();
+                    self.seek(-1);
+                    t
                 }
                 Some('*') => {
                     self.seek(1);
                     let mut s = "/*".to_string();
                     while let Some(c) = self.peek_char() {
                         self.seek(1);
-                        if let Some('/') = self.peek_char() {
-                            if c == '*' {
+                        if c == '*' {
+                            if let Some('/') = self.peek_char() {
                                 self.seek(1);
                                 s.push_str("*/");
                                 break;
@@ -108,7 +115,11 @@ impl<'a> Lexer<'a> {
                         }
                         s.push(c);
                     }
-                    Token::new(TokenKind::Comment(s), self.read_position)
+                    //Token::new(TokenKind::Comment(s), self.read_position)
+                    self.seek(1);
+                    let t = self.next_token();
+                    self.seek(-1);
+                    t
                 }
                 _ => Token::new(TokenKind::Slash, self.read_position)
             }

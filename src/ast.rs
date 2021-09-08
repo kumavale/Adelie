@@ -43,12 +43,11 @@ pub enum Node {
         kind: Builtin,
         args: Vec<Node>,
     },
-    Function {
-        obj: Rc<Object>,
+    Call {
+        name: String,
         args: Vec<Node>,
     },
     Variable {
-        typekind: Type,
         obj: Rc<Object>,
     },
     Block {
@@ -67,11 +66,11 @@ pub enum Node {
         lhs: Box<Node>,
         rhs: Box<Node>,
     },
-    Pop {
-        expr: Box<Node>,
-    },
+    //Pop {
+    //    expr: Box<Node>,
+    //},
     Return {
-        expr: Box<Node>,
+        expr: Option<Box<Node>>,
     },
     UnaryOp {
         kind: UnaryOpKind,

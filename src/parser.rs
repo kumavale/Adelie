@@ -10,22 +10,23 @@ use super::builtin::*;
 //
 // program = function *
 //
-// function = 'fn' ident '(' ( param ( ',' param ) * ) ? ')' compound_stmt
-// param    = ident ':' type
+// function             = 'fn' ident '(' ( param ( ',' param ) * ) ? ')' function_return_type ? block_expression
+// param                = ident ':' type
+// function_return_type = '->' type
 //
-// compound_stmt = '{' stmt * '}'
+// block_expression = '{' statement * '}'
 //
-// stmt = 'return' ? expr ';'
+// statement = 'return' ? expr ';'
 //      | 'let' ident ':' type ( '=' expr ) ? ';'
 //      | comment
 //
 // comment = '//' .* '\n'
 //
 // expr = assign
-//      | 'if' expr compound_stmt ( 'else' compound_stmt ) ?
-//      | 'while' expr compound_stmt
+//      | 'if' expr block_expression ( 'else' block_expression ) ?
+//      | 'while' expr block_expression
 //
-// assign           = equality ( ( '=' | binary_assign_op ) assign ) ?
+// assign           = equality ( ( '=' | binary_assign_op ) expr ) ?
 // binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%='
 // equality         = relational ( '==' relational | '!=' relational ) *
 // relational       = add ( '<' add | '<=' add | '>' add | '>=' add ) *
@@ -102,80 +103,126 @@ pub fn gen_ast<'a>(tokens: &'a [Token], fn_symbol_table: &'a mut SymbolTable) ->
 }
 
 fn new_binary_op_node(kind: BinaryOpKind, lhs: Node, rhs: Node) -> Node {
-    Node::BinaryOp{ kind, lhs: Box::new(lhs), rhs: Box::new(rhs) }
+    Node::BinaryOp {
+        kind,
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    }
 }
 
 fn new_unary_op_node(kind: UnaryOpKind, expr: Node) -> Node {
-    Node::UnaryOp { kind, expr: Box::new(expr) }
+    Node::UnaryOp {
+        kind,
+        expr: Box::new(expr),
+    }
 }
 
 fn new_assign_node(lhs: Node, rhs: Node) -> Node {
-    Node::Assign { lhs: Box::new(lhs), rhs: Box::new(rhs) }
+    Node::Assign {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    }
 }
 
 fn new_if_node(cond: Node, then: Node, els: Option<Node>) -> Node {
-    Node::If { cond: Box::new(cond), then: Box::new(then), els: els.map(Box::new) }
+    Node::If {
+        cond: Box::new(cond),
+        then: Box::new(then),
+        els: els.map(Box::new),
+    }
 }
 
 fn new_while_node(cond: Node, then: Node) -> Node {
-    Node::While { cond: Box::new(cond), then: Box::new(then) }
+    Node::While {
+        cond: Box::new(cond),
+        then: Box::new(then),
+    }
 }
 
 fn new_block_node(stmts: Vec<Node>) -> Node {
-    Node::Block { stmts }
+    Node::Block {
+        stmts,
+    }
 }
 
-fn new_pop_node(expr: Node) -> Node {
-    Node::Pop { expr: Box::new(expr) }
-}
+//fn new_pop_node(expr: Node) -> Node {
+//    Node::Pop {
+//        expr: Box::new(expr),
+//    }
+//}
 
-fn new_return_node(expr: Node) -> Node {
-    Node::Return { expr: Box::new(expr) }
+fn new_return_node(expr: Option<Node>) -> Node {
+    Node::Return {
+        expr: expr.map(Box::new),
+    }
 }
 
 fn new_num_node(num: i32) -> Node {
-    Node::Integer { typekind: Type::Numeric(Numeric::I32), num }
+    Node::Integer {
+        typekind: Type::Numeric(Numeric::I32),
+        num,
+    }
 }
 
 fn new_string_node(s: &str) -> Node {
-    Node::String { typekind: Type::String, str: s.to_string() }
+    Node::String {
+        typekind: Type::String,
+        str: s.to_string(),
+    }
 }
 
 fn new_builtin_call_node(kind: Builtin, args: Vec<Node>) -> Node {
-    Node::Builtin { kind, args }
+    Node::Builtin {
+        kind,
+        args,
+    }
 }
 
 fn new_comment_node(comment: &str) -> Node {
     if comment.starts_with("//") {
-        Node::Comment { kind: CommentKind::LineComment, comment: comment.to_string() }
+        Node::Comment {
+            kind: CommentKind::LineComment,
+            comment: comment.to_string(),
+        }
     } else if comment.starts_with("/*") {
-        Node::Comment { kind: CommentKind::BlockComment, comment: comment.to_string() }
+        Node::Comment {
+            kind: CommentKind::BlockComment,
+            comment: comment.to_string(),
+        }
     } else {
         unimplemented!()
     }
 }
 
 fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Node>) -> Node {
-    if let Some(obj) = function.lvar_symbol_table.find_name(name) {
-        Node::Function {
-            obj: Rc::clone(obj),
-            args,
-        }
-    } else {
-        //todo!("use");
-        //panic!("The name '{}' does not exist in the current context", name);
-        Node::Function {
-            obj: Rc::new(Object::new(name.to_string(), 0, false, Type::Unknown)),
-            args,
-        }
+    Node::Call {
+        name: name.to_string(),
+        args,
     }
+    //if let Some(obj) = function.lvar_symbol_table.find_name(name) {
+    //    Node::Call {
+    //        name: name.to_string(),
+    //        args,
+    //    }
+    //} else {
+    //    //todo!("use");
+    //    //panic!("The name '{}' does not exist in the current context", name);
+    //    Node::Call {
+    //        name: name.to_string(),
+    //        args,
+    //    }
+    //}
 }
 
 fn new_variable_node(function: &mut Function, name: &str) -> Node {
     if let Some(obj) = function.lvar_symbol_table.find_name(name) {
-        Node::Variable { typekind: obj.typekind, obj: Rc::clone(obj) }
+        Node::Variable {
+            obj: Rc::clone(obj),
+        }
     } else if let Some(obj) = function.param_symbol_table.find_name(name) {
-        Node::Variable { typekind: obj.typekind, obj: Rc::clone(obj) }
+        Node::Variable {
+            obj: Rc::clone(obj),
+        }
     } else {
         panic!("The name '{}' does not exist in the current context", name)
     }
@@ -187,7 +234,9 @@ fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str, typeki
     } else {
         let obj = Rc::new(Object::new(name.to_string(), symbol_table.len(), false, typekind));
         symbol_table.push(Rc::clone(&obj));
-        Node::Variable { typekind, obj }
+        Node::Variable {
+            obj,
+        }
     }
 }
 
@@ -239,26 +288,31 @@ fn function(mut p: &mut Parser) -> Function {
         panic!("expected identifier");
     }
 
-    let statements = compound_stmt(&mut p);
+    if p.consume(TokenKind::RArrow) {
+        if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
+            p.idx += 1;
+            p.current_function.as_mut().unwrap().rettype = typekind;
+        } else {
+            eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
+            panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
+        }
+    }
 
-    p.current_function.as_mut().unwrap().statements = match statements {
-        Node::Block { ref stmts } if !stmts.is_empty() => Some(statements),
-        _ => None
-    };
-
+    p.current_function.as_mut().unwrap().statements = block_expression(&mut p);
     p.current_function.take().unwrap()
 }
 
-fn stmt(mut p: &mut Parser) -> Node {
-    let node = if p.tokens[p.idx].kind == TokenKind::LBrace {
-        compound_stmt(&mut p)
-    } else if p.consume(TokenKind::Keyword(Keyword::Return)) {
-        new_return_node(expr(&mut p))
+fn statement(mut p: &mut Parser) -> Node {
+    let node =  if p.consume(TokenKind::Keyword(Keyword::Return)) {
+        if p.consume(TokenKind::Semicolon) {
+            return new_return_node(None);
+        }
+        new_return_node(Some(expr(&mut p)))
     } else if p.consume(TokenKind::Keyword(Keyword::Let)) {
         if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
             p.idx += 1;
             p.expect(TokenKind::Colon);
-            let mut node = if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
+            let node = if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
                 p.idx += 1;
                 new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind)
             } else {
@@ -266,9 +320,11 @@ fn stmt(mut p: &mut Parser) -> Node {
                 panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
             };
             if p.consume(TokenKind::Assign) {
-                node = new_assign_node(node, expr(&mut p))
-            };
-            node
+                new_assign_node(node, expr(&mut p))
+            } else {
+                p.expect(TokenKind::Semicolon);
+                statement(&mut p)
+            }
         } else {
             panic!("The left-hand side of an assignment must be a variable")
         }
@@ -280,39 +336,40 @@ fn stmt(mut p: &mut Parser) -> Node {
     };
 
     if p.consume(TokenKind::Semicolon) {
-        new_pop_node(node)
+        //new_pop_node(node)
+        node
     } else {
         node
         //todo!("implicit return")
     }
 }
 
-fn compound_stmt(mut p: &mut Parser) -> Node {
-    let mut block = new_block_node(vec![]);
+fn block_expression(mut p: &mut Parser) -> Node {
+    let mut stmts = vec![];
     p.current_function.as_mut().unwrap().lvar_symbol_table.enter_scope();
     p.expect(TokenKind::LBrace );
     while !p.consume(TokenKind::RBrace) && !p.is_eof() {
-        if let Node::Block{ ref mut stmts } = block {
-            stmts.push(stmt(&mut p));
-        }
+        stmts.push(statement(&mut p));
     }
     p.current_function.as_mut().unwrap().lvar_symbol_table.leave_scope();
-    block
+    new_block_node(stmts)
 }
 
 fn expr(mut p: &mut Parser) -> Node {
-    if p.consume(TokenKind::Keyword(Keyword::If)) {
+    if p.tokens[p.idx].kind == TokenKind::LBrace {
+        block_expression(&mut p)
+    } else if p.consume(TokenKind::Keyword(Keyword::If)) {
         let cond = expr(&mut p);
-        let then = compound_stmt(&mut p);
+        let then = block_expression(&mut p);
         let els = if p.consume(TokenKind::Keyword(Keyword::Else)) {
-            Some(compound_stmt(&mut p))
+            Some(block_expression(&mut p))
         } else {
             None
         };
         new_if_node(cond, then, els)
     } else if p.consume(TokenKind::Keyword(Keyword::While)) {
         let cond = expr(&mut p);
-        let then = compound_stmt(&mut p);
+        let then = block_expression(&mut p);
         new_while_node(cond, then)
     } else {
         assign(&mut p)
@@ -323,7 +380,7 @@ fn assign(mut p: &mut Parser) -> Node {
     let node = equality(&mut p);
 
     if p.consume(TokenKind::Assign) {
-        new_assign_node(node, assign(&mut p))
+        new_assign_node(node, expr(&mut p))
     } else if p.consume(TokenKind::AddAssign) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Add, node, expr(&mut p)))

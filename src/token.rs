@@ -32,6 +32,8 @@ pub enum TokenKind {
     Colon,      // :
     Semicolon,  // ;
 
+    RArrow,  // ->
+
     Integer(i32),    // -?[1-9][0-9]*
     String(String),  // ".*"
 
