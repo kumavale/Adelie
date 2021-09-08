@@ -169,8 +169,8 @@ fn main() {
     ngcnt += ASSERT(0, 1>=2);
 
     ngcnt += ASSERT(1, one());
-    //ngcnt += ASSERT(2, two());
-    //ngcnt += ASSERT(3, three());
+    ngcnt += ASSERT(2, two());
+    ngcnt += ASSERT(3, three());
 
     ngcnt += ASSERT(3, { let a : i32 = 3; a });
     ngcnt += ASSERT(8, { let a: i32=3; let b: i32=5; a+b });
@@ -230,6 +230,7 @@ fn main() {
 
 assert 0 ' fn a() { println("ok"); } fn main() { a(); }'
 assert 0 ' fn main() { if 1==1 { println("ok"); } else { println("failed"); } }'
+assert 0 ' fn a() -> i32 { 42 } fn main() { if a()==42 { println("ok") } else { println("failed") } }'
 
 #echo
 #echo -ne "test result: "

@@ -66,9 +66,9 @@ pub enum Node {
         lhs: Box<Node>,
         rhs: Box<Node>,
     },
-    //Pop {
-    //    expr: Box<Node>,
-    //},
+    Evaluates {
+        expr: Box<Node>,
+    },
     Return {
         expr: Option<Box<Node>>,
     },

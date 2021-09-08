@@ -25,12 +25,20 @@ impl<'a> Lexer<'a> {
     }
 
     fn seek(&mut self, offset: i32) {
-        self.ch = self.peek_char();
-        self.position = self.read_position;
         match offset.cmp(&0) {
-            Ordering::Greater => self.read_position += offset as usize,
-            Ordering::Less => self.read_position -= offset.abs() as usize,
             Ordering::Equal => (),  // Do nothing
+            Ordering::Greater => {
+                self.ch = self.peek_char();
+                self.position = self.read_position;
+                self.read_position += 1;
+                self.seek(offset-1);
+            }
+            Ordering::Less => {
+                self.ch = self.peek_char();
+                self.position = self.read_position;
+                self.read_position -= 1;
+                self.seek(offset+1);
+            }
         }
     }
 
@@ -97,9 +105,7 @@ impl<'a> Lexer<'a> {
                         s.push(c);
                     }
                     //Token::new(TokenKind::Comment(s), self.read_position)
-                    let t = self.next_token();
-                    self.seek(-1);
-                    t
+                    return self.next_token();
                 }
                 Some('*') => {
                     self.seek(1);
@@ -108,7 +114,7 @@ impl<'a> Lexer<'a> {
                         self.seek(1);
                         if c == '*' {
                             if let Some('/') = self.peek_char() {
-                                self.seek(1);
+                                self.seek(2);
                                 s.push_str("*/");
                                 break;
                             }
@@ -116,10 +122,7 @@ impl<'a> Lexer<'a> {
                         s.push(c);
                     }
                     //Token::new(TokenKind::Comment(s), self.read_position)
-                    self.seek(1);
-                    let t = self.next_token();
-                    self.seek(-1);
-                    t
+                    return self.next_token();
                 }
                 _ => Token::new(TokenKind::Slash, self.read_position)
             }

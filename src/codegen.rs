@@ -43,10 +43,14 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
         Node::Block { stmts } => {
             let mut typekind = Type::Void;
             for stmt in stmts {
-                typekind = gen_il(stmt, f);
-                //if typekind != Type::Void {
-                //    println!("\tpop");
-                //}
+                if let Node::Evaluates { ref expr } = stmt {
+                    typekind = gen_il(stmt, f);
+                } else {
+                    typekind = gen_il(stmt, f);
+                    if typekind != Type::Void {
+                        println!("\tpop");
+                    }
+                }
             }
             typekind
         }
@@ -61,11 +65,7 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             let then_type = gen_il(*then, f);
             println!("\tbr {}", end_label);
             println!("{}:", else_label);
-            let els_type = if let Some(els) = els {
-                Some(gen_il(*els, f))
-            } else {
-                None
-            };
+            let els_type = els.map(|els| gen_il(*els, f));
             println!("{}:", end_label);
             if let Some(els_type) = els_type {
                 if els_type != then_type {
@@ -92,16 +92,11 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             if let Node::Variable { obj } = *lhs {
                 gen_il(*rhs, f);
                 println!("\tstloc {}", obj.offset);
-                //println!("\tldc.i4.0");
             } else {
                 panic!("The left-hand side of an assignment must be a variable");
             }
             Type::Void
         }
-        //Node::Pop { expr } => {
-        //    gen_il(*expr, f);
-        //    println!("\tpop");
-        //}
         Node::Return { expr } => {
             let rettype = if let Some(expr) = expr {
                 gen_il(*expr, f)
@@ -110,6 +105,9 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             };
             println!("\tret");
             rettype
+        }
+        Node::Evaluates { expr } => {
+            gen_il(*expr, f)
         }
         Node::UnaryOp { kind: _, expr } => {
             let typekind = gen_il(*expr, f);

@@ -145,15 +145,15 @@ fn new_block_node(stmts: Vec<Node>) -> Node {
     }
 }
 
-//fn new_pop_node(expr: Node) -> Node {
-//    Node::Pop {
-//        expr: Box::new(expr),
-//    }
-//}
-
 fn new_return_node(expr: Option<Node>) -> Node {
     Node::Return {
         expr: expr.map(Box::new),
+    }
+}
+
+fn new_evaluates_node(expr: Node) -> Node {
+    Node::Evaluates {
+        expr: Box::new(expr),
     }
 }
 
@@ -199,19 +199,6 @@ fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Node>) 
         name: name.to_string(),
         args,
     }
-    //if let Some(obj) = function.lvar_symbol_table.find_name(name) {
-    //    Node::Call {
-    //        name: name.to_string(),
-    //        args,
-    //    }
-    //} else {
-    //    //todo!("use");
-    //    //panic!("The name '{}' does not exist in the current context", name);
-    //    Node::Call {
-    //        name: name.to_string(),
-    //        args,
-    //    }
-    //}
 }
 
 fn new_variable_node(function: &mut Function, name: &str) -> Node {
@@ -336,11 +323,9 @@ fn statement(mut p: &mut Parser) -> Node {
     };
 
     if p.consume(TokenKind::Semicolon) {
-        //new_pop_node(node)
         node
     } else {
-        node
-        //todo!("implicit return")
+        new_evaluates_node(node)
     }
 }
 
