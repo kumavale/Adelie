@@ -75,14 +75,7 @@ impl<'a> Parser<'a> {
             self.idx += 1;
         } else {
             eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
-            panic!("expected {:?}, but got {:?}", kind, self.tokens[self.idx].kind);
-        }
-    }
-
-    fn check_illegal(&self) {
-        if let TokenKind::Illegal(_) = self.tokens[self.idx].kind {
-            eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
-            panic!("illegal TokenKind {:?}", self.tokens[self.idx].kind);
+            panic!("expected `{:?}`, but got `{:?}`", kind, self.tokens[self.idx].kind);
         }
     }
 
@@ -252,7 +245,7 @@ fn function(mut p: &mut Parser) -> Function {
                         typekind
                     } else {
                         eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
-                        panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
+                        panic!("expected type, but got `{:?}`", p.tokens[p.idx].kind);
                     };
                     p.idx += 1;
                     let current_function = p.current_function.as_mut().unwrap();
@@ -275,7 +268,7 @@ fn function(mut p: &mut Parser) -> Function {
             p.current_function.as_mut().unwrap().rettype = typekind;
         } else {
             eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
-            panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
+            panic!("expected type, but got `{:?}`", p.tokens[p.idx].kind);
         }
     }
 
@@ -298,7 +291,7 @@ fn statement(mut p: &mut Parser) -> Node {
                 new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind)
             } else {
                 eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
-                panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
+                panic!("expected type, but got `{:?}`", p.tokens[p.idx].kind);
             };
             if p.consume(TokenKind::Assign) {
                 let node = new_assign_node(node, expr(&mut p));
@@ -383,7 +376,6 @@ fn equality(mut p: &mut Parser) -> Node {
     let mut node = relational(&mut p);
 
     loop {
-        p.check_illegal();
         if p.consume(TokenKind::EqEq) {
             node = new_binary_op_node(BinaryOpKind::Eq, node, relational(&mut p));
         } else if p.consume(TokenKind::Ne) {
@@ -398,7 +390,6 @@ fn relational(mut p: &mut Parser) -> Node {
     let mut node = add(&mut p);
 
     loop {
-        p.check_illegal();
         if p.consume(TokenKind::Lt) {
             node = new_binary_op_node(BinaryOpKind::Lt, node, add(&mut p));
         } else if p.consume(TokenKind::Le) {
@@ -417,7 +408,6 @@ fn add(mut p: &mut Parser) -> Node {
     let mut node = mul(&mut p);
 
     loop {
-        p.check_illegal();
         if p.consume(TokenKind::Plus) {
             node = new_binary_op_node(BinaryOpKind::Add, node, mul(&mut p));
         } else if p.consume(TokenKind::Minus) {
@@ -432,7 +422,6 @@ fn mul(mut p: &mut Parser) -> Node {
     let mut node = unary(&mut p);
 
     loop {
-        p.check_illegal();
         if p.consume(TokenKind::Star) {
             node = new_binary_op_node(BinaryOpKind::Mul, node, unary(&mut p));
         } else if p.consume(TokenKind::Slash) {
@@ -502,7 +491,7 @@ fn primary(mut p: &mut Parser) -> Node {
         }
         _ => {
             eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
-            panic!("illegal TokenKind {:?}", p.tokens[p.idx].kind);
+            panic!("illegal TokenKind `{:?}`", p.tokens[p.idx].kind);
         }
     }
 }
