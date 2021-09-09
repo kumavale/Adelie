@@ -30,7 +30,7 @@ use super::builtin::*;
 //
 // add   = mul ( '+' mul | '-' mul ) *
 // mul   = unary ( '*' unary | '/' unary | '%' unary ) *
-// unary = ( '-' ) ? primary
+// unary = ( '-' | '!' ) ? primary
 //
 // primary = num
 //         | bool
@@ -448,6 +448,8 @@ fn mul(mut p: &mut Parser) -> Node {
 fn unary(mut p: &mut Parser) -> Node {
     if p.consume(TokenKind::Minus) {
         new_unary_op_node(UnaryOpKind::Neg, unary(&mut p))
+    } else if p.consume(TokenKind::Not) {
+        new_unary_op_node(UnaryOpKind::Not, unary(&mut p))
     } else {
         primary(&mut p)
     }

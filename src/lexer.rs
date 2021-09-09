@@ -165,7 +165,7 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                     Token::new(TokenKind::Ne, self.read_position)
                 }
-                _ => todo!("Not"),
+                _ => Token::new(TokenKind::Not, self.read_position),
             }
 
             Some(',') => Token::new(TokenKind::Comma, self.read_position),

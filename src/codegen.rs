@@ -105,9 +105,22 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
         Node::Evaluates { expr } => {
             gen_il(*expr, f)
         }
-        Node::UnaryOp { kind: _, expr } => {
+        Node::UnaryOp { kind, expr } => {
             let typekind = gen_il(*expr, f);
-            println!("\tneg");
+            match kind {
+                UnaryOpKind::Not => {
+                    match typekind {
+                        Type::Bool => {
+                            println!("\tldc.i4.0");
+                            println!("\tceq");
+                        }
+                        _ => println!("\tnot")
+                    }
+                }
+                UnaryOpKind::Neg => {
+                    println!("\tneg");
+                }
+            }
             typekind
         }
         Node::BinaryOp { kind, lhs, rhs } => {

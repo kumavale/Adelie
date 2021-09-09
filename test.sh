@@ -193,6 +193,12 @@ fn main() {
 
     ngcnt += ASSERT(42, if 1==1 { let a:i32=42; if 1==1 { let a:i32=3; } a } else {0});
 
+    ngcnt += ASSERT(-42, -42);
+    ngcnt += ASSERT(-43, !42);
+    ngcnt += ASSERT(true, !false);
+    ngcnt += ASSERT(false, !true);
+    ngcnt += ASSERT(true, !!true);
+
     if ngcnt == 0 {
         println("ok");
     } else {

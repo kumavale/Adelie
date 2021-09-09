@@ -9,6 +9,8 @@ pub enum TokenKind {
     Slash,     // /
     Percent,   // %
 
+    Not,  // !
+
     LBrace,  // {
     RBrace,  // }
     LParen,  // (
