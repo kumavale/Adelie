@@ -194,7 +194,6 @@ impl<'a> Lexer<'a> {
                 }
                 match &*ident {
                     "print"   => Token::new(TokenKind::Builtin(Builtin::Print),   self.read_position),
-                    "printi32_test" => Token::new(TokenKind::Builtin(Builtin::PrintI32Test),   self.read_position),
                     "println" => Token::new(TokenKind::Builtin(Builtin::Println), self.read_position),
 
                     "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),

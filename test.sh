@@ -118,21 +118,13 @@ fn plus(a: i32, b: i32) -> i32 { return a+b; }
 fn add6(a:i32, b:i32, c:i32, d:i32, e:i32, f:i32) -> i32 { return a+b+c+d+e+f; }
 fn fib(x: i32) -> i32 { if x<=1 { return 1; } else { return fib(x-1)+fib(x-2); } }
 fn ASSERT(expect: i32, actual: i32) -> i32 {
-    let a: String = ", actual: ";
+    let format: String = "[  {0}  ] expect: {1}, actual: {2}";
     if expect == actual {
-        print("[  OK  ] expect: ");
-        printi32_test(expect);
-        print(a);
-        printi32_test(actual);
-        println("");
-        return 0;
+        println(format, "OK", expect, actual);
+        0
     } else {
-        print("[  NG  ] expect: ");
-        printi32_test(expect);
-        print(a);
-        printi32_test(actual);
-        println("");
-        return 1;
+        println(format, "NG", expect, actual);
+        1
     }
 }
 
@@ -204,9 +196,7 @@ fn main() {
     if ngcnt == 0 {
         println("ok");
     } else {
-        print("failed: ");
-        printi32_test(ngcnt);
-        println("");
+        println("failed: {0}", ngcnt);
     }
 }
 fn ret5() -> i32 { return 5; }'

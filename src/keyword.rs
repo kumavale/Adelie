@@ -47,6 +47,7 @@ impl Type {
             Type::Void => "void",
         }
     }
+
     pub fn as_ilstr(&self) -> &str {
         match self {
             Type::Numeric(Numeric::I32) => "int32",

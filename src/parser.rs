@@ -491,7 +491,7 @@ fn primary(mut p: &mut Parser) -> Node {
             p.expect(TokenKind::LParen);
             let mut args = vec![];
             while !p.consume(TokenKind::RParen) {
-                args.push(assign(&mut p));
+                args.push(expr(&mut p));
                 p.consume(TokenKind::Comma);
             }
             new_builtin_call_node(*kind, args)
