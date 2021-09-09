@@ -18,9 +18,6 @@ use super::builtin::*;
 //
 // statement = 'return' ? expr ';'
 //      | 'let' ident ':' type ( '=' expr ) ? ';'
-//      | comment
-//
-// comment = '//' .* '\n'
 //
 // expr = assign
 //      | 'if' expr block_expression ( 'else' block_expression ) ?
@@ -239,10 +236,9 @@ fn function(mut p: &mut Parser) -> Function {
     p.expect(TokenKind::Keyword(Keyword::Fn));
     if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
         if p.fn_symbol_table.find_name(name).is_some() {
-            panic!("The name '{}' does not exist in the current context", name);
+            panic!("the name `{}` is defined multiple times", name);
         }
-        let rettype = Type::Numeric(Numeric::I32);
-        let obj = Rc::new(Object::new(name.to_string(), p.fn_symbol_table.len(), false, rettype));
+        let obj = Rc::new(Object::new(name.to_string(), p.fn_symbol_table.len(), false, Type::Void));
         p.fn_symbol_table.push(Rc::clone(&obj));
         p.current_function = Some(Function::new(name));
         p.idx += 1;
@@ -251,7 +247,7 @@ fn function(mut p: &mut Parser) -> Function {
             if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
                 p.idx += 1;
                 if p.current_function.as_mut().unwrap().param_symbol_table.find_name(name).is_some() {
-                    panic!("A local variable or function named '{}' is already defined in this scope", name)
+                    panic!("A local variable or function named '{}' is already defined in this scope", name);
                 } else {
                     p.expect(TokenKind::Colon);
                     let typekind = if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
@@ -291,7 +287,7 @@ fn function(mut p: &mut Parser) -> Function {
 
 fn statement(mut p: &mut Parser) -> Node {
     let node =  if p.consume(TokenKind::Keyword(Keyword::Return)) {
-        if p.consume(TokenKind::Semicolon) {
+        if p.consume(TokenKind::Semi) {
             return new_return_node(None);
         }
         new_return_node(Some(expr(&mut p)))
@@ -309,7 +305,7 @@ fn statement(mut p: &mut Parser) -> Node {
             if p.consume(TokenKind::Assign) {
                 new_assign_node(node, expr(&mut p))
             } else {
-                p.expect(TokenKind::Semicolon);
+                p.expect(TokenKind::Semi);
                 statement(&mut p)
             }
         } else {
@@ -322,7 +318,7 @@ fn statement(mut p: &mut Parser) -> Node {
         expr(&mut p)
     };
 
-    if p.consume(TokenKind::Semicolon) {
+    if p.consume(TokenKind::Semi) {
         node
     } else {
         new_evaluates_node(node)
@@ -366,19 +362,19 @@ fn assign(mut p: &mut Parser) -> Node {
 
     if p.consume(TokenKind::Assign) {
         new_assign_node(node, expr(&mut p))
-    } else if p.consume(TokenKind::AddAssign) {
+    } else if p.consume(TokenKind::PlusEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Add, node, expr(&mut p)))
-    } else if p.consume(TokenKind::SubAssign) {
+    } else if p.consume(TokenKind::MinusEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Sub, node, expr(&mut p)))
-    } else if p.consume(TokenKind::MulAssign) {
+    } else if p.consume(TokenKind::StarEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Mul, node, expr(&mut p)))
-    } else if p.consume(TokenKind::DivAssign) {
+    } else if p.consume(TokenKind::SlashEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Div, node, expr(&mut p)))
-    } else if p.consume(TokenKind::RemAssign) {
+    } else if p.consume(TokenKind::PercentEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Rem, node, expr(&mut p)))
     } else {
@@ -391,7 +387,7 @@ fn equality(mut p: &mut Parser) -> Node {
 
     loop {
         p.check_illegal();
-        if p.consume(TokenKind::Eq) {
+        if p.consume(TokenKind::EqEq) {
             node = new_binary_op_node(BinaryOpKind::Eq, node, relational(&mut p));
         } else if p.consume(TokenKind::Ne) {
             node = new_binary_op_node(BinaryOpKind::Ne, node, relational(&mut p));
@@ -440,7 +436,7 @@ fn mul(mut p: &mut Parser) -> Node {
 
     loop {
         p.check_illegal();
-        if p.consume(TokenKind::Asterisk) {
+        if p.consume(TokenKind::Star) {
             node = new_binary_op_node(BinaryOpKind::Mul, node, unary(&mut p));
         } else if p.consume(TokenKind::Slash) {
             node = new_binary_op_node(BinaryOpKind::Div, node, unary(&mut p));

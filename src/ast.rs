@@ -81,8 +81,4 @@ pub enum Node {
         lhs: Box<Node>,
         rhs: Box<Node>,
     },
-    Comment {
-        kind: CommentKind,
-        comment: String,
-    },
 }

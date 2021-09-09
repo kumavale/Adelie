@@ -5,7 +5,7 @@ use super::builtin::*;
 pub enum TokenKind {
     Plus,      // +
     Minus,     // -
-    Asterisk,  // *
+    Star,      // *
     Slash,     // /
     Percent,   // %
 
@@ -14,23 +14,23 @@ pub enum TokenKind {
     LParen,  // (
     RParen,  // )
 
-    Eq,   // ==
-    Lt,   // <
-    Le,   // <=
-    Ne,   // !=
-    Gt,   // >
-    Ge,   // >=
+    EqEq,  // ==
+    Lt,    // <
+    Le,    // <=
+    Ne,    // !=
+    Gt,    // >
+    Ge,    // >=
 
     Assign,     // =
-    AddAssign,  // +=
-    SubAssign,  // -=
-    MulAssign,  // *=
-    DivAssign,  // /=
-    RemAssign,  // %=
+    PlusEq,     // +=
+    MinusEq,    // -=
+    StarEq,     // *=
+    SlashEq,    // /=
+    PercentEq,  // %=
 
-    Comma,      // ,
-    Colon,      // :
-    Semicolon,  // ;
+    Comma,  // ,
+    Colon,  // :
+    Semi,   // ;
 
     RArrow,  // ->
 

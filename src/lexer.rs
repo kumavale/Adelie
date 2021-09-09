@@ -67,14 +67,14 @@ impl<'a> Lexer<'a> {
             Some('+') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::AddAssign, self.read_position)
+                    Token::new(TokenKind::PlusEq, self.read_position)
                 }
                 _ => Token::new(TokenKind::Plus, self.read_position)
             }
             Some('-') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::SubAssign, self.read_position)
+                    Token::new(TokenKind::MinusEq, self.read_position)
                 }
                 Some('>') => {
                     self.seek(1);
@@ -85,14 +85,14 @@ impl<'a> Lexer<'a> {
             Some('*') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::MulAssign, self.read_position)
+                    Token::new(TokenKind::StarEq, self.read_position)
                 }
-                _ => Token::new(TokenKind::Asterisk, self.read_position)
+                _ => Token::new(TokenKind::Star, self.read_position)
             }
             Some('/') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::DivAssign, self.read_position)
+                    Token::new(TokenKind::SlashEq, self.read_position)
                 }
                 Some('/') => {
                     self.seek(1);
@@ -129,7 +129,7 @@ impl<'a> Lexer<'a> {
             Some('%') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::RemAssign, self.read_position)
+                    Token::new(TokenKind::PercentEq, self.read_position)
                 }
                 _ => Token::new(TokenKind::Percent, self.read_position)
             }
@@ -142,7 +142,7 @@ impl<'a> Lexer<'a> {
             Some('=') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::Eq, self.read_position)
+                    Token::new(TokenKind::EqEq, self.read_position)
                 }
                 _ => Token::new(TokenKind::Assign, self.read_position)
             }
@@ -168,9 +168,9 @@ impl<'a> Lexer<'a> {
                 _ => todo!("Not"),
             }
 
-            Some(',') => Token::new(TokenKind::Comma,     self.read_position),
-            Some(':') => Token::new(TokenKind::Colon,     self.read_position),
-            Some(';') => Token::new(TokenKind::Semicolon, self.read_position),
+            Some(',') => Token::new(TokenKind::Comma, self.read_position),
+            Some(':') => Token::new(TokenKind::Colon, self.read_position),
+            Some(';') => Token::new(TokenKind::Semi,  self.read_position),
 
             Some('"') => {
                 let mut s = String::new();
