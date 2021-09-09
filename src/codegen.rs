@@ -16,10 +16,6 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
         Node::Builtin { kind, args } => {
             gen_builtin_il(kind, args, f)
         }
-        Node::Comment { kind, comment } => {
-            // Do nothing
-            Type::Void
-        }
         Node::Call { name, args } => {
             for arg in args {
                 gen_il(arg, f);

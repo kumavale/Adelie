@@ -1,11 +1,28 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Keyword {
     Else,
+    False,
     Fn,
     If,
     Let,
+    True,
     Return,
     While,
+}
+
+impl Keyword {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Keyword::Else => "else",
+            Keyword::False => "false",
+            Keyword::Fn => "fn",
+            Keyword::If => "if",
+            Keyword::Let => "let",
+            Keyword::True => "true",
+            Keyword::Return => "return",
+            Keyword::While => "while",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -228,9 +228,10 @@ fn main() {
     println("failed");
 }'
 
-assert 0 ' fn a() { println("ok"); } fn main() { a(); }'
-assert 0 ' fn main() { if 1==1 { println("ok"); } else { println("failed"); } }'
-assert 0 ' fn a() -> i32 { 42 } fn main() { if a()==42 { println("ok") } else { println("failed") } }'
+assert 0 'fn a() { println("ok"); } fn main() { a(); }'
+assert 0 'fn main() { if 1==1 { println("ok"); } else { println("failed"); } }'
+assert 0 'fn a() -> i32 { 42 } fn main() { if a()==42 { println("ok") } else { println("failed") } }'
+assert 0 'fn a() -> bool { true } fn main() { if true { if a() { println("ok"); } if false { println("failed"); } } }'
 
 #echo
 #echo -ne "test result: "

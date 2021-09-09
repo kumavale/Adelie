@@ -198,12 +198,15 @@ impl<'a> Lexer<'a> {
                     "println" => Token::new(TokenKind::Builtin(Builtin::Println), self.read_position),
 
                     "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),
+                    "bool"   => Token::new(TokenKind::Type(Type::Bool),                  self.read_position),
                     "String" => Token::new(TokenKind::Type(Type::String),                self.read_position),
 
                     "else"   => Token::new(TokenKind::Keyword(Keyword::Else),   self.read_position),
+                    "false"  => Token::new(TokenKind::Keyword(Keyword::False),  self.read_position),
                     "fn"     => Token::new(TokenKind::Keyword(Keyword::Fn),     self.read_position),
                     "if"     => Token::new(TokenKind::Keyword(Keyword::If),     self.read_position),
                     "let"    => Token::new(TokenKind::Keyword(Keyword::Let),    self.read_position),
+                    "true"   => Token::new(TokenKind::Keyword(Keyword::True),   self.read_position),
                     "return" => Token::new(TokenKind::Keyword(Keyword::Return), self.read_position),
                     "while"  => Token::new(TokenKind::Keyword(Keyword::While),  self.read_position),
                     _ => Token::new(TokenKind::Ident(ident), self.read_position)

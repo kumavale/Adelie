@@ -41,10 +41,16 @@ pub enum TokenKind {
     Keyword(Keyword),
     Type(Type),
     Builtin(Builtin),
-    Comment(String),
+    Comment(CommentKind),
 
     Illegal(String),
     Eof,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum CommentKind {
+    LineComment(String),
+    BlockComment(String),
 }
 
 #[derive(Clone, Debug)]

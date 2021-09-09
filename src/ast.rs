@@ -23,12 +23,6 @@ pub enum BinaryOpKind {
     Ge,   // >=
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CommentKind {
-    LineComment,
-    BlockComment,
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Integer {

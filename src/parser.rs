@@ -33,6 +33,7 @@ use super::builtin::*;
 // unary = ( '-' ) ? primary
 //
 // primary = num
+//         | bool
 //         | builtin
 //         | ident ( '(' ( expr ( ',' expr ) * ) ? ')' ) ?
 //         | '(' expr ')'
@@ -44,7 +45,9 @@ use super::builtin::*;
 // dec_digit   = '0' | nonzero_dec
 // nonzero_dec = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
 //
-// type = 'i32' | 'String'
+// bool = 'true' | 'false'
+//
+// type = 'i32' | 'String' | 'bool'
 //
 // builtin = 'println'
 //
@@ -168,26 +171,21 @@ fn new_string_node(s: &str) -> Node {
     }
 }
 
+fn new_bool_node(b: Keyword) -> Node {
+    Node::Integer {
+        typekind: Type::Bool,
+        num: match b {
+            Keyword::True  => 1,
+            Keyword::False => 0,
+            _ => unreachable!(),
+        },
+    }
+}
+
 fn new_builtin_call_node(kind: Builtin, args: Vec<Node>) -> Node {
     Node::Builtin {
         kind,
         args,
-    }
-}
-
-fn new_comment_node(comment: &str) -> Node {
-    if comment.starts_with("//") {
-        Node::Comment {
-            kind: CommentKind::LineComment,
-            comment: comment.to_string(),
-        }
-    } else if comment.starts_with("/*") {
-        Node::Comment {
-            kind: CommentKind::BlockComment,
-            comment: comment.to_string(),
-        }
-    } else {
-        unimplemented!()
     }
 }
 
@@ -311,9 +309,6 @@ fn statement(mut p: &mut Parser) -> Node {
         } else {
             panic!("The left-hand side of an assignment must be a variable")
         }
-    } else if let TokenKind::Comment(s) = &p.tokens[p.idx].kind {
-        p.idx += 1;
-        new_comment_node(s)
     } else {
         expr(&mut p)
     };
@@ -486,6 +481,10 @@ fn primary(mut p: &mut Parser) -> Node {
                 // local variable or parameter
                 new_variable_node(&mut p.current_function.as_mut().unwrap(), name)
             }
+        }
+        TokenKind::Keyword(b) if matches!(b, Keyword::True|Keyword::False) => {
+            p.idx += 1;
+            new_bool_node(*b)
         }
         TokenKind::Builtin(kind) => {
             p.idx += 1;
