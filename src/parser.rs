@@ -16,7 +16,7 @@ use super::builtin::*;
 //
 // block_expression = '{' statement * '}'
 //
-// statement = 'return' ? expr ';'
+// statement = 'return' ? expr ';' ?
 //      | 'let' ident ':' type ( '=' expr ) ? ';'
 //
 // expr = assign
@@ -301,7 +301,9 @@ fn statement(mut p: &mut Parser) -> Node {
                 panic!("expected type, but got {:?}", p.tokens[p.idx].kind);
             };
             if p.consume(TokenKind::Assign) {
-                new_assign_node(node, expr(&mut p))
+                let node = new_assign_node(node, expr(&mut p));
+                p.expect(TokenKind::Semi);
+                node
             } else {
                 p.expect(TokenKind::Semi);
                 statement(&mut p)
