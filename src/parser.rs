@@ -24,9 +24,13 @@ use super::builtin::*;
 //      | 'while' expr block_expression
 //
 // assign           = equality ( ( '=' | binary_assign_op ) expr ) ?
-// binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%='
+// binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|='
 // equality         = relational ( '==' relational | '!=' relational ) *
-// relational       = add ( '<' add | '<=' add | '>' add | '>=' add ) *
+// relational       = bitor ( '<' bitor | '<=' bitor | '>' bitor | '>=' bitor ) *
+//
+// bitor  = bitxor ( '|' bitxor ) *
+// bitxor = bitand ( '^' bitand ) *
+// bitand = add ( '&' add ) *
 //
 // add   = mul ( '+' mul | '-' mul ) *
 // mul   = unary ( '*' unary | '/' unary | '%' unary ) *
@@ -367,6 +371,15 @@ fn assign(mut p: &mut Parser) -> Node {
     } else if p.consume(TokenKind::PercentEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Rem, node, expr(&mut p)))
+    } else if p.consume(TokenKind::AndEq) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitAnd, node, expr(&mut p)))
+    } else if p.consume(TokenKind::CaretEq) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitXor, node, expr(&mut p)))
+    } else if p.consume(TokenKind::OrEq) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitOr, node, expr(&mut p)))
     } else {
         node
     }
@@ -387,21 +400,45 @@ fn equality(mut p: &mut Parser) -> Node {
 }
 
 fn relational(mut p: &mut Parser) -> Node {
-    let mut node = add(&mut p);
+    let mut node = bitor(&mut p);
 
     loop {
         if p.consume(TokenKind::Lt) {
-            node = new_binary_op_node(BinaryOpKind::Lt, node, add(&mut p));
+            node = new_binary_op_node(BinaryOpKind::Lt, node, bitor(&mut p));
         } else if p.consume(TokenKind::Le) {
-            node = new_binary_op_node(BinaryOpKind::Le, node, add(&mut p));
+            node = new_binary_op_node(BinaryOpKind::Le, node, bitor(&mut p));
         } else if p.consume(TokenKind::Gt) {
-            node = new_binary_op_node(BinaryOpKind::Gt, node, add(&mut p));
+            node = new_binary_op_node(BinaryOpKind::Gt, node, bitor(&mut p));
         } else if p.consume(TokenKind::Ge) {
-            node = new_binary_op_node(BinaryOpKind::Ge, node, add(&mut p));
+            node = new_binary_op_node(BinaryOpKind::Ge, node, bitor(&mut p));
         } else {
             return node;
         }
     }
+}
+
+fn bitor(mut p: &mut Parser) -> Node {
+    let mut node = bitxor(&mut p);
+    while p.consume(TokenKind::Or) {
+        node = new_binary_op_node(BinaryOpKind::BitOr, node, bitxor(&mut p));
+    }
+    node
+}
+
+fn bitxor(mut p: &mut Parser) -> Node {
+    let mut node = bitand(&mut p);
+    while p.consume(TokenKind::Caret) {
+        node = new_binary_op_node(BinaryOpKind::BitXor, node, bitand(&mut p));
+    }
+    node
+}
+
+fn bitand(mut p: &mut Parser) -> Node {
+    let mut node = add(&mut p);
+    while p.consume(TokenKind::And) {
+        node = new_binary_op_node(BinaryOpKind::BitAnd, node, add(&mut p));
+    }
+    node
 }
 
 fn add(mut p: &mut Parser) -> Node {

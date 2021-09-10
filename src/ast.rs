@@ -11,17 +11,20 @@ pub enum UnaryOpKind {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BinaryOpKind {
-    Add,  // +
-    Sub,  // -
-    Mul,  // *
-    Div,  // /
-    Rem,  // %
-    Eq,   // ==
-    Lt,   // <
-    Le,   // <=
-    Ne,   // !=
-    Gt,   // >
-    Ge,   // >=
+    Add,     // +
+    Sub,     // -
+    Mul,     // *
+    Div,     // /
+    Rem,     // %
+    BitXor,  // ^
+    BitAnd,  // &
+    BitOr,   // |
+    Eq,      // ==
+    Lt,      // <
+    Le,      // <=
+    Ne,      // !=
+    Gt,      // >
+    Ge,      // >=
 }
 
 #[derive(Clone, Debug, PartialEq)]

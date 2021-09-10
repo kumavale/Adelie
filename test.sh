@@ -199,6 +199,19 @@ fn main() {
     ngcnt += ASSERT(false, !true);
     ngcnt += ASSERT(true, !!true);
 
+    ngcnt += ASSERT( 0,  0&1);
+    ngcnt += ASSERT( 1,  3&1);
+    ngcnt += ASSERT( 3,  7&3);
+    ngcnt += ASSERT(10, -1&10);
+    ngcnt += ASSERT( 1,  0|1);
+    ngcnt += ASSERT(19, 16|3);
+    ngcnt += ASSERT( 0,  0^0);
+    ngcnt += ASSERT( 0, 15^15);
+
+    ngcnt += ASSERT( 2, { let i:i32= 6; i&=3; i });
+    ngcnt += ASSERT( 7, { let i:i32= 6; i|=3; i });
+    ngcnt += ASSERT(10, { let i:i32=15; i^=5; i });
+
     if ngcnt == 0 {
         println("ok");
     } else {

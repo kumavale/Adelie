@@ -9,19 +9,25 @@ pub enum TokenKind {
     Slash,     // /
     Percent,   // %
 
-    Not,  // !
+    Caret,  // ^
+    Not,    // !
+    And,    // &
+    Or,     // |
 
     LBrace,  // {
     RBrace,  // }
     LParen,  // (
     RParen,  // )
 
-    EqEq,  // ==
-    Lt,    // <
-    Le,    // <=
-    Ne,    // !=
-    Gt,    // >
-    Ge,    // >=
+    EqEq,     // ==
+    Lt,       // <
+    Le,       // <=
+    Ne,       // !=
+    Gt,       // >
+    Ge,       // >=
+    CaretEq,  // ^=
+    AndEq,    // &=
+    OrEq,     // |=
 
     Assign,     // =
     PlusEq,     // +=

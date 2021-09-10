@@ -134,6 +134,28 @@ impl<'a> Lexer<'a> {
                 _ => Token::new(TokenKind::Percent, self.read_position)
             }
 
+            Some('^') => match self.peek_char() {
+                Some('=') => {
+                    self.seek(1);
+                    Token::new(TokenKind::CaretEq, self.read_position)
+                }
+                _ => Token::new(TokenKind::Caret, self.read_position)
+            }
+            Some('&') => match self.peek_char() {
+                Some('=') => {
+                    self.seek(1);
+                    Token::new(TokenKind::AndEq, self.read_position)
+                }
+                _ => Token::new(TokenKind::And, self.read_position)
+            }
+            Some('|') => match self.peek_char() {
+                Some('=') => {
+                    self.seek(1);
+                    Token::new(TokenKind::OrEq, self.read_position)
+                }
+                _ => Token::new(TokenKind::Or, self.read_position)
+            }
+
             Some('{') => Token::new(TokenKind::LBrace, self.read_position),
             Some('}') => Token::new(TokenKind::RBrace, self.read_position),
             Some('(') => Token::new(TokenKind::LParen, self.read_position),

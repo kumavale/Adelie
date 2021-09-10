@@ -136,6 +136,10 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
                 BinaryOpKind::Div => { println!("\tdiv"); ltype }
                 BinaryOpKind::Rem => { println!("\trem"); ltype }
 
+                BinaryOpKind::BitXor => { println!("\txor"); ltype }
+                BinaryOpKind::BitAnd => { println!("\tand"); ltype }
+                BinaryOpKind::BitOr  => { println!("\tor");  ltype }
+
                 BinaryOpKind::Eq => { println!("\tceq"); Type::Bool }
                 BinaryOpKind::Lt => { println!("\tclt"); Type::Bool }
                 BinaryOpKind::Le => {
