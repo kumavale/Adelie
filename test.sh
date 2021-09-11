@@ -118,6 +118,7 @@ fn plus(a: i32, b: i32) -> i32 { return a+b; }
 fn add6(a:i32, b:i32, c:i32, d:i32, e:i32, f:i32) -> i32 { return a+b+c+d+e+f; }
 fn fib(x: i32) -> i32 { if x<=1 { return 1; } else { return fib(x-1)+fib(x-2); } }
 fn swap(x: &i32, y: &i32) { let tmp:i32=*x; *x=*y; *y=tmp; }
+fn loop_return() -> i32 { let x: i32 = 3; loop { return x + 2; } }
 fn ASSERT(expect: i32, actual: i32) -> i32 {
     let format: String = "[  {0}  ] expect: {1}, actual: {2}";
     if expect == actual {
@@ -226,6 +227,8 @@ fn main() {
     ngcnt += ASSERT(1, { let a:char='\''a'\''; if a as i32==97 { 1 } else { 0 } });
     ngcnt += ASSERT(1, { let a:bool=true; if a as i32==1{ 1 } else { 0 } });
     ngcnt += ASSERT(0, { let a:bool=false; if a as i32==1{ 1 } else { 0 } });
+
+    ngcnt += ASSERT(5, loop_return());
 
     if ngcnt == 0 {
         println("ok");

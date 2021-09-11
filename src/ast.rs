@@ -62,6 +62,9 @@ pub enum Node {
         cond: Box<Node>,
         then: Box<Node>,
     },
+    Loop {
+        then: Box<Node>,
+    },
     Assign {
         lhs: Box<Node>,
         rhs: Box<Node>,

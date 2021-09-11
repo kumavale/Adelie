@@ -22,6 +22,7 @@ use super::builtin::*;
 // expr = assign
 //      | 'if' expr block_expression ( 'else' block_expression ) ?
 //      | 'while' expr block_expression
+//      | 'loop' block_expression
 //
 // assign           = equality ( ( '=' | binary_assign_op ) expr ) ?
 // binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|='
@@ -136,6 +137,12 @@ fn new_if_node(cond: Node, then: Node, els: Option<Node>) -> Node {
 fn new_while_node(cond: Node, then: Node) -> Node {
     Node::While {
         cond: Box::new(cond),
+        then: Box::new(then),
+    }
+}
+
+fn new_loop_node(then: Node) -> Node {
+    Node::Loop {
         then: Box::new(then),
     }
 }
@@ -365,6 +372,8 @@ fn expr(mut p: &mut Parser) -> Node {
         let cond = expr(&mut p);
         let then = block_expression(&mut p);
         new_while_node(cond, then)
+    } else if p.consume(TokenKind::Keyword(Keyword::Loop)) {
+        new_loop_node(block_expression(&mut p))
     } else {
         assign(&mut p)
     }

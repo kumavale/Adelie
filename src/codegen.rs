@@ -84,6 +84,15 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             println!("{}:", end_label);
             then_type
         }
+        Node::Loop { then } => {
+            let begin_label = format!("IL_begin{}", seq());
+            let end_label = format!("IL_end{}", seq());
+            println!("{}:", begin_label);
+            let then_type = gen_il(*then, f);
+            println!("\tbr {}", begin_label);
+            println!("{}:", end_label);
+            then_type
+        }
         Node::Assign { lhs, rhs } => {
             match *lhs {
                 Node::Variable { obj } => {
