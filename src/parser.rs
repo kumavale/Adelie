@@ -276,8 +276,34 @@ fn program(mut p: &mut Parser) -> Program {
     program
 }
 
+
 fn struct_define(mut p: &mut Parser) -> Struct {
-    todo!();
+    let mut st = Struct::new();
+    p.expect(TokenKind::Keyword(Keyword::Struct));
+    if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
+        p.idx += 1;
+        st.name = name.to_string();
+    } else {
+        panic!("expected identifier");
+    }
+    p.expect(TokenKind::LBrace);
+    while !p.consume(TokenKind::RBrace) && !p.is_eof() {
+        if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
+            p.idx += 1;
+            if p.g_symbol_table.find_name(name).is_some() {
+                panic!("the name `{}` is defined multiple times", name);
+            } else {
+                p.expect(TokenKind::Colon);
+                let typekind = type_no_bounds(&mut p);
+                let obj = Object::new(name.to_string(), st.field.len(), false, typekind);
+                st.field.push(obj);
+            }
+        } else {
+            panic!("expected identifier");
+        }
+        p.consume(TokenKind::Comma);
+    }
+    st
 }
 
 fn function(mut p: &mut Parser) -> Function {
@@ -304,7 +330,7 @@ fn function(mut p: &mut Parser) -> Function {
                     current_function.param_symbol_table.push(Rc::clone(&obj));
                 }
             } else {
-                panic!("Identifier expected");
+                panic!("expected identifier");
             }
             p.consume(TokenKind::Comma);
         }

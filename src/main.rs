@@ -24,6 +24,16 @@ fn main() {
     println!(".assembly extern mscorlib {{}}");
     println!(".assembly tmp {{}}");
 
+    for st in &program.structs {
+        println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", st.name);
+        println!("{{");
+        for f in &st.field {
+            println!(".field private {} {}", f.typekind.to_ilstr(), f.name);
+        }
+        // TODO: method
+        println!("}}");
+    }
+
     for func in &program.functions {
         if func.name == "main" {
             println!(".method static void Main() cil managed {{");

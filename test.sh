@@ -283,6 +283,12 @@ assert 0 'fn a() -> i32 { 42 } fn main() { if a()==42 { println("ok") } else { p
 assert 0 'fn a() -> bool { true } fn main() { if true { if a() { println("ok"); } if false { println("failed"); } } }'
 assert 0 'fn a() -> char { '\''a'\'' } fn main() { if a()=='\''a'\'' { println("ok"); } else { println("failed"); } }'
 
+assert 0 '
+struct Point {x: i32, y: i32}
+fn main() {
+    println("ok");
+}'
+
 #echo
 #echo -ne "test result: "
 #if [ $NGCNT -eq 0 ]; then

@@ -7,10 +7,10 @@ pub struct Struct {
 }
 
 impl Struct {
-    pub fn new(name: &str, field: Vec<Object>) -> Self {
+    pub fn new() -> Self {
         Struct {
-            name: name.to_string(),
-            field,
+            name: String::new(),
+            field: vec![],
         }
     }
 }
