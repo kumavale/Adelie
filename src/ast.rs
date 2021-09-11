@@ -21,6 +21,8 @@ pub enum BinaryOpKind {
     BitXor,  // ^
     BitAnd,  // &
     BitOr,   // |
+    Shl,     // <<
+    Shr,     // >>
     Eq,      // ==
     Lt,      // <
     Le,      // <=

@@ -25,7 +25,7 @@ use super::builtin::*;
 //      | 'loop' block_expression
 //
 // assign           = logical_or ( ( '=' | binary_assign_op ) expr ) ?
-// binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|='
+// binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' | '<<=' | '>>='
 //
 // logical_or  = logical_and ( '||' logical_and ) *
 // logical_and = equality ( '&&' equality ) *
@@ -35,8 +35,9 @@ use super::builtin::*;
 //
 // bitor  = bitxor ( '|' bitxor ) *
 // bitxor = bitand ( '^' bitand ) *
-// bitand = add ( '&' add ) *
+// bitand = shift ( '&' shift ) *
 //
+// shift = add ( '<<' add | '>>' add ) *
 // add   = mul ( '+' mul | '-' mul ) *
 // mul   = cast ( '*' cast | '/' cast | '%' cast ) *
 // cast  = unary ( 'as' type_no_bounds ) *
@@ -422,6 +423,12 @@ fn assign(mut p: &mut Parser) -> Node {
     } else if p.consume(TokenKind::OrEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitOr, node, expr(&mut p)))
+    } else if p.consume(TokenKind::ShlEq) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Shl, node, expr(&mut p)))
+    } else if p.consume(TokenKind::ShrEq) {
+        let lhs = node.clone();
+        new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Shr, node, expr(&mut p)))
     } else {
         node
     }
@@ -500,11 +507,25 @@ fn bitxor(mut p: &mut Parser) -> Node {
 }
 
 fn bitand(mut p: &mut Parser) -> Node {
-    let mut node = add(&mut p);
+    let mut node = shift(&mut p);
     while p.consume(TokenKind::And) {
-        node = new_binary_op_node(BinaryOpKind::BitAnd, node, add(&mut p));
+        node = new_binary_op_node(BinaryOpKind::BitAnd, node, shift(&mut p));
     }
     node
+}
+
+fn shift(mut p: &mut Parser) -> Node {
+    let mut node = add(&mut p);
+
+    loop {
+        if p.consume(TokenKind::Shl) {
+            node = new_binary_op_node(BinaryOpKind::Shl, node, add(&mut p));
+        } else if p.consume(TokenKind::Shr) {
+            node = new_binary_op_node(BinaryOpKind::Shr, node, add(&mut p));
+        } else {
+            return node;
+        }
+    }
 }
 
 fn add(mut p: &mut Parser) -> Node {

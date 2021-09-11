@@ -17,6 +17,9 @@ pub enum TokenKind {
     AndAnd,  // &&
     OrOr,    // ||
 
+    Shl,    // <<
+    Shr,    // >>
+
     LBrace,  // {
     RBrace,  // }
     LParen,  // (
@@ -31,6 +34,8 @@ pub enum TokenKind {
     CaretEq,  // ^=
     AndEq,    // &=
     OrEq,     // |=
+    ShlEq,     // <<=
+    ShrEq,     // >>=
 
     Assign,     // =
     PlusEq,     // +=

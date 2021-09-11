@@ -240,6 +240,18 @@ fn main() {
     ngcnt += ASSERT(false, false || false);
     ngcnt += ASSERT(false, false || (1==2));
 
+    ngcnt += ASSERT( 1, 1<<0);
+    ngcnt += ASSERT( 8, 1<<3);
+    ngcnt += ASSERT(10, 5<<1);
+    ngcnt += ASSERT( 2, 5>>1);
+    ngcnt += ASSERT(-1, -1>>1);
+    ngcnt += ASSERT( 1, { let i:i32=1; i<<=0; i });
+    ngcnt += ASSERT( 8, { let i:i32=1; i<<=3; i });
+    ngcnt += ASSERT(10, { let i:i32=5; i<<=1; i });
+    ngcnt += ASSERT( 2, { let i:i32=5; i>>=1; i });
+    ngcnt += ASSERT(-1, { let i:i32=-1; i });
+    ngcnt += ASSERT(-1, { let i:i32=-1; i>>=1; i });
+
     if ngcnt == 0 {
         println("ok");
     } else {

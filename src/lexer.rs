@@ -181,12 +181,32 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                     Token::new(TokenKind::Le, self.read_position)
                 }
+                Some('<') => {
+                    self.seek(1);
+                    match self.peek_char() {
+                        Some('=') => {
+                            self.seek(1);
+                            Token::new(TokenKind::ShlEq, self.read_position)
+                        }
+                        _ => Token::new(TokenKind::Shl, self.read_position)
+                    }
+                }
                 _ => Token::new(TokenKind::Lt, self.read_position),
             }
             Some('>') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
                     Token::new(TokenKind::Ge, self.read_position)
+                }
+                Some('>') => {
+                    self.seek(1);
+                    match self.peek_char() {
+                        Some('=') => {
+                            self.seek(1);
+                            Token::new(TokenKind::ShrEq, self.read_position)
+                        }
+                        _ => Token::new(TokenKind::Shr, self.read_position)
+                    }
                 }
                 _ => Token::new(TokenKind::Gt, self.read_position),
             }
