@@ -37,6 +37,8 @@ use super::builtin::*;
 // unary = ( '-' | '!' | '&' | '*' ) ? primary
 //
 // primary = num
+//         | char
+//         | String
 //         | bool
 //         | builtin
 //         | ident ( '(' ( expr ( ',' expr ) * ) ? ')' ) ?
@@ -158,6 +160,13 @@ fn new_num_node(num: i32) -> Node {
     Node::Integer {
         typekind: Type::Numeric(Numeric::I32),
         num,
+    }
+}
+
+fn new_char_node(c: char) -> Node {
+    Node::Integer {
+        typekind: Type::Char,
+        num: c as i32
     }
 }
 
@@ -497,6 +506,10 @@ fn primary(mut p: &mut Parser) -> Node {
         TokenKind::Integer(num) => {
             p.idx += 1;
             new_num_node(*num)
+        }
+        TokenKind::Char(c) => {
+            p.idx += 1;
+            new_char_node(*c)
         }
         TokenKind::String(s) => {
             p.idx += 1;

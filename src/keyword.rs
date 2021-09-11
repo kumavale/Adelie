@@ -29,6 +29,7 @@ impl Keyword {
 pub enum Type {
     Numeric(Numeric),
     Bool,
+    Char,
     String,
     Ptr(Box<Type>),
     Void,
@@ -44,6 +45,7 @@ impl Type {
         match self {
             Type::Numeric(Numeric::I32) => "i32".to_string(),
             Type::Bool => "bool".to_string(),
+            Type::Char => "char".to_string(),
             Type::String => "String".to_string(),
             Type::Ptr(t) => format!("&{}", t.to_str()),
             Type::Void => "void".to_string(),
@@ -54,6 +56,7 @@ impl Type {
         match self {
             Type::Numeric(Numeric::I32) => "int32".to_string(),
             Type::Bool => "bool".to_string(),
+            Type::Char => "char".to_string(),
             Type::String => "string".to_string(),
             Type::Ptr(t) => format!("{}&",t.to_ilstr()),
             Type::Void => "void".to_string(),

@@ -194,6 +194,18 @@ impl<'a> Lexer<'a> {
             Some(':') => Token::new(TokenKind::Colon, self.read_position),
             Some(';') => Token::new(TokenKind::Semi,  self.read_position),
 
+            Some('\'') => {
+                //todo!('\n \r \\ ...');
+                let mut s = String::new();
+                while let Some(c) = self.peek_char() {
+                    self.seek(1);
+                    if c == '\'' {
+                        break;
+                    }
+                    s.push(c);
+                }
+                Token::new(TokenKind::Char(s.parse::<char>().expect("invalid char")), self.read_position)
+            }
             Some('"') => {
                 let mut s = String::new();
                 while let Some(c) = self.peek_char() {
@@ -220,6 +232,7 @@ impl<'a> Lexer<'a> {
 
                     "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),
                     "bool"   => Token::new(TokenKind::Type(Type::Bool),                  self.read_position),
+                    "char"   => Token::new(TokenKind::Type(Type::Char),                  self.read_position),
                     "String" => Token::new(TokenKind::Type(Type::String),                self.read_position),
 
                     "else"   => Token::new(TokenKind::Keyword(Keyword::Else),   self.read_position),

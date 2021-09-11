@@ -220,6 +220,8 @@ fn main() {
     ngcnt += ASSERT(3, { let x:i32=3; let y:i32=5; swap(&x, &y); y });
     ngcnt += ASSERT(5, { let x:i32=3; let y:i32=5; swap(&x, &y); x });
 
+    ngcnt += ASSERT(97, { let a:char='\''a'\''; a });
+
     if ngcnt == 0 {
         println("ok");
     } else {
@@ -249,6 +251,7 @@ assert 0 'fn a() { println("ok"); } fn main() { a(); }'
 assert 0 'fn main() { if 1==1 { println("ok"); } else { println("failed"); } }'
 assert 0 'fn a() -> i32 { 42 } fn main() { if a()==42 { println("ok") } else { println("failed") } }'
 assert 0 'fn a() -> bool { true } fn main() { if true { if a() { println("ok"); } if false { println("failed"); } } }'
+assert 0 'fn a() -> char { '\''a'\'' } fn main() { if a()=='\''a'\'' { println("ok"); } else { println("failed"); } }'
 
 #echo
 #echo -ne "test result: "

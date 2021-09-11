@@ -43,6 +43,7 @@ pub enum TokenKind {
     RArrow,  // ->
 
     Integer(i32),    // -?[1-9][0-9]*
+    Char(char),      // '.'
     String(String),  // ".*"
 
     Ident(String),  // [a-zA-Z_][0-9a-zA-Z_]*
