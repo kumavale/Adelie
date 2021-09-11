@@ -14,6 +14,9 @@ pub enum TokenKind {
     And,    // &
     Or,     // |
 
+    AndAnd,  // &&
+    OrOr,    // ||
+
     LBrace,  // {
     RBrace,  // }
     LParen,  // (

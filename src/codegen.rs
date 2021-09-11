@@ -232,6 +232,40 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
                 }
             }
         }
+        Node::ShortCircuitOp { kind, lhs, rhs } => {
+            let end_label  = format!("IL_end{}", seq());
+            match kind {
+                ShortCircuitOpKind::And => {
+                    println!("\tldc.i4.0");
+                    let ltype = gen_il(*lhs, f);
+                    if ltype != Type::Bool {
+                        panic!("expected `{}`, found `{}`", Type::Bool.to_str(), ltype.to_str());
+                    }
+                    println!("\tbrfalse {}", end_label);
+                    println!("\tpop");
+                    let rtype = gen_il(*rhs, f);
+                    if rtype != Type::Bool {
+                        panic!("expected `{}`, found `{}`", Type::Bool.to_str(), rtype.to_str());
+                    }
+                    println!("{}:", end_label);
+                }
+                ShortCircuitOpKind::Or => {
+                    println!("\tldc.i4.1");
+                    let ltype = gen_il(*lhs, f);
+                    if ltype != Type::Bool {
+                        panic!("expected `{}`, found `{}`", Type::Bool.to_str(), ltype.to_str());
+                    }
+                    println!("\tbrtrue {}", end_label);
+                    println!("\tpop");
+                    let rtype = gen_il(*rhs, f);
+                    if rtype != Type::Bool {
+                        panic!("expected `{}`, found `{}`", Type::Bool.to_str(), rtype.to_str());
+                    }
+                    println!("{}:", end_label);
+                }
+            }
+            Type::Bool
+        }
     }
 }
 

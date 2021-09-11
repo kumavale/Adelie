@@ -230,6 +230,16 @@ fn main() {
 
     ngcnt += ASSERT(5, loop_return());
 
+    ngcnt += ASSERT(false, false && true);
+    ngcnt += ASSERT(false, true && (1==2) && true);
+    ngcnt += ASSERT(false, true && false);
+    ngcnt += ASSERT(true, true && true);
+    ngcnt += ASSERT(true, true && (1==1));
+    ngcnt += ASSERT(true, false || true);
+    ngcnt += ASSERT(true, false || (1==2) || true);
+    ngcnt += ASSERT(false, false || false);
+    ngcnt += ASSERT(false, false || (1==2));
+
     if ngcnt == 0 {
         println("ok");
     } else {

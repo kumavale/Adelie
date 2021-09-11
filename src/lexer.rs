@@ -146,12 +146,20 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                     Token::new(TokenKind::AndEq, self.read_position)
                 }
+                Some('&') => {
+                    self.seek(1);
+                    Token::new(TokenKind::AndAnd, self.read_position)
+                }
                 _ => Token::new(TokenKind::And, self.read_position)
             }
             Some('|') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
                     Token::new(TokenKind::OrEq, self.read_position)
+                }
+                Some('|') => {
+                    self.seek(1);
+                    Token::new(TokenKind::OrOr, self.read_position)
                 }
                 _ => Token::new(TokenKind::Or, self.read_position)
             }

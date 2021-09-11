@@ -24,10 +24,14 @@ use super::builtin::*;
 //      | 'while' expr block_expression
 //      | 'loop' block_expression
 //
-// assign           = equality ( ( '=' | binary_assign_op ) expr ) ?
+// assign           = logical_or ( ( '=' | binary_assign_op ) expr ) ?
 // binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|='
-// equality         = relational ( '==' relational | '!=' relational ) *
-// relational       = bitor ( '<' bitor | '<=' bitor | '>' bitor | '>=' bitor ) *
+//
+// logical_or  = logical_and ( '||' logical_and ) *
+// logical_and = equality ( '&&' equality ) *
+//
+// equality   = relational ( '==' relational | '!=' relational ) *
+// relational = bitor ( '<' bitor | '<=' bitor | '>' bitor | '>=' bitor ) *
 //
 // bitor  = bitxor ( '|' bitxor ) *
 // bitxor = bitand ( '^' bitand ) *
@@ -121,6 +125,14 @@ fn new_unary_op_node(kind: UnaryOpKind, expr: Node) -> Node {
 
 fn new_assign_node(lhs: Node, rhs: Node) -> Node {
     Node::Assign {
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+    }
+}
+
+fn new_short_circuit_op_node(kind: ShortCircuitOpKind, lhs: Node, rhs: Node) -> Node {
+    Node::ShortCircuitOp {
+        kind,
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
     }
@@ -336,6 +348,8 @@ fn statement(mut p: &mut Parser) -> Node {
 fn type_no_bounds(mut p: &mut Parser) -> Type {
     if p.consume(TokenKind::And) {
         Type::Ptr(Box::new(type_no_bounds(&mut p)))
+    } else if p.consume(TokenKind::AndAnd) {
+        Type::Ptr(Box::new(Type::Ptr(Box::new(type_no_bounds(&mut p)))))
     } else if let TokenKind::Type(typekind) = &p.tokens[p.idx].kind {
         p.idx += 1;
         typekind.clone()
@@ -380,7 +394,7 @@ fn expr(mut p: &mut Parser) -> Node {
 }
 
 fn assign(mut p: &mut Parser) -> Node {
-    let node = equality(&mut p);
+    let node = logical_or(&mut p);
 
     if p.consume(TokenKind::Assign) {
         new_assign_node(node, expr(&mut p))
@@ -410,6 +424,30 @@ fn assign(mut p: &mut Parser) -> Node {
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitOr, node, expr(&mut p)))
     } else {
         node
+    }
+}
+
+fn logical_or(mut p: &mut Parser) -> Node {
+    let mut node = logical_and(&mut p);
+
+    loop {
+        if p.consume(TokenKind::OrOr) {
+            node = new_short_circuit_op_node(ShortCircuitOpKind::Or, node, logical_and(&mut p));
+        } else {
+            return node;
+        }
+    }
+}
+
+fn logical_and(mut p: &mut Parser) -> Node {
+    let mut node = equality(&mut p);
+
+    loop {
+        if p.consume(TokenKind::AndAnd) {
+            node = new_short_circuit_op_node(ShortCircuitOpKind::And, node, equality(&mut p));
+        } else {
+            return node;
+        }
     }
 }
 

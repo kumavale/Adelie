@@ -29,6 +29,12 @@ pub enum BinaryOpKind {
     Ge,      // >=
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ShortCircuitOpKind {
+    And,  // &&
+    Or,   // ||
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Integer {
@@ -88,4 +94,9 @@ pub enum Node {
         lhs: Box<Node>,
         rhs: Box<Node>,
     },
+    ShortCircuitOp {
+        kind: ShortCircuitOpKind,
+        lhs: Box<Node>,
+        rhs: Box<Node>,
+    }
 }
