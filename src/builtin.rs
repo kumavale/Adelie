@@ -35,7 +35,7 @@ fn gen_print_il(mut args: Vec<Node>, f: &[Function]) -> Type {
                     println!("\tdup");
                     println!("\tldc.i4 {}", i);
                     let typekind = gen_il(arg, f);
-                    println!("\tbox {}", typekind.as_ilstr());
+                    println!("\tbox {}", typekind.to_ilstr());
                     println!("\tstelem.ref");
                 });
             println!("\tcall void [mscorlib]System.Console::Write(string, object[])");
@@ -63,7 +63,7 @@ fn gen_println_il(mut args: Vec<Node>, f: &[Function]) -> Type {
                     println!("\tdup");
                     println!("\tldc.i4 {}", i);
                     let typekind = gen_il(arg, f);
-                    println!("\tbox {}", typekind.as_ilstr());
+                    println!("\tbox {}", typekind.to_ilstr());
                     println!("\tstelem.ref");
                 });
             println!("\tcall void [mscorlib]System.Console::WriteLine(string, object[])");

@@ -25,35 +25,38 @@ impl Keyword {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Type {
     Numeric(Numeric),
     Bool,
     String,
+    Ptr(Box<Type>),
     Void,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Numeric {
     I32,
 }
 
 impl Type {
-    pub fn as_str(&self) -> &str {
+    pub fn to_str(&self) -> String {
         match self {
-            Type::Numeric(Numeric::I32) => "i32",
-            Type::Bool => "bool",
-            Type::String => "String",
-            Type::Void => "void",
+            Type::Numeric(Numeric::I32) => "i32".to_string(),
+            Type::Bool => "bool".to_string(),
+            Type::String => "String".to_string(),
+            Type::Ptr(t) => format!("&{}", t.to_str()),
+            Type::Void => "void".to_string(),
         }
     }
 
-    pub fn as_ilstr(&self) -> &str {
+    pub fn to_ilstr(&self) -> String {
         match self {
-            Type::Numeric(Numeric::I32) => "int32",
-            Type::Bool => "bool",
-            Type::String => "string",
-            Type::Void => "void",
+            Type::Numeric(Numeric::I32) => "int32".to_string(),
+            Type::Bool => "bool".to_string(),
+            Type::String => "string".to_string(),
+            Type::Ptr(t) => format!("{}&",t.to_ilstr()),
+            Type::Void => "void".to_string(),
         }
     }
 }

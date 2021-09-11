@@ -5,8 +5,10 @@ use super::builtin::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UnaryOpKind {
-    Neg,  // -
-    Not,  // !
+    Neg,    // -
+    Not,    // !
+    Ref,    // &
+    Deref,  // *
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

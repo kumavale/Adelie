@@ -117,6 +117,7 @@ fn ret3() -> i32 { return 3; }
 fn plus(a: i32, b: i32) -> i32 { return a+b; }
 fn add6(a:i32, b:i32, c:i32, d:i32, e:i32, f:i32) -> i32 { return a+b+c+d+e+f; }
 fn fib(x: i32) -> i32 { if x<=1 { return 1; } else { return fib(x-1)+fib(x-2); } }
+fn swap(x: &i32, y: &i32) { let tmp:i32=*x; *x=*y; *y=tmp; }
 fn ASSERT(expect: i32, actual: i32) -> i32 {
     let format: String = "[  {0}  ] expect: {1}, actual: {2}";
     if expect == actual {
@@ -211,6 +212,13 @@ fn main() {
     ngcnt += ASSERT( 2, { let i:i32= 6; i&=3; i });
     ngcnt += ASSERT( 7, { let i:i32= 6; i|=3; i });
     ngcnt += ASSERT(10, { let i:i32=15; i^=5; i });
+
+    ngcnt += ASSERT(3, { let x:i32=3; *&x });
+    ngcnt += ASSERT(3, { let x:i32=3; let y:&i32=&x; let z:&&i32=&y; **z });
+    ngcnt += ASSERT(3, { let a:i32=3;let b:&i32=&a;let c:&&i32=&b;let d:&&&i32=&c;let e:&&&&i32=&d; ****e });
+    ngcnt += ASSERT(5, { let x:i32=3; let y:&i32=&x; *y=5; x });
+    ngcnt += ASSERT(3, { let x:i32=3; let y:i32=5; swap(&x, &y); y });
+    ngcnt += ASSERT(5, { let x:i32=3; let y:i32=5; swap(&x, &y); x });
 
     if ngcnt == 0 {
         println("ok");

@@ -34,7 +34,7 @@ use super::builtin::*;
 //
 // add   = mul ( '+' mul | '-' mul ) *
 // mul   = unary ( '*' unary | '/' unary | '%' unary ) *
-// unary = ( '-' | '!' ) ? primary
+// unary = ( '-' | '!' | '&' | '*' ) ? primary
 //
 // primary = num
 //         | bool
@@ -186,7 +186,7 @@ fn new_builtin_call_node(kind: Builtin, args: Vec<Node>) -> Node {
     }
 }
 
-fn new_function_call_node(function: &mut Function, name: &str, args: Vec<Node>) -> Node {
+fn new_function_call_node(name: &str, args: Vec<Node>) -> Node {
     Node::Call {
         name: name.to_string(),
         args,
@@ -245,15 +245,9 @@ fn function(mut p: &mut Parser) -> Function {
                     panic!("A local variable or function named '{}' is already defined in this scope", name);
                 } else {
                     p.expect(TokenKind::Colon);
-                    let typekind = if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
-                        typekind
-                    } else {
-                        eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
-                        panic!("expected type, but got `{:?}`", p.tokens[p.idx].kind);
-                    };
-                    p.idx += 1;
+                    let typekind = type_no_bounds(&mut p);
                     let current_function = p.current_function.as_mut().unwrap();
-                    let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true, typekind));
+                    let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true, typekind.clone()));
                     current_function.param_symbol_table.push(Rc::clone(&obj));
                 }
             } else {
@@ -267,9 +261,9 @@ fn function(mut p: &mut Parser) -> Function {
     }
 
     if p.consume(TokenKind::RArrow) {
-        if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
+        if let TokenKind::Type(typekind) = &p.tokens[p.idx].kind {
             p.idx += 1;
-            p.current_function.as_mut().unwrap().rettype = typekind;
+            p.current_function.as_mut().unwrap().rettype = typekind.clone();
         } else {
             eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
             panic!("expected type, but got `{:?}`", p.tokens[p.idx].kind);
@@ -290,13 +284,8 @@ fn statement(mut p: &mut Parser) -> Node {
         if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
             p.idx += 1;
             p.expect(TokenKind::Colon);
-            let node = if let TokenKind::Type(typekind) = p.tokens[p.idx].kind {
-                p.idx += 1;
-                new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind)
-            } else {
-                eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
-                panic!("expected type, but got `{:?}`", p.tokens[p.idx].kind);
-            };
+            let typekind = type_no_bounds(&mut p);
+            let node = new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind);
             if p.consume(TokenKind::Assign) {
                 let node = new_assign_node(node, expr(&mut p));
                 p.expect(TokenKind::Semi);
@@ -317,6 +306,18 @@ fn statement(mut p: &mut Parser) -> Node {
     } else {
         new_evaluates_node(node)
     }
+}
+
+fn type_no_bounds(mut p: &mut Parser) -> Type {
+    if p.consume(TokenKind::And) {
+        Type::Ptr(Box::new(type_no_bounds(&mut p)))
+    } else if let TokenKind::Type(typekind) = &p.tokens[p.idx].kind {
+        p.idx += 1;
+        typekind.clone()
+    } else {
+        panic!("expected type, but got `{:?}`", p.tokens[p.idx].kind);
+    }
+
 }
 
 fn block_expression(mut p: &mut Parser) -> Node {
@@ -476,6 +477,10 @@ fn unary(mut p: &mut Parser) -> Node {
         new_unary_op_node(UnaryOpKind::Neg, unary(&mut p))
     } else if p.consume(TokenKind::Not) {
         new_unary_op_node(UnaryOpKind::Not, unary(&mut p))
+    } else if p.consume(TokenKind::And) {
+        new_unary_op_node(UnaryOpKind::Ref, unary(&mut p))
+    } else if p.consume(TokenKind::Star) {
+        new_unary_op_node(UnaryOpKind::Deref, unary(&mut p))
     } else {
         primary(&mut p)
     }
@@ -506,7 +511,7 @@ fn primary(mut p: &mut Parser) -> Node {
                     args.push(expr(&mut p));
                     p.consume(TokenKind::Comma);
                 }
-                new_function_call_node(&mut p.current_function.as_mut().unwrap(), name, args)
+                new_function_call_node(name, args)
             } else {
                 // local variable or parameter
                 new_variable_node(&mut p.current_function.as_mut().unwrap(), name)
