@@ -11,13 +11,13 @@ use super::builtin::*;
 // program = function *
 //
 // function             = 'fn' ident '(' ( param ( ',' param ) * ) ? ')' function_return_type ? block_expression
-// param                = ident ':' type
-// function_return_type = '->' type
+// param                = ident ':' type_no_bounds
+// function_return_type = '->' type_no_bounds
 //
 // block_expression = '{' statement * '}'
 //
 // statement = 'return' ? expr ';' ?
-//      | 'let' ident ':' type ( '=' expr ) ? ';'
+//      | 'let' ident ':' type_no_bounds ( '=' expr ) ? ';'
 //
 // expr = assign
 //      | 'if' expr block_expression ( 'else' block_expression ) ?
@@ -33,7 +33,8 @@ use super::builtin::*;
 // bitand = add ( '&' add ) *
 //
 // add   = mul ( '+' mul | '-' mul ) *
-// mul   = unary ( '*' unary | '/' unary | '%' unary ) *
+// mul   = cast ( '*' cast | '/' cast | '%' cast ) *
+// cast  = unary ( 'as' type_no_bounds ) *
 // unary = ( '-' | '!' | '&' | '*' ) ? primary
 //
 // primary = num
@@ -53,7 +54,8 @@ use super::builtin::*;
 //
 // bool = 'true' | 'false'
 //
-// type = 'i32' | 'String' | 'bool'
+// type_no_bounds = numeric | 'String' | 'bool' | 'char'
+// numeric = 'i32'
 //
 // builtin = 'println'
 //
@@ -185,6 +187,13 @@ fn new_bool_node(b: Keyword) -> Node {
             Keyword::False => 0,
             _ => unreachable!(),
         },
+    }
+}
+
+fn new_cast_node(typekind: Type, expr: Node) -> Node {
+    Node::Cast {
+        typekind,
+        expr: Box::new(expr),
     }
 }
 
@@ -466,15 +475,28 @@ fn add(mut p: &mut Parser) -> Node {
 }
 
 fn mul(mut p: &mut Parser) -> Node {
-    let mut node = unary(&mut p);
+    let mut node = cast(&mut p);
 
     loop {
         if p.consume(TokenKind::Star) {
-            node = new_binary_op_node(BinaryOpKind::Mul, node, unary(&mut p));
+            node = new_binary_op_node(BinaryOpKind::Mul, node, cast(&mut p));
         } else if p.consume(TokenKind::Slash) {
-            node = new_binary_op_node(BinaryOpKind::Div, node, unary(&mut p));
+            node = new_binary_op_node(BinaryOpKind::Div, node, cast(&mut p));
         } else if p.consume(TokenKind::Percent) {
-            node = new_binary_op_node(BinaryOpKind::Rem, node, unary(&mut p));
+            node = new_binary_op_node(BinaryOpKind::Rem, node, cast(&mut p));
+        } else {
+            return node;
+        }
+    }
+}
+
+fn cast(mut p: &mut Parser) -> Node {
+    let mut node = unary(&mut p);
+
+    loop {
+        if p.consume(TokenKind::Keyword(Keyword::As)) {
+            let typekind = type_no_bounds(&mut p);
+            node = new_cast_node(typekind, node);
         } else {
             return node;
         }

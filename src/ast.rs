@@ -72,6 +72,10 @@ pub enum Node {
     Return {
         expr: Option<Box<Node>>,
     },
+    Cast {
+        typekind: Type,
+        expr: Box<Node>,
+    },
     UnaryOp {
         kind: UnaryOpKind,
         expr: Box<Node>,

@@ -114,6 +114,30 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
         Node::Evaluates { expr } => {
             gen_il(*expr, f)
         }
+        Node::Cast { typekind: new_type, expr } => {
+            let old_type = gen_il(*expr, f);
+            match new_type {
+                Type::Numeric(Numeric::I32) => {
+                    println!("\tconv.i4");
+                }
+                Type::Bool => {
+                    if let Type::Numeric(_) = old_type {
+                        panic!("invalid cast as `{}`", Type::Bool.to_str());
+                    }
+                    println!("\tldc.i4.0");
+                    println!("\tcgt");
+                }
+                Type::Char => {
+                    println!("\tconv.u2");
+                }
+                Type::Ptr(_) => {
+                    todo!("cast to ref type");
+                }
+                Type::String => panic!("invalid cast as `{}`", Type::String.to_str()),
+                Type::Void => unreachable!(),
+            }
+            new_type
+        }
         Node::UnaryOp { kind, expr } => {
             match kind {
                 UnaryOpKind::Not => {

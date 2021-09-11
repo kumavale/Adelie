@@ -222,6 +222,11 @@ fn main() {
 
     ngcnt += ASSERT(97, { let a:char='\''a'\''; a });
 
+    ngcnt += ASSERT(1, { let a:i32=97; if a as char=='\''a'\'' { 1 } else { 0 } });
+    ngcnt += ASSERT(1, { let a:char='\''a'\''; if a as i32==97 { 1 } else { 0 } });
+    ngcnt += ASSERT(1, { let a:bool=true; if a as i32==1{ 1 } else { 0 } });
+    ngcnt += ASSERT(0, { let a:bool=false; if a as i32==1{ 1 } else { 0 } });
+
     if ngcnt == 0 {
         println("ok");
     } else {

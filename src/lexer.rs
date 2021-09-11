@@ -235,6 +235,7 @@ impl<'a> Lexer<'a> {
                     "char"   => Token::new(TokenKind::Type(Type::Char),                  self.read_position),
                     "String" => Token::new(TokenKind::Type(Type::String),                self.read_position),
 
+                    "as"     => Token::new(TokenKind::Keyword(Keyword::As),     self.read_position),
                     "else"   => Token::new(TokenKind::Keyword(Keyword::Else),   self.read_position),
                     "false"  => Token::new(TokenKind::Keyword(Keyword::False),  self.read_position),
                     "fn"     => Token::new(TokenKind::Keyword(Keyword::Fn),     self.read_position),
