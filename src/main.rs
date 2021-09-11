@@ -7,6 +7,8 @@ mod codegen;
 mod object;
 mod function;
 mod builtin;
+mod class;
+mod program;
 
 fn main() {
     let input = std::env::args().nth(1).unwrap();
@@ -16,13 +18,13 @@ fn main() {
     //eprintln!("{:?}", tokens.iter().map(|t|t.kind.clone()).collect::<Vec<token::TokenKind>>());
     //eprintln!("{:?}", tokens);
 
-    let mut fn_symbol_table = object::SymbolTable::new();
-    let code_ast = parser::gen_ast(&tokens, &mut fn_symbol_table);
+    let mut g_symbol_table = object::SymbolTable::new();
+    let program = parser::gen_ast(&tokens, &mut g_symbol_table);
 
     println!(".assembly extern mscorlib {{}}");
     println!(".assembly tmp {{}}");
 
-    for func in &code_ast {
+    for func in &program.functions {
         if func.name == "main" {
             println!(".method static void Main() cil managed {{");
             println!("\t.entrypoint");
@@ -39,7 +41,7 @@ fn main() {
         }
         println!("\t)");
 
-        let rettype = codegen::gen_il(func.statements.clone(), &code_ast);
+        let rettype = codegen::gen_il(func.statements.clone(), &program.functions);
         if rettype != func.rettype {
             panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.to_str(), rettype.to_str());
         }

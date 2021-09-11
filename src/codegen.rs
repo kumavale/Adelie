@@ -142,8 +142,8 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
                 Type::Ptr(_) => {
                     todo!("cast to ref type");
                 }
-                Type::String => panic!("invalid cast as `{}`", Type::String.to_str()),
                 Type::Void => unreachable!(),
+                t => panic!("invalid cast as `{}`", t.to_str()),
             }
             new_type
         }

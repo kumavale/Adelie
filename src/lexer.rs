@@ -270,6 +270,7 @@ impl<'a> Lexer<'a> {
                     "if"     => Token::new(TokenKind::Keyword(Keyword::If),     self.read_position),
                     "let"    => Token::new(TokenKind::Keyword(Keyword::Let),    self.read_position),
                     "loop"   => Token::new(TokenKind::Keyword(Keyword::Loop),   self.read_position),
+                    "struct" => Token::new(TokenKind::Keyword(Keyword::Struct), self.read_position),
                     "true"   => Token::new(TokenKind::Keyword(Keyword::True),   self.read_position),
                     "return" => Token::new(TokenKind::Keyword(Keyword::Return), self.read_position),
                     "while"  => Token::new(TokenKind::Keyword(Keyword::While),  self.read_position),

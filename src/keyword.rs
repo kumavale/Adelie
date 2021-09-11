@@ -7,6 +7,7 @@ pub enum Keyword {
     If,
     Let,
     Loop,
+    Struct,
     True,
     Return,
     While,
@@ -22,6 +23,7 @@ impl Keyword {
             Keyword::If => "if",
             Keyword::Let => "let",
             Keyword::Loop => "loop",
+            Keyword::Struct => "struct",
             Keyword::True => "true",
             Keyword::Return => "return",
             Keyword::While => "while",
@@ -35,6 +37,7 @@ pub enum Type {
     Bool,
     Char,
     String,
+    Struct(String),
     Ptr(Box<Type>),
     Void,
 }
@@ -51,6 +54,7 @@ impl Type {
             Type::Bool => "bool".to_string(),
             Type::Char => "char".to_string(),
             Type::String => "String".to_string(),
+            Type::Struct(n) => n.to_string(),
             Type::Ptr(t) => format!("&{}", t.to_str()),
             Type::Void => "void".to_string(),
         }
@@ -62,6 +66,7 @@ impl Type {
             Type::Bool => "bool".to_string(),
             Type::Char => "char".to_string(),
             Type::String => "string".to_string(),
+            Type::Struct(n) => n.to_string(),
             Type::Ptr(t) => format!("{}&",t.to_ilstr()),
             Type::Void => "void".to_string(),
         }

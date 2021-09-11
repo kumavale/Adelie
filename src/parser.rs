@@ -5,14 +5,19 @@ use super::keyword::*;
 use super::object::*;
 use super::function::*;
 use super::builtin::*;
+use super::program::*;
+use super::class::*;
 
 // EBNF
 //
-// program = function *
+// program = ( function | struct ) *
 //
 // function             = 'fn' ident '(' ( param ( ',' param ) * ) ? ')' function_return_type ? block_expression
 // param                = ident ':' type_no_bounds
 // function_return_type = '->' type_no_bounds
+//
+// struct = 'struct' ident '{' field ( ',' field ) * ',' ? '}'
+// field  = ident ':' type_no_bounds
 //
 // block_expression = '{' statement * '}'
 //
@@ -68,7 +73,7 @@ use super::builtin::*;
 
 #[derive(Debug)]
 struct Parser<'a> {
-    fn_symbol_table: &'a mut SymbolTable,
+    g_symbol_table: &'a mut SymbolTable,  // global symbol table
     current_function: Option<Function>,
     tokens: &'a [Token],
     idx: usize,
@@ -98,9 +103,9 @@ impl<'a> Parser<'a> {
     }
 }
 
-pub fn gen_ast<'a>(tokens: &'a [Token], fn_symbol_table: &'a mut SymbolTable) -> Vec<Function> {
+pub fn gen_ast<'a>(tokens: &'a [Token], g_symbol_table: &'a mut SymbolTable) -> Program {
     let mut parser = Parser {
-        fn_symbol_table,
+        g_symbol_table,
         current_function: None,
         tokens,
         idx: 0,
@@ -257,22 +262,32 @@ fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str, typeki
     }
 }
 
-fn program(mut p: &mut Parser) -> Vec<Function> {
-    let mut functions = vec![];
+fn program(mut p: &mut Parser) -> Program {
+    let mut program = Program::new();
     while !p.is_eof() {
-        functions.push(function(&mut p));
+        if let TokenKind::Keyword(Keyword::Struct) = &p.tokens[p.idx].kind {
+            program.structs.push(struct_define(&mut p));
+        } else if let TokenKind::Keyword(Keyword::Fn) = &p.tokens[p.idx].kind {
+            program.functions.push(function(&mut p));
+        } else {
+            panic!("invalid token: `{:?}`", p.tokens[p.idx].kind);
+        }
     }
-    functions
+    program
+}
+
+fn struct_define(mut p: &mut Parser) -> Struct {
+    todo!();
 }
 
 fn function(mut p: &mut Parser) -> Function {
     p.expect(TokenKind::Keyword(Keyword::Fn));
     if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
-        if p.fn_symbol_table.find_name(name).is_some() {
+        if p.g_symbol_table.find_name(name).is_some() {
             panic!("the name `{}` is defined multiple times", name);
         }
-        let obj = Rc::new(Object::new(name.to_string(), p.fn_symbol_table.len(), false, Type::Void));
-        p.fn_symbol_table.push(Rc::clone(&obj));
+        let obj = Rc::new(Object::new(name.to_string(), p.g_symbol_table.len(), false, Type::Void));
+        p.g_symbol_table.push(Rc::clone(&obj));
         p.current_function = Some(Function::new(name));
         p.idx += 1;
         p.expect(TokenKind::LParen);
