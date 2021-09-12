@@ -27,8 +27,8 @@ fn main() {
     for st in &program.structs {
         println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", st.name);
         println!("{{");
-        for f in &st.field {
-            println!(".field private {} {}", f.typekind.to_ilstr(), f.name);
+        for value in &st.field {
+            println!("\t.field public {} {}", value.typekind.to_ilstr(), value.name);
         }
         // TODO: method
         println!("}}");
@@ -47,11 +47,17 @@ fn main() {
         // prepare local variables
         println!("\t.locals init (");
         for (i, obj) in func.lvar_symbol_table.objs.iter().enumerate() {
+            if let keyword::Type::Struct(name) = &obj.typekind {
+                use crate::class::StructSymbolTable;
+                if program.structs.find_struct(name).is_none() {
+                    panic!("cannot find struct, variant or union type `{}` in this scope", name);
+                }
+            }
             println!("\t\t[{}] {} V_{}{}", i, obj.typekind.to_ilstr(), i, if i+1<func.lvar_symbol_table.len(){","}else{""});
         }
         println!("\t)");
 
-        let rettype = codegen::gen_il(func.statements.clone(), &program.functions);
+        let rettype = codegen::gen_il(func.statements.clone(), &program);
         if rettype != func.rettype {
             panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.to_str(), rettype.to_str());
         }

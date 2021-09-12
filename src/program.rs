@@ -14,4 +14,12 @@ impl Program {
             structs: vec![],
         }
     }
+
+    pub fn find_function(&self, name: &str) -> Option<&Function> {
+        self.functions.find_function(name)
+    }
+
+    pub fn find_struct(&self, name: &str) -> Option<&Struct> {
+        self.structs.find_struct(name)
+    }
 }

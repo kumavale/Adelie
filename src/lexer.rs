@@ -268,6 +268,7 @@ impl<'a> Lexer<'a> {
                     "false"  => Token::new(TokenKind::Keyword(Keyword::False),  self.read_position),
                     "fn"     => Token::new(TokenKind::Keyword(Keyword::Fn),     self.read_position),
                     "if"     => Token::new(TokenKind::Keyword(Keyword::If),     self.read_position),
+                    "impl"   => Token::new(TokenKind::Keyword(Keyword::Impl),   self.read_position),
                     "let"    => Token::new(TokenKind::Keyword(Keyword::Let),    self.read_position),
                     "loop"   => Token::new(TokenKind::Keyword(Keyword::Loop),   self.read_position),
                     "struct" => Token::new(TokenKind::Keyword(Keyword::Struct), self.read_position),

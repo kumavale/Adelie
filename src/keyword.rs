@@ -5,6 +5,7 @@ pub enum Keyword {
     False,
     Fn,
     If,
+    Impl,
     Let,
     Loop,
     Struct,
@@ -21,6 +22,7 @@ impl Keyword {
             Keyword::False => "false",
             Keyword::Fn => "fn",
             Keyword::If => "if",
+            Keyword::Impl => "impl",
             Keyword::Let => "let",
             Keyword::Loop => "loop",
             Keyword::Struct => "struct",
@@ -66,8 +68,8 @@ impl Type {
             Type::Bool => "bool".to_string(),
             Type::Char => "char".to_string(),
             Type::String => "string".to_string(),
-            Type::Struct(n) => n.to_string(),
-            Type::Ptr(t) => format!("{}&",t.to_ilstr()),
+            Type::Struct(n) => format!("valuetype {}", n),
+            Type::Ptr(t) => format!("{}&", t.to_ilstr()),
             Type::Void => "void".to_string(),
         }
     }

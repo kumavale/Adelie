@@ -284,8 +284,12 @@ assert 0 'fn a() -> bool { true } fn main() { if true { if a() { println("ok"); 
 assert 0 'fn a() -> char { '\''a'\'' } fn main() { if a()=='\''a'\'' { println("ok"); } else { println("failed"); } }'
 
 assert 0 '
-struct Point {x: i32, y: i32}
+struct Rectangle {
+    width: i32,
+    height: i32,
+}
 fn main() {
+    let rect: Rectangle = Rectangle { 30, 50 };
     println("ok");
 }'
 

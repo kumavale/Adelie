@@ -10,7 +10,7 @@ use super::class::*;
 
 // EBNF
 //
-// program = ( function | struct ) *
+// program = ( function | struct | implementation ) *
 //
 // function             = 'fn' ident '(' ( param ( ',' param ) * ) ? ')' function_return_type ? block_expression
 // param                = ident ':' type_no_bounds
@@ -18,6 +18,9 @@ use super::class::*;
 //
 // struct = 'struct' ident '{' field ( ',' field ) * ',' ? '}'
 // field  = ident ':' type_no_bounds
+//
+// implementation  = 'impl' type_no_bounds '{' associated_item * '}'
+// associated_item = function
 //
 // block_expression = '{' statement * '}'
 //
@@ -54,6 +57,7 @@ use super::class::*;
 //         | bool
 //         | builtin
 //         | ident ( '(' ( expr ( ',' expr ) * ) ? ')' ) ?
+//         | ident '{' ( expr ( ',' expr ) * ) ? ',' ? '}'
 //         | '(' expr ')'
 //
 // ident    = alphabet + ( num | alphabet ) *
@@ -77,6 +81,7 @@ struct Parser<'a> {
     current_function: Option<Function>,
     tokens: &'a [Token],
     idx: usize,
+    except_struct_expression: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -109,6 +114,7 @@ pub fn gen_ast<'a>(tokens: &'a [Token], g_symbol_table: &'a mut SymbolTable) -> 
         current_function: None,
         tokens,
         idx: 0,
+        except_struct_expression: false,
     };
 
     program(&mut parser)
@@ -236,6 +242,23 @@ fn new_function_call_node(name: &str, args: Vec<Node>) -> Node {
     }
 }
 
+fn new_struct_expr_node(symbol_table: &mut SymbolTable, name: &str, field: Vec<Node>) -> Node {
+    fn seq() -> usize {
+        unsafe {
+            static mut SEQ: usize = 0;
+            SEQ += 1;
+            SEQ
+        }
+    }
+    let unique_name = format!("{}{}", name, seq());
+    let obj = Rc::new(Object::new(unique_name, symbol_table.len(), false, Type::Struct(name.to_string())));
+    symbol_table.push(Rc::clone(&obj));
+    Node::Struct {
+        obj,
+        field,
+    }
+}
+
 fn new_variable_node(function: &mut Function, name: &str) -> Node {
     if let Some(obj) = function.lvar_symbol_table.find_name(name) {
         Node::Variable {
@@ -267,6 +290,24 @@ fn program(mut p: &mut Parser) -> Program {
     while !p.is_eof() {
         if let TokenKind::Keyword(Keyword::Struct) = &p.tokens[p.idx].kind {
             program.structs.push(struct_define(&mut p));
+        } else if p.consume(TokenKind::Keyword(Keyword::Impl)) {
+            let name = if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
+                p.idx += 1;
+                name
+            } else {
+                panic!("expected identifier");
+            };
+            if program.structs.find_struct(name).is_none() {
+                let mut st = Struct::new();
+                st.name = name.to_string();
+                program.structs.push(st);
+            }
+            let mut functions = vec![];
+            while let TokenKind::Keyword(Keyword::Fn) = &p.tokens[p.idx].kind {
+                functions.push(function(&mut p));
+            }
+            program.structs.find_struct_mut(name).unwrap().functions.append(&mut functions);
+
         } else if let TokenKind::Keyword(Keyword::Fn) = &p.tokens[p.idx].kind {
             program.functions.push(function(&mut p));
         } else {
@@ -275,7 +316,6 @@ fn program(mut p: &mut Parser) -> Program {
     }
     program
 }
-
 
 fn struct_define(mut p: &mut Parser) -> Struct {
     let mut st = Struct::new();
@@ -395,6 +435,9 @@ fn type_no_bounds(mut p: &mut Parser) -> Type {
     } else if let TokenKind::Type(typekind) = &p.tokens[p.idx].kind {
         p.idx += 1;
         typekind.clone()
+    } else if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
+        p.idx += 1;
+        Type::Struct(name.to_string())
     } else {
         panic!("expected type, but got `{:?}`", p.tokens[p.idx].kind);
     }
@@ -405,9 +448,12 @@ fn block_expression(mut p: &mut Parser) -> Node {
     let mut stmts = vec![];
     p.current_function.as_mut().unwrap().lvar_symbol_table.enter_scope();
     p.expect(TokenKind::LBrace );
+    let except_struct_expression = p.except_struct_expression;
+    p.except_struct_expression = false;
     while !p.consume(TokenKind::RBrace) && !p.is_eof() {
         stmts.push(statement(&mut p));
     }
+    p.except_struct_expression = except_struct_expression;
     p.current_function.as_mut().unwrap().lvar_symbol_table.leave_scope();
     new_block_node(stmts)
 }
@@ -416,7 +462,9 @@ fn expr(mut p: &mut Parser) -> Node {
     if p.tokens[p.idx].kind == TokenKind::LBrace {
         block_expression(&mut p)
     } else if p.consume(TokenKind::Keyword(Keyword::If)) {
+        p.except_struct_expression = true;
         let cond = expr(&mut p);
+        p.except_struct_expression = false;
         let then = block_expression(&mut p);
         let els = if p.consume(TokenKind::Keyword(Keyword::Else)) {
             Some(block_expression(&mut p))
@@ -628,8 +676,11 @@ fn unary(mut p: &mut Parser) -> Node {
 
 fn primary(mut p: &mut Parser) -> Node {
     if p.consume(TokenKind::LParen) {
+        let except_struct_expression = p.except_struct_expression;
+        p.except_struct_expression = false;
         let node = expr(&mut p);
         p.expect(TokenKind::RParen);
+        p.except_struct_expression = except_struct_expression;
         return node;
     }
 
@@ -656,6 +707,14 @@ fn primary(mut p: &mut Parser) -> Node {
                     p.consume(TokenKind::Comma);
                 }
                 new_function_call_node(name, args)
+            } else if !p.except_struct_expression && p.consume(TokenKind::LBrace) {
+                // struct
+                let mut field = vec![];
+                while !p.consume(TokenKind::RBrace) {
+                    field.push(expr(&mut p));
+                    p.consume(TokenKind::Comma);
+                }
+                new_struct_expr_node(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, field)
             } else {
                 // local variable or parameter
                 new_variable_node(&mut p.current_function.as_mut().unwrap(), name)

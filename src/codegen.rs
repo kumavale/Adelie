@@ -1,9 +1,9 @@
 use super::ast::*;
 use super::builtin::*;
-use super::function::*;
 use super::keyword::*;
+use super::program::*;
 
-pub fn gen_il(node: Node, f: &[Function]) -> Type {
+pub fn gen_il(node: Node, p: &Program) -> Type {
     match node {
         Node::Integer { typekind, num } => {
             println!("\tldc.i4 {}", num as i32);
@@ -14,19 +14,38 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             typekind
         }
         Node::Builtin { kind, args } => {
-            gen_builtin_il(kind, args, f)
+            gen_builtin_il(kind, args, p)
         }
         Node::Call { name, args } => {
             for arg in args {
-                gen_il(arg, f);
+                gen_il(arg, p);
             }
-            if let Some(func) = f.find_function(&name) {
+            if let Some(func) = p.find_function(&name) {
                 let args = func.param_symbol_table.objs.iter().map(|o|o.typekind.to_ilstr()).collect::<Vec<String>>().join(", ");
                 println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, args);
                 func.rettype.clone()
             } else {
                 panic!("The name '{}' does not exist in the current context", name);
             }
+        }
+        Node::Struct { obj, field } => {
+            if let Some(st) = p.find_struct(&obj.typekind.to_str()) {
+                if field.len() != st.field.len() {
+                    panic!("missing field");
+                }
+                println!("\tldloca {}", obj.offset);
+                println!("\tinitobj {}", obj.typekind.to_str());
+                for value in field.into_iter().zip(&st.field) {
+                    println!("\tldloca {}", obj.offset);
+                    gen_il(value.0, p);
+                    //println!("\tstfld {} {}", value.1.typekind.to_ilstr(), value.1.offset);
+                    println!("\tstfld {} {}::{}", value.1.typekind.to_ilstr(), obj.typekind.to_str(), value.1.name);
+                }
+                println!("\tldloc {}", obj.offset);
+            } else {
+                panic!("The name '{}' does not exist in the current context", obj.name);
+            }
+            Type::Struct(obj.name.to_string())
         }
         Node::Variable { obj } => {
             if obj.is_param {
@@ -40,9 +59,9 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             let mut typekind = Type::Void;
             for stmt in stmts {
                 if let Node::Evaluates { expr: _ } = stmt {
-                    typekind = gen_il(stmt, f);
+                    typekind = gen_il(stmt, p);
                 } else {
-                    typekind = gen_il(stmt, f);
+                    typekind = gen_il(stmt, p);
                     if typekind != Type::Void {
                         println!("\tpop");
                     }
@@ -51,17 +70,17 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             typekind
         }
         Node::If { cond, then, els } => {
-            let cond_type = gen_il(*cond, f);
+            let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
                 panic!("expected `{}`, found `{}`", Type::Bool.to_str(), cond_type.to_str());
             }
             let else_label = format!("IL_else{}", seq());
             let end_label = format!("IL_end{}", seq());
             println!("\tbrfalse {}", else_label);
-            let then_type = gen_il(*then, f);
+            let then_type = gen_il(*then, p);
             println!("\tbr {}", end_label);
             println!("{}:", else_label);
-            let els_type = els.map(|els| gen_il(*els, f));
+            let els_type = els.map(|els| gen_il(*els, p));
             println!("{}:", end_label);
             if let Some(els_type) = els_type {
                 if els_type != then_type {
@@ -74,12 +93,12 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             let begin_label = format!("IL_begin{}", seq());
             let end_label = format!("IL_end{}", seq());
             println!("{}:", begin_label);
-            let cond_type = gen_il(*cond, f);
+            let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
                 panic!("expected `{}`, found `{}`", Type::Bool.to_str(), cond_type.to_str());
             }
             println!("\tbrfalse {}", end_label);
-            let then_type = gen_il(*then, f);
+            let then_type = gen_il(*then, p);
             println!("\tbr {}", begin_label);
             println!("{}:", end_label);
             then_type
@@ -88,7 +107,7 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             let begin_label = format!("IL_begin{}", seq());
             let end_label = format!("IL_end{}", seq());
             println!("{}:", begin_label);
-            let then_type = gen_il(*then, f);
+            let then_type = gen_il(*then, p);
             println!("\tbr {}", begin_label);
             println!("{}:", end_label);
             then_type
@@ -96,15 +115,15 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
         Node::Assign { lhs, rhs } => {
             match *lhs {
                 Node::Variable { obj } => {
-                    gen_il(*rhs, f);
+                    gen_il(*rhs, p);
                     println!("\tstloc {}", obj.offset);
                 }
                 Node::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
                     //match expr {
                     //    Node::Variable { obj }
                     //}
-                    gen_il(*expr, f);
-                    gen_il(*rhs, f);
+                    gen_il(*expr, p);
+                    gen_il(*rhs, p);
                     println!("\tstind.i4");
                 }
                 _ => panic!("The left-hand side of an assignment must be a variable")
@@ -113,7 +132,7 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
         }
         Node::Return { expr } => {
             let rettype = if let Some(expr) = expr {
-                gen_il(*expr, f)
+                gen_il(*expr, p)
             } else {
                 Type::Void
             };
@@ -121,10 +140,10 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             rettype
         }
         Node::Evaluates { expr } => {
-            gen_il(*expr, f)
+            gen_il(*expr, p)
         }
         Node::Cast { typekind: new_type, expr } => {
-            let old_type = gen_il(*expr, f);
+            let old_type = gen_il(*expr, p);
             match new_type {
                 Type::Numeric(Numeric::I32) => {
                     println!("\tconv.i4");
@@ -150,7 +169,7 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
         Node::UnaryOp { kind, expr } => {
             match kind {
                 UnaryOpKind::Not => {
-                    let typekind = gen_il(*expr, f);
+                    let typekind = gen_il(*expr, p);
                     match typekind {
                         Type::Bool => {
                             println!("\tldc.i4.0");
@@ -161,7 +180,7 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
                     typekind
                 }
                 UnaryOpKind::Neg => {
-                    let typekind = gen_il(*expr, f);
+                    let typekind = gen_il(*expr, p);
                     println!("\tneg");
                     typekind
                 }
@@ -174,11 +193,11 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
                         }
                         Type::Ptr(Box::new(obj.typekind.clone()))
                     } else {
-                        Type::Ptr(Box::new(gen_il(*expr, f)))
+                        Type::Ptr(Box::new(gen_il(*expr, p)))
                     }
                 }
                 UnaryOpKind::Deref => {
-                    let typekind = gen_il(*expr, f);
+                    let typekind = gen_il(*expr, p);
                     if let Type::Ptr(typekind) = typekind {
                         match *typekind {
                             Type::Ptr(_) => println!("\tldind.i"),
@@ -193,8 +212,8 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             }
         }
         Node::BinaryOp { kind, lhs, rhs } => {
-            let ltype = gen_il(*lhs, f);
-            let rtype = gen_il(*rhs, f);
+            let ltype = gen_il(*lhs, p);
+            let rtype = gen_il(*rhs, p);
             if ltype != rtype {
                 panic!("expected `{}`, found `{}`", ltype.to_str(), rtype.to_str());
             }
@@ -240,13 +259,13 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
             match kind {
                 ShortCircuitOpKind::And => {
                     println!("\tldc.i4.0");
-                    let ltype = gen_il(*lhs, f);
+                    let ltype = gen_il(*lhs, p);
                     if ltype != Type::Bool {
                         panic!("expected `{}`, found `{}`", Type::Bool.to_str(), ltype.to_str());
                     }
                     println!("\tbrfalse {}", end_label);
                     println!("\tpop");
-                    let rtype = gen_il(*rhs, f);
+                    let rtype = gen_il(*rhs, p);
                     if rtype != Type::Bool {
                         panic!("expected `{}`, found `{}`", Type::Bool.to_str(), rtype.to_str());
                     }
@@ -254,13 +273,13 @@ pub fn gen_il(node: Node, f: &[Function]) -> Type {
                 }
                 ShortCircuitOpKind::Or => {
                     println!("\tldc.i4.1");
-                    let ltype = gen_il(*lhs, f);
+                    let ltype = gen_il(*lhs, p);
                     if ltype != Type::Bool {
                         panic!("expected `{}`, found `{}`", Type::Bool.to_str(), ltype.to_str());
                     }
                     println!("\tbrtrue {}", end_label);
                     println!("\tpop");
-                    let rtype = gen_il(*rhs, f);
+                    let rtype = gen_il(*rhs, p);
                     if rtype != Type::Bool {
                         panic!("expected `{}`, found `{}`", Type::Bool.to_str(), rtype.to_str());
                     }

@@ -55,6 +55,10 @@ pub enum Node {
         name: String,
         args: Vec<Node>,
     },
+    Struct {
+        obj: Rc<Object>,
+        field: Vec<Node>,
+    },
     Variable {
         obj: Rc<Object>,
     },
