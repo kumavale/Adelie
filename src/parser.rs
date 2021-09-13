@@ -8,31 +8,240 @@ use super::builtin::*;
 use super::program::*;
 use super::class::*;
 
-// EBNF
+// Grammar
 //
-// program = ( function | struct | implementation ) *
+// Program = Statement *
 //
-// function             = 'fn' ident '(' ( param ( ',' param ) * ) ? ')' function_return_type ? block_expression
-// param                = ident ':' type_no_bounds
-// function_return_type = '->' type_no_bounds
+// Statement :
+//     `;`
+//   | Item
+//   | LetStatement
+//   | ExpressionStatement
 //
-// struct = 'struct' ident '{' field ( ',' field ) * ',' ? '}'
-// field  = ident ':' type_no_bounds
+// Item :
+//     Function
+//   | Struct
+//   | Implementation
 //
-// implementation  = 'impl' type_no_bounds '{' associated_item * '}'
-// associated_item = function
+// Function :
+//     `fn` IDENTIFIER `(` FunctionParameters ? `)` FunctionReturnType ? BlockExpression
+// FunctionParameters :
+//     FunctionParam ( `,` FunctionParam ) * `,` ?
+// FunctionParam :
+//     IDENTIFIER `:` Type
+// FunctionReturnType :
+//     `->` Type
 //
-// block_expression = '{' statement * '}'
+// Struct :
+//     `struct` IDENTIFIER `{` StructFields ? `}`
+// StructFields :
+//     StructField ( `,` StructField ) * `,` ?
+// StructField :
+//     IDENTIFIER `:` Type
 //
-// statement = 'return' ? expr ';' ?
-//      | 'let' ident ':' type_no_bounds ( '=' expr ) ? ';'
+// Implementation :
+//     `impl` Type `{` AssociatedItem * `}`
+// AssociatedItem :
+//     Function
 //
-// expr = assign
-//      | 'if' expr block_expression ( 'else' block_expression ) ?
-//      | 'while' expr block_expression
-//      | 'loop' block_expression
+// LetStatement :
+//     `let` IDENTIFIER `:` Type ( `=` Expression ) ? `;`
 //
-// assign           = logical_or ( ( '=' | binary_assign_op ) expr ) ?
+// ExpressionStatement :
+//     ExpressionWithoutBlock `;`
+//   | ExpressionWithBlock `;` ?
+//
+// Expression = ExpressionWithoutBlock | ExpressionWithBlock
+// ExpressionWithoutBlock :
+//     LiteralExpression
+//   | OperatorExpression
+//   | GroupedExpression
+//   | StructExpression
+//   | CallExpression
+//   | FieldExpression
+//   | ReturnExpression
+// ExpressionWithBlock :
+//     BlockExpression
+//   | LoopExpression
+//   | IfExpression
+//
+// LiteralExpression :
+//     CHAR_LITERAL
+//   | STRING_LITERAL
+//   | INTEGER_LITERAL
+//   | BOOLEAN_LITERAL
+//
+// OperatorExpression :
+//     BorrowExpression
+//   | DereferenceExpression
+//   | NegationExpression
+//   | ArithmeticOrLogicalExpression
+//   | ComparisonExpression
+//   | LazyBooleanExpression
+//   | TypeCastExpression
+//   | AssignmentExpression
+//   | CompoundAssignmentExpression
+//
+// GroupedExpression :
+//     `(` Expression `)`
+//
+// StructExpression :
+//     StructExprStruct
+// StructExprStruct :
+//     IDENTIFIER `{` StructExprFields `}`
+// StructExprFields :
+//     StructExprField ( `,` StructExprField ) * `,` ?
+// StructExprField :
+//     IDENTIFIER
+//
+// CallExpression :
+//     Expression `(` CallParams ? `)`
+// CallParams :
+//     Expression ( `,` Expression ) * `,` ?
+//
+// FieldExpression :
+//     Expression `.` IDENTIFIER
+//
+// ReturnExpression :
+//     `return` Expression ?
+//
+// BlockExpression :
+//     `{` Statements ? `}`
+// Statements :
+//     Statement +
+//   | Statement + ExpressionWithoutBlock
+//   | ExpressionWithoutBlock
+//
+// LoopExpression :
+//     InfiniteLoopExpression
+//   | PredicateLoopExpression
+//
+// InfiniteLoopExpression :
+//     `loop` BlockExpression
+// PredicateLoopExpression :
+//     `while` Expression BlockExpression
+//
+// IfExpression :
+//     `if` Expression BlockExpression
+//     ( `else` ( BlockExpression | IfExpression ) ) ?
+//
+// BorrowExpression :
+//     ( `&` | `&&` ) Expression
+// DereferenceExpression :
+//     `*` Expression
+// NegationExpression :
+//     `-` Expression
+//   | `!` Expression
+// ArithmeticOrLogicalExpression :
+//     Expression `+` Expression
+//   | Expression `-` Expression
+//   | Expression `*` Expression
+//   | Expression `/` Expression
+//   | Expression `%` Expression
+//   | Expression `&` Expression
+//   | Expression `|` Expression
+//   | Expression `^` Expression
+//   | Expression `<<` Expression
+//   | Expression `>>` Expression
+// ComparisonExpression :
+//     Expression `==` Expression
+//   | Expression `!=` Expression
+//   | Expression `>` Expression
+//   | Expression `<` Expression
+//   | Expression `>=` Expression
+//   | Expression `<=` Expression
+// LazyBooleanExpression :
+//     Expression `||` Expression
+//   | Expression `&&` Expression
+// TypeCastExpression :
+//     Expression `as` TypeNoBounds
+// AssignmentExpression :
+//     Expression `=` Expression
+// CompoundAssignmentExpression :
+//     Expression `+=` Expression
+//   | Expression `-=` Expression
+//   | Expression `*=` Expression
+//   | Expression `/=` Expression
+//   | Expression `%=` Expression
+//   | Expression `&=` Expression
+//   | Expression `|=` Expression
+//   | Expression `^=` Expression
+//   | Expression `<<=` Expression
+//   | Expression `>>=` Expression
+//
+// Type :
+//     TypeNoBounds
+// TypeNoBounds :
+//     TYPES
+//   | ReferenceType
+// ReferenceType :
+//     `&` TypeNoBounds
+//
+//
+//
+// LINE_COMMENT :
+//     `//` ( ~[\ !] | `//` ) ~ `\n` *
+//   | `//`
+// BLOCK_COMMENT :
+//     `/*` ( ~[* !] | ** ) * `*/`
+//   | `/**/`
+//   | `/***/`
+//
+// TYPES :
+//     PrimitiveTypes :
+//         Boolean :
+//             `true` | `false`
+//         Numeric :
+//             `i32`
+//         Textual :
+//             `char` | `String`
+//     UserDefinedTypes :
+//         Struct
+//
+// CHAR_LITERAL :
+//     `'` ~[' \ \n \r \t] `'`
+//
+// STRING_LITERAL :
+//     `"` ~["] * `"`
+//
+// INTEGER_LITERAL :
+//     DEC_LITERAL
+// DEC_LITERAL :
+//     DEC_DIGIT DEC_DIGIT *
+// DEC_DIGIT :
+//     [0-9]
+//
+// BOOLEAN_LITERAL :
+//     `true`
+//   | `false`
+//
+// IDENTIFIER_OR_KEYWORD :
+//     XID_start XID_continue *
+//   | `_` XID_continue +
+// IDENTIFIER :
+//     NON_KEYWORD_IDENTIFIER
+// KEYWORD :
+//     BUILTIN
+//   | KW_AS: `as`
+//   | KW_BREAK: `break`
+//   | KW_ELSE: `else`
+//   | KW_FALSE: `false`
+//   | KW_FN: `fn`
+//   | KW_IF: `if`
+//   | KW_IMPL: `impl`
+//   | KW_LET: `let`
+//   | KW_LOOP: `loop`
+//   | KW_RETURN: `return`
+//   | KW_STRUCT: `struct`
+//   | KW_TRUE: `true`
+//   | KW_WHILE: `while`
+// BUILTIN :
+//     `print`
+//   | `println`
+//
+//
+//
+// assign           = logical_or ( ( '=' | binary_assign_op ) Expression ) ?
 // binary_assign_op = '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' | '<<=' | '>>='
 //
 // logical_or  = logical_and ( '||' logical_and ) *
@@ -61,20 +270,6 @@ use super::class::*;
 //         | ident ( '(' ( expr ( ',' expr ) * ) ? ')' ) ?
 //         | ident '{' ( expr ( ',' expr ) * ) ? ',' ? '}'
 //         | '(' expr ')'
-//
-// ident    = alphabet + ( num | alphabet ) *
-// alphabet = 'a'..'z' | 'A'..'Z' | '_'
-//
-// num         = nonzero_dec dec_digit *
-// dec_digit   = '0' | nonzero_dec
-// nonzero_dec = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
-//
-// bool = 'true' | 'false'
-//
-// type_no_bounds = numeric | 'String' | 'bool' | 'char'
-// numeric = 'i32'
-//
-// builtin = 'println'
 //
 
 #[derive(Debug)]
