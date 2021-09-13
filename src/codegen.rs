@@ -38,7 +38,6 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 for value in field.into_iter().zip(&st.field) {
                     println!("\tldloca {}", obj.offset);
                     gen_il(value.0, p);
-                    //println!("\tstfld {} {}", value.1.typekind.to_ilstr(), value.1.offset);
                     println!("\tstfld {} {}::{}", value.1.typekind.to_ilstr(), obj.typekind.to_str(), value.1.name);
                 }
                 println!("\tldloc {}", obj.offset);
@@ -46,6 +45,11 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 panic!("The name '{}' does not exist in the current context", obj.name);
             }
             Type::Struct(obj.name.to_string())
+        }
+        Node::Field { name, expr } => {
+            let typekind = gen_il(*expr, p);
+            // TODO
+            typekind
         }
         Node::Variable { obj } => {
             if obj.is_param {

@@ -59,6 +59,10 @@ pub enum Node {
         obj: Rc<Object>,
         field: Vec<Node>,
     },
+    Field {
+        name: String,
+        expr: Box<Node>,
+    },
     Variable {
         obj: Rc<Object>,
     },

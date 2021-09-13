@@ -218,6 +218,7 @@ impl<'a> Lexer<'a> {
                 _ => Token::new(TokenKind::Not, self.read_position),
             }
 
+            Some('.') => Token::new(TokenKind::Dot,   self.read_position),
             Some(',') => Token::new(TokenKind::Comma, self.read_position),
             Some(':') => Token::new(TokenKind::Colon, self.read_position),
             Some(';') => Token::new(TokenKind::Semi,  self.read_position),

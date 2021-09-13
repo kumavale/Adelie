@@ -290,7 +290,12 @@ struct Rectangle {
 }
 fn main() {
     let rect: Rectangle = Rectangle { 30, 50 };
-    println("ok");
+    //rect.width = 42;
+    if rect.width == 42 {
+        println("ok");
+    } else {
+        println("failed");
+    }
 }'
 
 #echo

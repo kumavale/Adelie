@@ -44,6 +44,7 @@ pub enum TokenKind {
     SlashEq,    // /=
     PercentEq,  // %=
 
+    Dot,    // .
     Comma,  // ,
     Colon,  // :
     Semi,   // ;

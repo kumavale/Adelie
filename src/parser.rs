@@ -49,7 +49,9 @@ use super::class::*;
 // add   = mul ( '+' mul | '-' mul ) *
 // mul   = cast ( '*' cast | '/' cast | '%' cast ) *
 // cast  = unary ( 'as' type_no_bounds ) *
-// unary = ( '-' | '!' | '&' | '*' ) ? primary
+// unary = ( '-' | '!' | '&' | '*' ) ? prefix
+//
+// prefix = primary ( '.' ident ) *
 //
 // primary = num
 //         | char
@@ -259,6 +261,13 @@ fn new_struct_expr_node(symbol_table: &mut SymbolTable, name: &str, field: Vec<N
     }
 }
 
+fn new_field_node(function: &mut Function, name: &str, expr: Node) -> Node {
+    Node::Field {
+        name: name.to_string(),
+        expr: Box::new(expr),
+    }
+}
+
 fn new_variable_node(function: &mut Function, name: &str) -> Node {
     if let Some(obj) = function.lvar_symbol_table.find_name(name) {
         Node::Variable {
@@ -417,7 +426,16 @@ fn statement(mut p: &mut Parser) -> Node {
             panic!("The left-hand side of an assignment must be a variable")
         }
     } else {
-        expr(&mut p)
+        let mut node = expr(&mut p);
+        while p.consume(TokenKind::Dot) {
+            if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
+                p.idx += 1;
+                node = new_field_node(&mut p.current_function.as_mut().unwrap(), name, node);
+            } else {
+                panic!("unexpected token: `{:?}`", p.tokens[p.idx].kind);
+            }
+        }
+        node
     };
 
     if p.consume(TokenKind::Semi) {
