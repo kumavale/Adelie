@@ -329,7 +329,7 @@ fn program(mut p: &mut Parser) -> Program {
             } else {
                 panic!("expected identifier");
             };
-            if program.structs.find_struct(name).is_none() {
+            if program.structs.find(name).is_none() {
                 let mut st = Struct::new();
                 st.name = name.to_string();
                 program.structs.push(st);
@@ -338,7 +338,7 @@ fn program(mut p: &mut Parser) -> Program {
             while let TokenKind::Keyword(Keyword::Fn) = &p.tokens[p.idx].kind {
                 functions.push(function(&mut p));
             }
-            program.structs.find_struct_mut(name).unwrap().functions.append(&mut functions);
+            program.structs.find_mut(name).unwrap().functions.append(&mut functions);
 
         } else if let TokenKind::Keyword(Keyword::Fn) = &p.tokens[p.idx].kind {
             program.functions.push(function(&mut p));
@@ -362,7 +362,7 @@ fn struct_define(mut p: &mut Parser) -> Struct {
     while !p.consume(TokenKind::RBrace) && !p.is_eof() {
         if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
             p.idx += 1;
-            if p.g_symbol_table.find_name(name).is_some() {
+            if p.g_symbol_table.find(name).is_some() {
                 panic!("the name `{}` is defined multiple times", name);
             } else {
                 p.expect(TokenKind::Colon);
@@ -381,7 +381,7 @@ fn struct_define(mut p: &mut Parser) -> Struct {
 fn function(mut p: &mut Parser) -> Function {
     p.expect(TokenKind::Keyword(Keyword::Fn));
     if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
-        if p.g_symbol_table.find_name(name).is_some() {
+        if p.g_symbol_table.find(name).is_some() {
             panic!("the name `{}` is defined multiple times", name);
         }
         let obj = Rc::new(Object::new(name.to_string(), p.g_symbol_table.len(), false, Type::Void));
@@ -392,7 +392,7 @@ fn function(mut p: &mut Parser) -> Function {
         while !p.consume(TokenKind::RParen) {
             if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
                 p.idx += 1;
-                if p.current_function.as_mut().unwrap().param_symbol_table.find_name(name).is_some() {
+                if p.current_function.as_mut().unwrap().param_symbol_table.find(name).is_some() {
                     panic!("A local variable or function named '{}' is already defined in this scope", name);
                 } else {
                     p.expect(TokenKind::Colon);

@@ -60,18 +60,35 @@ impl SymbolTable {
         None
     }
 
-    pub fn find_name(&self, name: &str) -> Option<&Rc<Object>> {
+    pub fn len(&self) -> usize {
+        self.objs.len()
+    }
+}
+
+pub trait FindSymbol {
+    type Item;
+    fn find(&self, name: &str) -> Option<&Self::Item>;
+    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item>;
+}
+
+impl FindSymbol for SymbolTable {
+    type Item = Rc<Object>;
+
+    fn find(&self, name: &str) -> Option<&Self::Item> {
         for scope in self.scopes.iter().rev() {
-            for obj in scope {
-                if obj.name == name {
-                    return Some(obj);
-                }
+            if let Some(obj) = scope.iter().find(|o|o.name == name) {
+                return Some(obj)
             }
         }
         None
     }
 
-    pub fn len(&self) -> usize {
-        self.objs.len()
+    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some(obj) = scope.iter_mut().find(|o|o.name == name) {
+                return Some(obj)
+            }
+        }
+        None
     }
 }

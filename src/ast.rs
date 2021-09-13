@@ -259,11 +259,11 @@ pub fn new_field_node(function: &mut Function, name: &str, expr: Node) -> Node {
 }
 
 pub fn new_variable_node(function: &mut Function, name: &str) -> Node {
-    if let Some(obj) = function.lvar_symbol_table.find_name(name) {
+    if let Some(obj) = function.lvar_symbol_table.find(name) {
         Node::Variable {
             obj: Rc::clone(obj),
         }
-    } else if let Some(obj) = function.param_symbol_table.find_name(name) {
+    } else if let Some(obj) = function.param_symbol_table.find(name) {
         Node::Variable {
             obj: Rc::clone(obj),
         }

@@ -23,13 +23,14 @@ impl Function {
     }
 }
 
-pub trait FunctionSymbolTable {
-    fn find_function(&self, name: &str) -> Option<&Function>;
-}
+impl FindSymbol for [Function] {
+    type Item = Function;
 
-impl FunctionSymbolTable for [Function] {
-    fn find_function(&self, name: &str) -> Option<&Function> {
+    fn find(&self, name: &str) -> Option<&Self::Item> {
         self.iter().find(|f|f.name == name)
     }
-}
 
+    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
+        self.iter_mut().find(|f|f.name == name)
+    }
+}

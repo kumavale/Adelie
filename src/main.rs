@@ -48,8 +48,8 @@ fn main() {
         println!("\t.locals init (");
         for (i, obj) in func.lvar_symbol_table.objs.iter().enumerate() {
             if let keyword::Type::Struct(name) = &obj.typekind {
-                use crate::class::StructSymbolTable;
-                if program.structs.find_struct(name).is_none() {
+                use crate::object::FindSymbol;
+                if program.structs.find(name).is_none() {
                     panic!("cannot find struct, variant or union type `{}` in this scope", name);
                 }
             }

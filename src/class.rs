@@ -18,17 +18,14 @@ impl Struct {
     }
 }
 
-pub trait StructSymbolTable {
-    fn find_struct(&self, name: &str) -> Option<&Struct>;
-    fn find_struct_mut(&mut self, name: &str) -> Option<&mut Struct>;
-}
+impl FindSymbol for [Struct] {
+    type Item = Struct;
 
-impl StructSymbolTable for [Struct] {
-    fn find_struct(&self, name: &str) -> Option<&Struct> {
+    fn find(&self, name: &str) -> Option<&Self::Item> {
         self.iter().find(|s|s.name == name)
     }
 
-    fn find_struct_mut(&mut self, name: &str) -> Option<&mut Struct> {
+    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
         self.iter_mut().find(|s|s.name == name)
     }
 }

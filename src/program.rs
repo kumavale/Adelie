@@ -1,4 +1,5 @@
 use super::class::*;
+use super::object::*;
 use super::function::*;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -16,10 +17,10 @@ impl Program {
     }
 
     pub fn find_function(&self, name: &str) -> Option<&Function> {
-        self.functions.find_function(name)
+        self.functions.find(name)
     }
 
     pub fn find_struct(&self, name: &str) -> Option<&Struct> {
-        self.structs.find_struct(name)
+        self.structs.find(name)
     }
 }
