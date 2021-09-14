@@ -30,7 +30,38 @@ fn main() {
         for value in &st.field {
             println!("\t.field public {} {}", value.typekind.to_ilstr(), value.name);
         }
-        // TODO: method
+        println!("}}");
+    }
+
+    for im in &program.impls {
+        println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", im.name);
+        println!("{{");
+        for func in &im.functions {
+            let args = func.param_symbol_table.objs.iter().map(|o|format!("{} {}", o.typekind.to_ilstr(), o.name)).collect::<Vec<String>>().join(", ");
+            println!("\t.method public instance {} {}({}) cil managed {{", func.rettype.to_ilstr(), func.name, args);
+            println!("\t\t.maxstack 32");
+
+            // prepare local variables
+            println!("\t\t.locals init (");
+            for (i, obj) in func.lvar_symbol_table.objs.iter().enumerate() {
+                if let keyword::Type::Struct(name) = &obj.typekind {
+                    use crate::object::FindSymbol;
+                    if program.structs.find(name).is_none() {
+                        panic!("cannot find struct, variant or union type `{}` in this scope", name);
+                    }
+                }
+                println!("\t\t\t[{}] {} V_{}{}", i, obj.typekind.to_ilstr(), i, if i+1<func.lvar_symbol_table.len(){","}else{""});
+            }
+            println!("\t\t)");
+
+            let rettype = codegen::gen_il(func.statements.clone(), &program);
+            if rettype != func.rettype {
+                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.to_str(), rettype.to_str());
+            }
+
+            println!("\t\tret");
+            println!("\t}}");
+        }
         println!("}}");
     }
 

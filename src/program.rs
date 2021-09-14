@@ -6,6 +6,7 @@ use super::function::*;
 pub struct Program {
     pub functions: Vec<Function>,
     pub structs: Vec<Struct>,
+    pub impls: Vec<Impl>,
 }
 
 impl Program {
@@ -13,6 +14,7 @@ impl Program {
         Program {
             functions: vec![],
             structs: vec![],
+            impls: vec![],
         }
     }
 
@@ -22,5 +24,21 @@ impl Program {
 
     pub fn find_struct(&self, name: &str) -> Option<&Struct> {
         self.structs.find(name)
+    }
+
+    pub fn push_or_merge_struct(&mut self, mut s: Struct) {
+        if let Some(dst) = self.structs.find_mut(&s.name) {
+            dst.field.append(&mut s.field);
+        } else {
+            self.structs.push(s);
+        }
+    }
+
+    pub fn push_or_merge_impl(&mut self, mut i: Impl) {
+        if let Some(dst) = self.impls.find_mut(&i.name) {
+            dst.functions.append(&mut i.functions);
+        } else {
+            self.impls.push(i);
+        }
     }
 }

@@ -324,27 +324,11 @@ impl<'a> Parser<'a> {
         let mut program = Program::new();
         while !self.is_eof() {
             if self.eat_keyword(Keyword::Struct) {
-                program.structs.push(self.struct_define());
+                program.push_or_merge_struct(self.item_struct());
             } else if self.eat_keyword(Keyword::Impl) {
-                let name = if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-                    self.idx += 1;
-                    name
-                } else {
-                    panic!("expected identifier");
-                };
-                if program.structs.find(name).is_none() {
-                    let mut st = Struct::new();
-                    st.name = name.to_string();
-                    program.structs.push(st);
-                }
-                let mut functions = vec![];
-                while self.eat_keyword(Keyword::Fn) {
-                    functions.push(self.function());
-                }
-                program.structs.find_mut(name).unwrap().functions.append(&mut functions);
-
+                program.push_or_merge_impl(self.item_impl());
             } else if self.eat_keyword(Keyword::Fn) {
-                program.functions.push(self.function());
+                program.functions.push(self.item_function());
             } else {
                 panic!("invalid token: `{:?}`", self.tokens[self.idx].kind);
             }
@@ -352,7 +336,7 @@ impl<'a> Parser<'a> {
         program
     }
 
-    fn struct_define(&mut self) -> Struct {
+    fn item_struct(&mut self) -> Struct {
         let mut st = Struct::new();
         if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
             self.idx += 1;
@@ -380,7 +364,23 @@ impl<'a> Parser<'a> {
         st
     }
 
-    fn function(&mut self) -> Function {
+    fn item_impl(&mut self) -> Impl {
+        let name = if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            name
+        } else {
+            panic!("expected identifier");
+        };
+        self.expect(TokenKind::LBrace);
+        let mut functions = vec![];
+        while self.eat_keyword(Keyword::Fn) {
+            functions.push(self.item_function());
+        }
+        self.expect(TokenKind::RBrace);
+        Impl::new(name, functions)
+    }
+
+    fn item_function(&mut self) -> Function {
         if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
             if self.g_symbol_table.find(name).is_some() {
                 panic!("the name `{}` is defined multiple times", name);
