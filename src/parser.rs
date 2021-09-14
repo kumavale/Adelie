@@ -282,13 +282,17 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn consume(&mut self, kind: TokenKind) -> bool {
+    fn eat(&mut self, kind: TokenKind) -> bool {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
             true
         } else {
             false
         }
+    }
+
+    fn eat_keyword(&mut self, kw: Keyword) -> bool {
+        self.eat(TokenKind::Keyword(kw))
     }
 
     fn expect(&mut self, kind: TokenKind) {
@@ -320,9 +324,9 @@ pub fn gen_ast<'a>(tokens: &'a [Token], g_symbol_table: &'a mut SymbolTable) -> 
 fn program(mut p: &mut Parser) -> Program {
     let mut program = Program::new();
     while !p.is_eof() {
-        if let TokenKind::Keyword(Keyword::Struct) = &p.tokens[p.idx].kind {
+        if p.eat_keyword(Keyword::Struct) {
             program.structs.push(struct_define(&mut p));
-        } else if p.consume(TokenKind::Keyword(Keyword::Impl)) {
+        } else if p.eat_keyword(Keyword::Impl) {
             let name = if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
                 p.idx += 1;
                 name
@@ -335,12 +339,12 @@ fn program(mut p: &mut Parser) -> Program {
                 program.structs.push(st);
             }
             let mut functions = vec![];
-            while let TokenKind::Keyword(Keyword::Fn) = &p.tokens[p.idx].kind {
+            while p.eat_keyword(Keyword::Fn) {
                 functions.push(function(&mut p));
             }
             program.structs.find_mut(name).unwrap().functions.append(&mut functions);
 
-        } else if let TokenKind::Keyword(Keyword::Fn) = &p.tokens[p.idx].kind {
+        } else if p.eat_keyword(Keyword::Fn) {
             program.functions.push(function(&mut p));
         } else {
             panic!("invalid token: `{:?}`", p.tokens[p.idx].kind);
@@ -351,7 +355,6 @@ fn program(mut p: &mut Parser) -> Program {
 
 fn struct_define(mut p: &mut Parser) -> Struct {
     let mut st = Struct::new();
-    p.expect(TokenKind::Keyword(Keyword::Struct));
     if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
         p.idx += 1;
         st.name = name.to_string();
@@ -359,7 +362,7 @@ fn struct_define(mut p: &mut Parser) -> Struct {
         panic!("expected identifier");
     }
     p.expect(TokenKind::LBrace);
-    while !p.consume(TokenKind::RBrace) && !p.is_eof() {
+    while !p.eat(TokenKind::RBrace) && !p.is_eof() {
         if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
             p.idx += 1;
             if p.g_symbol_table.find(name).is_some() {
@@ -373,13 +376,12 @@ fn struct_define(mut p: &mut Parser) -> Struct {
         } else {
             panic!("expected identifier");
         }
-        p.consume(TokenKind::Comma);
+        p.eat(TokenKind::Comma);
     }
     st
 }
 
 fn function(mut p: &mut Parser) -> Function {
-    p.expect(TokenKind::Keyword(Keyword::Fn));
     if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
         if p.g_symbol_table.find(name).is_some() {
             panic!("the name `{}` is defined multiple times", name);
@@ -389,7 +391,7 @@ fn function(mut p: &mut Parser) -> Function {
         p.current_function = Some(Function::new(name));
         p.idx += 1;
         p.expect(TokenKind::LParen);
-        while !p.consume(TokenKind::RParen) {
+        while !p.eat(TokenKind::RParen) {
             if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
                 p.idx += 1;
                 if p.current_function.as_mut().unwrap().param_symbol_table.find(name).is_some() {
@@ -404,14 +406,14 @@ fn function(mut p: &mut Parser) -> Function {
             } else {
                 panic!("expected identifier");
             }
-            p.consume(TokenKind::Comma);
+            p.eat(TokenKind::Comma);
         }
     } else {
         eprintln!("{}^", " ".repeat(p.tokens[p.idx].cur));
         panic!("expected identifier");
     }
 
-    if p.consume(TokenKind::RArrow) {
+    if p.eat(TokenKind::RArrow) {
         if let TokenKind::Type(typekind) = &p.tokens[p.idx].kind {
             p.idx += 1;
             p.current_function.as_mut().unwrap().rettype = typekind.clone();
@@ -426,18 +428,18 @@ fn function(mut p: &mut Parser) -> Function {
 }
 
 fn statement(mut p: &mut Parser) -> Node {
-    let node =  if p.consume(TokenKind::Keyword(Keyword::Return)) {
-        if p.consume(TokenKind::Semi) {
+    let node =  if p.eat_keyword(Keyword::Return) {
+        if p.eat(TokenKind::Semi) {
             return new_return_node(None);
         }
         new_return_node(Some(expr(&mut p)))
-    } else if p.consume(TokenKind::Keyword(Keyword::Let)) {
+    } else if p.eat_keyword(Keyword::Let) {
         if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
             p.idx += 1;
             p.expect(TokenKind::Colon);
             let typekind = type_no_bounds(&mut p);
             let node = new_variable_node_with_let(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind);
-            if p.consume(TokenKind::Assign) {
+            if p.eat(TokenKind::Assign) {
                 let node = new_assign_node(node, expr(&mut p));
                 p.expect(TokenKind::Semi);
                 node
@@ -450,7 +452,7 @@ fn statement(mut p: &mut Parser) -> Node {
         }
     } else {
         let mut node = expr(&mut p);
-        while p.consume(TokenKind::Dot) {
+        while p.eat(TokenKind::Dot) {
             if let TokenKind::Ident(name) = &p.tokens[p.idx].kind {
                 p.idx += 1;
                 node = new_field_node(&mut p.current_function.as_mut().unwrap(), name, node);
@@ -461,7 +463,7 @@ fn statement(mut p: &mut Parser) -> Node {
         node
     };
 
-    if p.consume(TokenKind::Semi) {
+    if p.eat(TokenKind::Semi) {
         node
     } else {
         new_evaluates_node(node)
@@ -469,9 +471,9 @@ fn statement(mut p: &mut Parser) -> Node {
 }
 
 fn type_no_bounds(mut p: &mut Parser) -> Type {
-    if p.consume(TokenKind::And) {
+    if p.eat(TokenKind::And) {
         Type::Ptr(Box::new(type_no_bounds(&mut p)))
-    } else if p.consume(TokenKind::AndAnd) {
+    } else if p.eat(TokenKind::AndAnd) {
         Type::Ptr(Box::new(Type::Ptr(Box::new(type_no_bounds(&mut p)))))
     } else if let TokenKind::Type(typekind) = &p.tokens[p.idx].kind {
         p.idx += 1;
@@ -491,7 +493,7 @@ fn block_expression(mut p: &mut Parser) -> Node {
     p.expect(TokenKind::LBrace );
     let except_struct_expression = p.except_struct_expression;
     p.except_struct_expression = false;
-    while !p.consume(TokenKind::RBrace) && !p.is_eof() {
+    while !p.eat(TokenKind::RBrace) && !p.is_eof() {
         stmts.push(statement(&mut p));
     }
     p.except_struct_expression = except_struct_expression;
@@ -502,22 +504,22 @@ fn block_expression(mut p: &mut Parser) -> Node {
 fn expr(mut p: &mut Parser) -> Node {
     if p.tokens[p.idx].kind == TokenKind::LBrace {
         block_expression(&mut p)
-    } else if p.consume(TokenKind::Keyword(Keyword::If)) {
+    } else if p.eat_keyword(Keyword::If) {
         p.except_struct_expression = true;
         let cond = expr(&mut p);
         p.except_struct_expression = false;
         let then = block_expression(&mut p);
-        let els = if p.consume(TokenKind::Keyword(Keyword::Else)) {
+        let els = if p.eat_keyword(Keyword::Else) {
             Some(block_expression(&mut p))
         } else {
             None
         };
         new_if_node(cond, then, els)
-    } else if p.consume(TokenKind::Keyword(Keyword::While)) {
+    } else if p.eat_keyword(Keyword::While) {
         let cond = expr(&mut p);
         let then = block_expression(&mut p);
         new_while_node(cond, then)
-    } else if p.consume(TokenKind::Keyword(Keyword::Loop)) {
+    } else if p.eat_keyword(Keyword::Loop) {
         new_loop_node(block_expression(&mut p))
     } else {
         assign(&mut p)
@@ -527,36 +529,36 @@ fn expr(mut p: &mut Parser) -> Node {
 fn assign(mut p: &mut Parser) -> Node {
     let node = logical_or(&mut p);
 
-    if p.consume(TokenKind::Assign) {
+    if p.eat(TokenKind::Assign) {
         new_assign_node(node, expr(&mut p))
-    } else if p.consume(TokenKind::PlusEq) {
+    } else if p.eat(TokenKind::PlusEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Add, node, expr(&mut p)))
-    } else if p.consume(TokenKind::MinusEq) {
+    } else if p.eat(TokenKind::MinusEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Sub, node, expr(&mut p)))
-    } else if p.consume(TokenKind::StarEq) {
+    } else if p.eat(TokenKind::StarEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Mul, node, expr(&mut p)))
-    } else if p.consume(TokenKind::SlashEq) {
+    } else if p.eat(TokenKind::SlashEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Div, node, expr(&mut p)))
-    } else if p.consume(TokenKind::PercentEq) {
+    } else if p.eat(TokenKind::PercentEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Rem, node, expr(&mut p)))
-    } else if p.consume(TokenKind::AndEq) {
+    } else if p.eat(TokenKind::AndEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitAnd, node, expr(&mut p)))
-    } else if p.consume(TokenKind::CaretEq) {
+    } else if p.eat(TokenKind::CaretEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitXor, node, expr(&mut p)))
-    } else if p.consume(TokenKind::OrEq) {
+    } else if p.eat(TokenKind::OrEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitOr, node, expr(&mut p)))
-    } else if p.consume(TokenKind::ShlEq) {
+    } else if p.eat(TokenKind::ShlEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Shl, node, expr(&mut p)))
-    } else if p.consume(TokenKind::ShrEq) {
+    } else if p.eat(TokenKind::ShrEq) {
         let lhs = node.clone();
         new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Shr, node, expr(&mut p)))
     } else {
@@ -568,7 +570,7 @@ fn logical_or(mut p: &mut Parser) -> Node {
     let mut node = logical_and(&mut p);
 
     loop {
-        if p.consume(TokenKind::OrOr) {
+        if p.eat(TokenKind::OrOr) {
             node = new_short_circuit_op_node(ShortCircuitOpKind::Or, node, logical_and(&mut p));
         } else {
             return node;
@@ -580,7 +582,7 @@ fn logical_and(mut p: &mut Parser) -> Node {
     let mut node = equality(&mut p);
 
     loop {
-        if p.consume(TokenKind::AndAnd) {
+        if p.eat(TokenKind::AndAnd) {
             node = new_short_circuit_op_node(ShortCircuitOpKind::And, node, equality(&mut p));
         } else {
             return node;
@@ -592,9 +594,9 @@ fn equality(mut p: &mut Parser) -> Node {
     let mut node = relational(&mut p);
 
     loop {
-        if p.consume(TokenKind::EqEq) {
+        if p.eat(TokenKind::EqEq) {
             node = new_binary_op_node(BinaryOpKind::Eq, node, relational(&mut p));
-        } else if p.consume(TokenKind::Ne) {
+        } else if p.eat(TokenKind::Ne) {
             node = new_binary_op_node(BinaryOpKind::Ne, node, relational(&mut p));
         } else {
             return node;
@@ -606,13 +608,13 @@ fn relational(mut p: &mut Parser) -> Node {
     let mut node = bitor(&mut p);
 
     loop {
-        if p.consume(TokenKind::Lt) {
+        if p.eat(TokenKind::Lt) {
             node = new_binary_op_node(BinaryOpKind::Lt, node, bitor(&mut p));
-        } else if p.consume(TokenKind::Le) {
+        } else if p.eat(TokenKind::Le) {
             node = new_binary_op_node(BinaryOpKind::Le, node, bitor(&mut p));
-        } else if p.consume(TokenKind::Gt) {
+        } else if p.eat(TokenKind::Gt) {
             node = new_binary_op_node(BinaryOpKind::Gt, node, bitor(&mut p));
-        } else if p.consume(TokenKind::Ge) {
+        } else if p.eat(TokenKind::Ge) {
             node = new_binary_op_node(BinaryOpKind::Ge, node, bitor(&mut p));
         } else {
             return node;
@@ -622,7 +624,7 @@ fn relational(mut p: &mut Parser) -> Node {
 
 fn bitor(mut p: &mut Parser) -> Node {
     let mut node = bitxor(&mut p);
-    while p.consume(TokenKind::Or) {
+    while p.eat(TokenKind::Or) {
         node = new_binary_op_node(BinaryOpKind::BitOr, node, bitxor(&mut p));
     }
     node
@@ -630,7 +632,7 @@ fn bitor(mut p: &mut Parser) -> Node {
 
 fn bitxor(mut p: &mut Parser) -> Node {
     let mut node = bitand(&mut p);
-    while p.consume(TokenKind::Caret) {
+    while p.eat(TokenKind::Caret) {
         node = new_binary_op_node(BinaryOpKind::BitXor, node, bitand(&mut p));
     }
     node
@@ -638,7 +640,7 @@ fn bitxor(mut p: &mut Parser) -> Node {
 
 fn bitand(mut p: &mut Parser) -> Node {
     let mut node = shift(&mut p);
-    while p.consume(TokenKind::And) {
+    while p.eat(TokenKind::And) {
         node = new_binary_op_node(BinaryOpKind::BitAnd, node, shift(&mut p));
     }
     node
@@ -648,9 +650,9 @@ fn shift(mut p: &mut Parser) -> Node {
     let mut node = add(&mut p);
 
     loop {
-        if p.consume(TokenKind::Shl) {
+        if p.eat(TokenKind::Shl) {
             node = new_binary_op_node(BinaryOpKind::Shl, node, add(&mut p));
-        } else if p.consume(TokenKind::Shr) {
+        } else if p.eat(TokenKind::Shr) {
             node = new_binary_op_node(BinaryOpKind::Shr, node, add(&mut p));
         } else {
             return node;
@@ -662,9 +664,9 @@ fn add(mut p: &mut Parser) -> Node {
     let mut node = mul(&mut p);
 
     loop {
-        if p.consume(TokenKind::Plus) {
+        if p.eat(TokenKind::Plus) {
             node = new_binary_op_node(BinaryOpKind::Add, node, mul(&mut p));
-        } else if p.consume(TokenKind::Minus) {
+        } else if p.eat(TokenKind::Minus) {
             node = new_binary_op_node(BinaryOpKind::Sub, node, mul(&mut p));
         } else {
             return node;
@@ -676,11 +678,11 @@ fn mul(mut p: &mut Parser) -> Node {
     let mut node = cast(&mut p);
 
     loop {
-        if p.consume(TokenKind::Star) {
+        if p.eat(TokenKind::Star) {
             node = new_binary_op_node(BinaryOpKind::Mul, node, cast(&mut p));
-        } else if p.consume(TokenKind::Slash) {
+        } else if p.eat(TokenKind::Slash) {
             node = new_binary_op_node(BinaryOpKind::Div, node, cast(&mut p));
-        } else if p.consume(TokenKind::Percent) {
+        } else if p.eat(TokenKind::Percent) {
             node = new_binary_op_node(BinaryOpKind::Rem, node, cast(&mut p));
         } else {
             return node;
@@ -692,7 +694,7 @@ fn cast(mut p: &mut Parser) -> Node {
     let mut node = unary(&mut p);
 
     loop {
-        if p.consume(TokenKind::Keyword(Keyword::As)) {
+        if p.eat_keyword(Keyword::As) {
             let typekind = type_no_bounds(&mut p);
             node = new_cast_node(typekind, node);
         } else {
@@ -702,13 +704,13 @@ fn cast(mut p: &mut Parser) -> Node {
 }
 
 fn unary(mut p: &mut Parser) -> Node {
-    if p.consume(TokenKind::Minus) {
+    if p.eat(TokenKind::Minus) {
         new_unary_op_node(UnaryOpKind::Neg, unary(&mut p))
-    } else if p.consume(TokenKind::Not) {
+    } else if p.eat(TokenKind::Not) {
         new_unary_op_node(UnaryOpKind::Not, unary(&mut p))
-    } else if p.consume(TokenKind::And) {
+    } else if p.eat(TokenKind::And) {
         new_unary_op_node(UnaryOpKind::Ref, unary(&mut p))
-    } else if p.consume(TokenKind::Star) {
+    } else if p.eat(TokenKind::Star) {
         new_unary_op_node(UnaryOpKind::Deref, unary(&mut p))
     } else {
         primary(&mut p)
@@ -716,7 +718,7 @@ fn unary(mut p: &mut Parser) -> Node {
 }
 
 fn primary(mut p: &mut Parser) -> Node {
-    if p.consume(TokenKind::LParen) {
+    if p.eat(TokenKind::LParen) {
         let except_struct_expression = p.except_struct_expression;
         p.except_struct_expression = false;
         let node = expr(&mut p);
@@ -740,20 +742,20 @@ fn primary(mut p: &mut Parser) -> Node {
         }
         TokenKind::Ident(name) => {
             p.idx += 1;
-            if p.consume(TokenKind::LParen) {
+            if p.eat(TokenKind::LParen) {
                 // function
                 let mut args = vec![];
-                while !p.consume(TokenKind::RParen) {
+                while !p.eat(TokenKind::RParen) {
                     args.push(expr(&mut p));
-                    p.consume(TokenKind::Comma);
+                    p.eat(TokenKind::Comma);
                 }
                 new_function_call_node(name, args)
-            } else if !p.except_struct_expression && p.consume(TokenKind::LBrace) {
+            } else if !p.except_struct_expression && p.eat(TokenKind::LBrace) {
                 // struct
                 let mut field = vec![];
-                while !p.consume(TokenKind::RBrace) {
+                while !p.eat(TokenKind::RBrace) {
                     field.push(expr(&mut p));
-                    p.consume(TokenKind::Comma);
+                    p.eat(TokenKind::Comma);
                 }
                 new_struct_expr_node(&mut p.current_function.as_mut().unwrap().lvar_symbol_table, name, field)
             } else {
@@ -769,9 +771,9 @@ fn primary(mut p: &mut Parser) -> Node {
             p.idx += 1;
             p.expect(TokenKind::LParen);
             let mut args = vec![];
-            while !p.consume(TokenKind::RParen) {
+            while !p.eat(TokenKind::RParen) {
                 args.push(expr(&mut p));
-                p.consume(TokenKind::Comma);
+                p.eat(TokenKind::Comma);
             }
             new_builtin_call_node(*kind, args)
         }

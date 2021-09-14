@@ -262,7 +262,7 @@ impl<'a> Lexer<'a> {
                     "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), self.read_position),
                     "bool"   => Token::new(TokenKind::Type(Type::Bool),                  self.read_position),
                     "char"   => Token::new(TokenKind::Type(Type::Char),                  self.read_position),
-                    "String" => Token::new(TokenKind::Type(Type::String),                self.read_position),
+                    "string" => Token::new(TokenKind::Type(Type::String),                self.read_position),
 
                     "as"     => Token::new(TokenKind::Keyword(Keyword::As),     self.read_position),
                     "else"   => Token::new(TokenKind::Keyword(Keyword::Else),   self.read_position),
