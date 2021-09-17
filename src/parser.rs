@@ -4,7 +4,6 @@ use super::token::*;
 use super::keyword::*;
 use super::object::*;
 use super::function::*;
-use super::builtin::*;
 use super::program::*;
 use super::class::*;
 
@@ -320,7 +319,7 @@ impl<'a> Parser<'a> {
     fn expect_ident(&mut self) -> String {
         if let TokenKind::Ident(ident) = &self.tokens[self.idx].kind {
             self.idx += 1;
-            return ident.to_string();
+            ident.to_string()
         } else {
             eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
             panic!("expected `Identifier`, but got `{:?}`", self.tokens[self.idx].kind);
@@ -489,7 +488,7 @@ impl<'a> Parser<'a> {
             self.expect(TokenKind::Colon);
             let ty = self.type_no_bounds();
             let node = new_variable_node_with_let(&mut self.current_function.as_mut().unwrap().lvar_symbol_table, name, ty);
-            if self.eat(TokenKind::parse_assign) {
+            if self.eat(TokenKind::Assign) {
                 let node = new_assign_node(node, self.parse_expr());
                 self.expect(TokenKind::Semi);
                 node
@@ -544,7 +543,7 @@ impl<'a> Parser<'a> {
 
     fn parse_cond(&mut self) -> Node {
         self.except_struct_expression = true;
-        let node = self.expr();
+        let node = self.parse_expr();
         self.except_struct_expression = false;
         node
     }
@@ -552,17 +551,17 @@ impl<'a> Parser<'a> {
     fn parse_assign(&mut self) -> Node {
         let node = self.parse_logical_or();
 
-        if self.eat(TokenKind::parse_assign) {
+        if self.eat(TokenKind::Assign) {
             new_assign_node(node, self.parse_expr())
         } else if self.eat(TokenKind::PlusEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::parse_Add, node, self.parse_expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Add, node, self.parse_expr()))
         } else if self.eat(TokenKind::MinusEq) {
             let lhs = node.clone();
             new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Sub, node, self.parse_expr()))
         } else if self.eat(TokenKind::StarEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::parse_Mul, node, self.parse_expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Mul, node, self.parse_expr()))
         } else if self.eat(TokenKind::SlashEq) {
             let lhs = node.clone();
             new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Div, node, self.parse_expr()))
@@ -571,13 +570,13 @@ impl<'a> Parser<'a> {
             new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Rem, node, self.parse_expr()))
         } else if self.eat(TokenKind::AndEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::parse_BitAnd, node, self.parse_expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitAnd, node, self.parse_expr()))
         } else if self.eat(TokenKind::CaretEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::parse_BitXor, node, self.parse_expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitXor, node, self.parse_expr()))
         } else if self.eat(TokenKind::OrEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::parse_BitOr, node, self.parse_expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitOr, node, self.parse_expr()))
         } else if self.eat(TokenKind::ShlEq) {
             let lhs = node.clone();
             new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Shl, node, self.parse_expr()))
@@ -648,7 +647,7 @@ impl<'a> Parser<'a> {
     fn parse_bitor(&mut self) -> Node {
         let mut node = self.parse_bitxor();
         while self.eat(TokenKind::Or) {
-            node = new_binary_op_node(BinaryOpKind::parse_BitOr, node, self.parse_bitxor());
+            node = new_binary_op_node(BinaryOpKind::BitOr, node, self.parse_bitxor());
         }
         node
     }
@@ -656,7 +655,7 @@ impl<'a> Parser<'a> {
     fn parse_bitxor(&mut self) -> Node {
         let mut node = self.parse_bitand();
         while self.eat(TokenKind::Caret) {
-            node = new_binary_op_node(BinaryOpKind::parse_BitXor, node, self.parse_bitand());
+            node = new_binary_op_node(BinaryOpKind::BitXor, node, self.parse_bitand());
         }
         node
     }
@@ -664,7 +663,7 @@ impl<'a> Parser<'a> {
     fn parse_bitand(&mut self) -> Node {
         let mut node = self.parse_shift();
         while self.eat(TokenKind::And) {
-            node = new_binary_op_node(BinaryOpKind::parse_BitAnd, node, self.parse_shift());
+            node = new_binary_op_node(BinaryOpKind::BitAnd, node, self.parse_shift());
         }
         node
     }
@@ -688,7 +687,7 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.eat(TokenKind::Plus) {
-                node = new_binary_op_node(BinaryOpKind::parse_Add, node, self.parse_mul());
+                node = new_binary_op_node(BinaryOpKind::Add, node, self.parse_mul());
             } else if self.eat(TokenKind::Minus) {
                 node = new_binary_op_node(BinaryOpKind::Sub, node, self.parse_mul());
             } else {
@@ -702,7 +701,7 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.eat(TokenKind::Star) {
-                node = new_binary_op_node(BinaryOpKind::parse_Mul, node, self.parse_cast());
+                node = new_binary_op_node(BinaryOpKind::Mul, node, self.parse_cast());
             } else if self.eat(TokenKind::Slash) {
                 node = new_binary_op_node(BinaryOpKind::Div, node, self.parse_cast());
             } else if self.eat(TokenKind::Percent) {
