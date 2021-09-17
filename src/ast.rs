@@ -41,11 +41,11 @@ pub enum ShortCircuitOpKind {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Integer {
-        typekind: Type,
+        ty: Type,
         num: i32,  // -?[1-9][0-9]*
     },
     String {
-        typekind: Type,
+        ty: Type,
         str: String,  // ".*"
     },
     Builtin {
@@ -90,7 +90,7 @@ pub enum Node {
         expr: Option<Box<Node>>,
     },
     Cast {
-        typekind: Type,
+        ty: Type,
         expr: Box<Node>,
     },
     UnaryOp {
@@ -178,28 +178,28 @@ pub fn new_return_node(expr: Option<Node>) -> Node {
 
 pub fn new_num_node(num: i32) -> Node {
     Node::Integer {
-        typekind: Type::Numeric(Numeric::I32),
+        ty: Type::Numeric(Numeric::I32),
         num,
     }
 }
 
 pub fn new_char_node(c: char) -> Node {
     Node::Integer {
-        typekind: Type::Char,
+        ty: Type::Char,
         num: c as i32
     }
 }
 
 pub fn new_string_node(s: &str) -> Node {
     Node::String {
-        typekind: Type::String,
+        ty: Type::String,
         str: s.to_string(),
     }
 }
 
 pub fn new_bool_node(b: Keyword) -> Node {
     Node::Integer {
-        typekind: Type::Bool,
+        ty: Type::Bool,
         num: match b {
             Keyword::True  => 1,
             Keyword::False => 0,
@@ -208,9 +208,9 @@ pub fn new_bool_node(b: Keyword) -> Node {
     }
 }
 
-pub fn new_cast_node(typekind: Type, expr: Node) -> Node {
+pub fn new_cast_node(ty: Type, expr: Node) -> Node {
     Node::Cast {
-        typekind,
+        ty,
         expr: Box::new(expr),
     }
 }
@@ -267,11 +267,11 @@ pub fn new_variable_node(function: &mut Function, name: &str) -> Node {
     }
 }
 
-pub fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str, typekind: Type) -> Node {
+pub fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str, ty: Type) -> Node {
     if symbol_table.find_name_current_scope(name).is_some() {
         panic!("A local variable or function named '{}' is already defined in this scope", name)
     } else {
-        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len(), false, typekind));
+        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len(), false, ty));
         symbol_table.push(Rc::clone(&obj));
         Node::Variable {
             obj,

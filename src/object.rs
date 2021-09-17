@@ -6,16 +6,16 @@ pub struct Object {
     pub name: String,
     pub offset: usize,
     pub is_param: bool,
-    pub typekind: Type,
+    pub ty: Type,
 }
 
 impl Object {
-    pub fn new(name: String, offset: usize, is_param: bool, typekind: Type) -> Self {
+    pub fn new(name: String, offset: usize, is_param: bool, ty: Type) -> Self {
         Object {
             name,
             offset,
             is_param,
-            typekind,
+            ty,
         }
     }
 }

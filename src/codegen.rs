@@ -5,13 +5,13 @@ use super::program::*;
 
 pub fn gen_il(node: Node, p: &Program) -> Type {
     match node {
-        Node::Integer { typekind, num } => {
+        Node::Integer { ty, num } => {
             println!("\tldc.i4 {}", num as i32);
-            typekind
+            ty
         }
-        Node::String { typekind, str } => {
+        Node::String { ty, str } => {
             println!("\tldstr \"{}\"", str);
-            typekind
+            ty
         }
         Node::Builtin { kind, args } => {
             gen_builtin_il(kind, args, p)
@@ -21,7 +21,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 gen_il(arg, p);
             }
             if let Some(func) = p.find_function(&name) {
-                let args = func.param_symbol_table.objs.iter().map(|o|o.typekind.to_ilstr()).collect::<Vec<String>>().join(", ");
+                let args = func.param_symbol_table.objs.iter().map(|o|o.ty.to_ilstr()).collect::<Vec<String>>().join(", ");
                 println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, args);
                 func.rettype.clone()
             } else {
@@ -29,16 +29,16 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
         }
         Node::Struct { obj, field } => {
-            if let Some(st) = p.find_struct(&obj.typekind.to_str()) {
+            if let Some(st) = p.find_struct(&obj.ty.to_str()) {
                 if field.len() != st.field.len() {
                     panic!("missing field");
                 }
                 println!("\tldloca {}", obj.offset);
-                println!("\tinitobj {}", obj.typekind.to_str());
-                for value in field.into_iter().zip(&st.field) {
+                println!("\tinitobj {}", obj.ty.to_str());
+                for (field_expr, field_dec) in field.into_iter().zip(&st.field) {
                     println!("\tldloca {}", obj.offset);
-                    gen_il(value.0, p);
-                    println!("\tstfld {} {}::{}", value.1.typekind.to_ilstr(), obj.typekind.to_str(), value.1.name);
+                    gen_il(field_expr, p);
+                    println!("\tstfld {} {}::{}", field_dec.ty.to_ilstr(), obj.ty.to_str(), field_dec.name);
                 }
                 println!("\tldloc {}", obj.offset);
             } else {
@@ -47,9 +47,9 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             Type::Struct(obj.name.to_string())
         }
         Node::Field { expr, ident } => {
-            let typekind = gen_il(*expr, p);
+            let ty = gen_il(*expr, p);
             // TODO
-            typekind
+            ty
         }
         Node::Variable { obj } => {
             if obj.is_param {
@@ -57,22 +57,22 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             } else {
                 println!("\tldloc {}", obj.offset);
             }
-            obj.typekind.clone()
+            obj.ty.clone()
         }
         Node::Block { stmts } => {
-            let mut typekind = Type::Void;
+            let mut ty = Type::Void;
             for stmt in stmts {
                 match stmt {
-                    Node::Return { expr: _ } => {
-                        typekind = gen_il(stmt, p);
+                    Node::Return { .. } => {
+                        ty = gen_il(stmt, p);
                         break;
                     }
                     _ => {
-                        typekind = gen_il(stmt, p);
+                        ty = gen_il(stmt, p);
                     }
                 }
             }
-            typekind
+            ty
         }
         Node::If { cond, then, els } => {
             let cond_type = gen_il(*cond, p);
@@ -144,7 +144,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             println!("\tret");
             rettype
         }
-        Node::Cast { typekind: new_type, expr } => {
+        Node::Cast { ty: new_type, expr } => {
             let old_type = gen_il(*expr, p);
             match new_type {
                 Type::Numeric(Numeric::I32) => {
@@ -171,20 +171,20 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         Node::UnaryOp { kind, expr } => {
             match kind {
                 UnaryOpKind::Not => {
-                    let typekind = gen_il(*expr, p);
-                    match typekind {
+                    let ty = gen_il(*expr, p);
+                    match ty {
                         Type::Bool => {
                             println!("\tldc.i4.0");
                             println!("\tceq");
                         }
                         _ => println!("\tnot")
                     }
-                    typekind
+                    ty
                 }
                 UnaryOpKind::Neg => {
-                    let typekind = gen_il(*expr, p);
+                    let ty= gen_il(*expr, p);
                     println!("\tneg");
-                    typekind
+                    ty
                 }
                 UnaryOpKind::Ref => {
                     if let Node::Variable { obj } = *expr {
@@ -193,22 +193,22 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         } else {
                             println!("\tldloca {}", obj.offset);
                         }
-                        Type::Ptr(Box::new(obj.typekind.clone()))
+                        Type::Ptr(Box::new(obj.ty.clone()))
                     } else {
                         Type::Ptr(Box::new(gen_il(*expr, p)))
                     }
                 }
                 UnaryOpKind::Deref => {
-                    let typekind = gen_il(*expr, p);
-                    if let Type::Ptr(typekind) = typekind {
-                        match *typekind {
+                    let ty = gen_il(*expr, p);
+                    if let Type::Ptr(ty) = ty{
+                        match *ty {
                             Type::Ptr(_) => println!("\tldind.i"),
                             Type::Numeric(Numeric::I32) => println!("\tldind.i4"),
                             _ => unimplemented!(),
                         }
-                        *typekind
+                        *ty
                     } else {
-                        panic!("type `{}` cannot be dereferenced", typekind.to_str());
+                        panic!("type `{}` cannot be dereferenced", ty.to_str());
                     }
                 }
             }
@@ -291,11 +291,11 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             Type::Bool
         }
         Node::Semi { expr } => {
-            let typekind = gen_il(*expr, p);
-            if typekind != Type::Void {
+            let ty = gen_il(*expr, p);
+            if ty != Type::Void {
                 println!("\tpop");
             }
-            typekind
+            ty
         }
         Node::Empty => {
             Type::Void

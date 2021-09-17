@@ -34,8 +34,8 @@ fn gen_print_il(mut args: Vec<Node>, p: &Program) -> Type {
                 .for_each(|(i, arg)| {
                     println!("\tdup");
                     println!("\tldc.i4 {}", i);
-                    let typekind = gen_il(arg, p);
-                    println!("\tbox {}", typekind.to_ilstr());
+                    let ty = gen_il(arg, p);
+                    println!("\tbox {}", ty.to_ilstr());
                     println!("\tstelem.ref");
                 });
             println!("\tcall void [mscorlib]System.Console::Write(string, object[])");
@@ -62,8 +62,8 @@ fn gen_println_il(mut args: Vec<Node>, p: &Program) -> Type {
                 .for_each(|(i, arg)| {
                     println!("\tdup");
                     println!("\tldc.i4 {}", i);
-                    let typekind = gen_il(arg, p);
-                    println!("\tbox {}", typekind.to_ilstr());
+                    let ty = gen_il(arg, p);
+                    println!("\tbox {}", ty.to_ilstr());
                     println!("\tstelem.ref");
                 });
             println!("\tcall void [mscorlib]System.Console::WriteLine(string, object[])");

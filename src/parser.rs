@@ -362,8 +362,8 @@ impl<'a> Parser<'a> {
                     panic!("the name `{}` is defined multiple times", name);
                 } else {
                     self.expect(TokenKind::Colon);
-                    let typekind = self.type_no_bounds();
-                    let obj = Object::new(name.to_string(), st.field.len(), false, typekind);
+                    let ty = self.type_no_bounds();
+                    let obj = Object::new(name.to_string(), st.field.len(), false, ty);
                     st.field.push(obj);
                 }
             } else {
@@ -424,9 +424,9 @@ impl<'a> Parser<'a> {
                 panic!("A local variable or function named '{}' is already defined in this scope", name);
             } else {
                 self.expect(TokenKind::Colon);
-                let typekind = self.type_no_bounds();
+                let ty = self.type_no_bounds();
                 let current_function = self.current_function.as_mut().unwrap();
-                let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true, typekind));
+                let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true, ty));
                 current_function.param_symbol_table.push(Rc::clone(&obj));
             }
         } else {
@@ -436,9 +436,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_ret_ty(&mut self) {
-        if let TokenKind::Type(typekind) = &self.tokens[self.idx].kind {
+        if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
-            self.current_function.as_mut().unwrap().rettype = typekind.clone();
+            self.current_function.as_mut().unwrap().rettype = ty.clone();
         } else {
             eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
             panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
@@ -486,8 +486,8 @@ impl<'a> Parser<'a> {
         if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
             self.idx += 1;
             self.expect(TokenKind::Colon);
-            let typekind = self.type_no_bounds();
-            let node = new_variable_node_with_let(&mut self.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind);
+            let ty = self.type_no_bounds();
+            let node = new_variable_node_with_let(&mut self.current_function.as_mut().unwrap().lvar_symbol_table, name, ty);
             if self.eat(TokenKind::Assign) {
                 let node = new_assign_node(node, self.parse_expr());
                 self.expect(TokenKind::Semi);
@@ -710,8 +710,8 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.eat_keyword(Keyword::As) {
-                let typekind = self.type_no_bounds();
-                node = new_cast_node(typekind, node);
+                let ty = self.type_no_bounds();
+                node = new_cast_node(ty, node);
             } else {
                 return node;
             }
@@ -804,9 +804,9 @@ impl<'a> Parser<'a> {
             Type::Ptr(Box::new(self.type_no_bounds()))
         } else if self.eat(TokenKind::AndAnd) {
             Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()))))
-        } else if let TokenKind::Type(typekind) = &self.tokens[self.idx].kind {
+        } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
-            typekind.clone()
+            ty.clone()
         } else if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
             self.idx += 1;
             Type::Struct(name.to_string())
