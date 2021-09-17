@@ -38,6 +38,19 @@ use super::class::*;
 // AssociatedItem :
 //     Function
 //
+// BlockExpression :
+//     `{` Statements ? `}`
+// Statements :
+//     Statement +
+//   | Statement + ExpressionWithoutBlock
+//   | ExpressionWithoutBlock
+//
+// Statement :
+//     `;`
+//   | // Item
+//   | LetStatement
+//   | ExpressionStatement
+//
 // LetStatement :
 //     `let` IDENTIFIER `:` Type ( `=` Expression ) ? `;`
 //
@@ -98,19 +111,6 @@ use super::class::*;
 //
 // ReturnExpression :
 //     `return` Expression ?
-//
-// BlockExpression :
-//     `{` Statements ? `}`
-// Statements :
-//     Statement +
-//   | Statement + ExpressionWithoutBlock
-//   | ExpressionWithoutBlock
-//
-// Statement :
-//     `;`
-//   | Item
-//   | LetStatement
-//   | ExpressionStatement
 //
 // LoopExpression :
 //     InfiniteLoopExpression
@@ -316,6 +316,16 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn expect_ident(&mut self) -> String {
+        if let TokenKind::Ident(ident) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            return ident.to_string();
+        } else {
+            eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
+            panic!("expected `Identifier`, but got `{:?}`", self.tokens[self.idx].kind);
+        }
+    }
+
     fn is_eof(&self) -> bool {
         self.tokens[self.idx].kind == TokenKind::Eof
     }
@@ -324,11 +334,11 @@ impl<'a> Parser<'a> {
         let mut program = Program::new();
         while !self.is_eof() {
             if self.eat_keyword(Keyword::Struct) {
-                program.push_or_merge_struct(self.item_struct());
+                program.push_or_merge_struct(self.parse_item_struct());
             } else if self.eat_keyword(Keyword::Impl) {
-                program.push_or_merge_impl(self.item_impl());
+                program.push_or_merge_impl(self.parse_item_impl());
             } else if self.eat_keyword(Keyword::Fn) {
-                program.functions.push(self.item_function());
+                program.functions.push(self.parse_item_fn());
             } else {
                 panic!("invalid token: `{:?}`", self.tokens[self.idx].kind);
             }
@@ -336,7 +346,7 @@ impl<'a> Parser<'a> {
         program
     }
 
-    fn item_struct(&mut self) -> Struct {
+    fn parse_item_struct(&mut self) -> Struct {
         let mut st = Struct::new();
         if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
             self.idx += 1;
@@ -345,7 +355,7 @@ impl<'a> Parser<'a> {
             panic!("expected identifier");
         }
         self.expect(TokenKind::LBrace);
-        while !self.eat(TokenKind::RBrace) && !self.is_eof() {
+        while !self.eat(TokenKind::RBrace) {
             if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
                 self.idx += 1;
                 if self.g_symbol_table.find(name).is_some() {
@@ -364,7 +374,7 @@ impl<'a> Parser<'a> {
         st
     }
 
-    fn item_impl(&mut self) -> Impl {
+    fn parse_item_impl(&mut self) -> Impl {
         let name = if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
             self.idx += 1;
             name
@@ -374,13 +384,13 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::LBrace);
         let mut functions = vec![];
         while self.eat_keyword(Keyword::Fn) {
-            functions.push(self.item_function());
+            todo!("AssociatedItem");//functions.push(self.item_function());
         }
         self.expect(TokenKind::RBrace);
         Impl::new(name, functions)
     }
 
-    fn item_function(&mut self) -> Function {
+    fn parse_item_fn(&mut self) -> Function {
         if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
             if self.g_symbol_table.find(name).is_some() {
                 panic!("the name `{}` is defined multiple times", name);
@@ -391,21 +401,7 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             self.expect(TokenKind::LParen);
             while !self.eat(TokenKind::RParen) {
-                if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-                    self.idx += 1;
-                    if self.current_function.as_mut().unwrap().param_symbol_table.find(name).is_some() {
-                        panic!("A local variable or function named '{}' is already defined in this scope", name);
-                    } else {
-                        self.expect(TokenKind::Colon);
-                        let typekind = self.type_no_bounds();
-                        let current_function = self.current_function.as_mut().unwrap();
-                        let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true, typekind.clone()));
-                        current_function.param_symbol_table.push(Rc::clone(&obj));
-                    }
-                } else {
-                    panic!("expected identifier");
-                }
-                self.eat(TokenKind::Comma);
+                self.parse_fn_params();
             }
         } else {
             eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
@@ -413,112 +409,132 @@ impl<'a> Parser<'a> {
         }
 
         if self.eat(TokenKind::RArrow) {
-            if let TokenKind::Type(typekind) = &self.tokens[self.idx].kind {
-                self.idx += 1;
-                self.current_function.as_mut().unwrap().rettype = typekind.clone();
-            } else {
-                eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
-                panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
-            }
+            self.parse_ret_ty();
         }
 
+        self.expect(TokenKind::LBrace);
         self.current_function.as_mut().unwrap().statements = self.block_expression();
         self.current_function.take().unwrap()
     }
 
-    fn statement(&mut self) -> Node {
-        let node =  if self.eat_keyword(Keyword::Return) {
-            if self.eat(TokenKind::Semi) {
-                return new_return_node(None);
-            }
-            new_return_node(Some(self.expr()))
-        } else if self.eat_keyword(Keyword::Let) {
-            if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-                self.idx += 1;
+    fn parse_fn_params(&mut self) {
+        if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            if self.current_function.as_mut().unwrap().param_symbol_table.find(name).is_some() {
+                panic!("A local variable or function named '{}' is already defined in this scope", name);
+            } else {
                 self.expect(TokenKind::Colon);
                 let typekind = self.type_no_bounds();
-                let node = new_variable_node_with_let(&mut self.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind);
-                if self.eat(TokenKind::Assign) {
-                    let node = new_assign_node(node, self.expr());
-                    self.expect(TokenKind::Semi);
-                    node
-                } else {
-                    self.expect(TokenKind::Semi);
-                    self.statement()
-                }
-            } else {
-                panic!("The left-hand side of an assignment must be a variable")
+                let current_function = self.current_function.as_mut().unwrap();
+                let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true, typekind));
+                current_function.param_symbol_table.push(Rc::clone(&obj));
             }
         } else {
-            let mut node = self.expr();
-            while self.eat(TokenKind::Dot) {
-                if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-                    self.idx += 1;
-                    node = new_field_node(self.current_function.as_mut().unwrap(), name, node);
-                } else {
-                    panic!("unexpected token: `{:?}`", self.tokens[self.idx].kind);
-                }
-            }
-            node
-        };
-
-        if self.eat(TokenKind::Semi) {
-            node
-        } else {
-            new_evaluates_node(node)
+            panic!("expected identifier");
         }
+        self.eat(TokenKind::Comma);
     }
 
-    fn type_no_bounds(&mut self) -> Type {
-        if self.eat(TokenKind::And) {
-            Type::Ptr(Box::new(self.type_no_bounds()))
-        } else if self.eat(TokenKind::AndAnd) {
-            Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()))))
-        } else if let TokenKind::Type(typekind) = &self.tokens[self.idx].kind {
+    fn parse_ret_ty(&mut self) {
+        if let TokenKind::Type(typekind) = &self.tokens[self.idx].kind {
             self.idx += 1;
-            typekind.clone()
-        } else if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            Type::Struct(name.to_string())
+            self.current_function.as_mut().unwrap().rettype = typekind.clone();
         } else {
+            eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
             panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
         }
-
     }
 
     fn block_expression(&mut self) -> Node {
-        let mut stmts = vec![];
         self.current_function.as_mut().unwrap().lvar_symbol_table.enter_scope();
-        self.expect(TokenKind::LBrace );
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
-        while !self.eat(TokenKind::RBrace) && !self.is_eof() {
-            stmts.push(self.statement());
+        if self.eat(TokenKind::RBrace) {
+            return Node::Empty;
+        }
+        let mut stmts = vec![];
+        while !self.eat(TokenKind::RBrace) {
+            stmts.push(self.parse_stmt());
         }
         self.except_struct_expression = except_struct_expression;
         self.current_function.as_mut().unwrap().lvar_symbol_table.leave_scope();
         new_block_node(stmts)
     }
 
-    fn expr(&mut self) -> Node {
-        if self.tokens[self.idx].kind == TokenKind::LBrace {
+    fn parse_stmt(&mut self) -> Node {
+        if self.eat(TokenKind::Semi) {
+            new_empty_node()
+        } else if self.eat_keyword(Keyword::Let) {
+            self.parse_let_stmt()
+        } else if self.eat_keyword(Keyword::Return) {
+            if self.eat(TokenKind::Semi) {
+                new_return_node(None)
+            } else {
+                new_return_node(Some(self.parse_expr()))
+            }
+        } else {
+            let node = self.parse_expr();
+            if self.eat(TokenKind::Semi) {
+                new_semi_node(node)
+            } else {
+                node
+            }
+        }
+    }
+
+    fn parse_let_stmt(&mut self) -> Node {
+        if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            self.expect(TokenKind::Colon);
+            let typekind = self.type_no_bounds();
+            let node = new_variable_node_with_let(&mut self.current_function.as_mut().unwrap().lvar_symbol_table, name, typekind);
+            if self.eat(TokenKind::Assign) {
+                let node = new_assign_node(node, self.parse_expr());
+                self.expect(TokenKind::Semi);
+                node
+            } else {
+                self.expect(TokenKind::Semi);
+                new_empty_node()
+            }
+        } else {
+            panic!("The left-hand side of an assignment must be a variable")
+        }
+    }
+
+    fn parse_expr(&mut self) -> Node {
+        let mut node = self.parse_expr1();
+
+        while self.eat(TokenKind::Dot) {
+            let ident = self.expect_ident();
+            node = new_field_node(node, &ident)
+        }
+
+        node
+    }
+
+    fn parse_expr1(&mut self) -> Node {
+        if self.eat(TokenKind::LBrace) {
             self.block_expression()
         } else if self.eat_keyword(Keyword::If) {
             self.except_struct_expression = true;
-            let cond = self.expr();
+            let cond = self.parse_expr();
             self.except_struct_expression = false;
+            self.expect(TokenKind::LBrace );
             let then = self.block_expression();
             let els = if self.eat_keyword(Keyword::Else) {
+                self.expect(TokenKind::LBrace );
                 Some(self.block_expression())
             } else {
                 None
             };
             new_if_node(cond, then, els)
         } else if self.eat_keyword(Keyword::While) {
-            let cond = self.expr();
+            let cond = self.parse_expr();
+            self.expect(TokenKind::LBrace );
             let then = self.block_expression();
             new_while_node(cond, then)
         } else if self.eat_keyword(Keyword::Loop) {
+            self.expect(TokenKind::LBrace );
             new_loop_node(self.block_expression())
         } else {
             self.assign()
@@ -529,37 +545,37 @@ impl<'a> Parser<'a> {
         let node = self.logical_or();
 
         if self.eat(TokenKind::Assign) {
-            new_assign_node(node, self.expr())
+            new_assign_node(node, self.parse_expr())
         } else if self.eat(TokenKind::PlusEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Add, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Add, node, self.parse_expr()))
         } else if self.eat(TokenKind::MinusEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Sub, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Sub, node, self.parse_expr()))
         } else if self.eat(TokenKind::StarEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Mul, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Mul, node, self.parse_expr()))
         } else if self.eat(TokenKind::SlashEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Div, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Div, node, self.parse_expr()))
         } else if self.eat(TokenKind::PercentEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Rem, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Rem, node, self.parse_expr()))
         } else if self.eat(TokenKind::AndEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitAnd, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitAnd, node, self.parse_expr()))
         } else if self.eat(TokenKind::CaretEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitXor, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitXor, node, self.parse_expr()))
         } else if self.eat(TokenKind::OrEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitOr, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::BitOr, node, self.parse_expr()))
         } else if self.eat(TokenKind::ShlEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Shl, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Shl, node, self.parse_expr()))
         } else if self.eat(TokenKind::ShrEq) {
             let lhs = node.clone();
-            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Shr, node, self.expr()))
+            new_assign_node(lhs, new_binary_op_node(BinaryOpKind::Shr, node, self.parse_expr()))
         } else {
             node
         }
@@ -720,7 +736,7 @@ impl<'a> Parser<'a> {
         if self.eat(TokenKind::LParen) {
             let except_struct_expression = self.except_struct_expression;
             self.except_struct_expression = false;
-            let node = self.expr();
+            let node = self.parse_expr();
             self.expect(TokenKind::RParen);
             self.except_struct_expression = except_struct_expression;
             return node;
@@ -745,7 +761,7 @@ impl<'a> Parser<'a> {
                     // function
                     let mut args = vec![];
                     while !self.eat(TokenKind::RParen) {
-                        args.push(self.expr());
+                        args.push(self.parse_expr());
                         self.eat(TokenKind::Comma);
                     }
                     new_function_call_node(name, args)
@@ -753,7 +769,7 @@ impl<'a> Parser<'a> {
                     // struct
                     let mut field = vec![];
                     while !self.eat(TokenKind::RBrace) {
-                        field.push(self.expr());
+                        field.push(self.parse_expr());
                         self.eat(TokenKind::Comma);
                     }
                     new_struct_expr_node(&mut self.current_function.as_mut().unwrap().lvar_symbol_table, name, field)
@@ -771,7 +787,7 @@ impl<'a> Parser<'a> {
                 self.expect(TokenKind::LParen);
                 let mut args = vec![];
                 while !self.eat(TokenKind::RParen) {
-                    args.push(self.expr());
+                    args.push(self.parse_expr());
                     self.eat(TokenKind::Comma);
                 }
                 new_builtin_call_node(*kind, args)
@@ -781,5 +797,22 @@ impl<'a> Parser<'a> {
                 panic!("illegal TokenKind `{:?}`", self.tokens[self.idx].kind);
             }
         }
+    }
+
+    fn type_no_bounds(&mut self) -> Type {
+        if self.eat(TokenKind::And) {
+            Type::Ptr(Box::new(self.type_no_bounds()))
+        } else if self.eat(TokenKind::AndAnd) {
+            Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()))))
+        } else if let TokenKind::Type(typekind) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            typekind.clone()
+        } else if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            Type::Struct(name.to_string())
+        } else {
+            panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
+        }
+
     }
 }

@@ -46,7 +46,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
             Type::Struct(obj.name.to_string())
         }
-        Node::Field { name, expr } => {
+        Node::Field { expr, ident } => {
             let typekind = gen_il(*expr, p);
             // TODO
             typekind
@@ -62,12 +62,13 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         Node::Block { stmts } => {
             let mut typekind = Type::Void;
             for stmt in stmts {
-                if let Node::Evaluates { expr: _ } = stmt {
-                    typekind = gen_il(stmt, p);
-                } else {
-                    typekind = gen_il(stmt, p);
-                    if typekind != Type::Void {
-                        println!("\tpop");
+                match stmt {
+                    Node::Return { expr: _ } => {
+                        typekind = gen_il(stmt, p);
+                        break;
+                    }
+                    _ => {
+                        typekind = gen_il(stmt, p);
                     }
                 }
             }
@@ -142,9 +143,6 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             };
             println!("\tret");
             rettype
-        }
-        Node::Evaluates { expr } => {
-            gen_il(*expr, p)
         }
         Node::Cast { typekind: new_type, expr } => {
             let old_type = gen_il(*expr, p);
@@ -291,6 +289,16 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
             }
             Type::Bool
+        }
+        Node::Semi { expr } => {
+            let typekind = gen_il(*expr, p);
+            if typekind != Type::Void {
+                println!("\tpop");
+            }
+            typekind
+        }
+        Node::Empty => {
+            Type::Void
         }
     }
 }

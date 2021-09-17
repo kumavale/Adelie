@@ -61,8 +61,8 @@ pub enum Node {
         field: Vec<Node>,
     },
     Field {
-        name: String,
         expr: Box<Node>,
+        ident: String,
     },
     Variable {
         obj: Rc<Object>,
@@ -86,9 +86,6 @@ pub enum Node {
         lhs: Box<Node>,
         rhs: Box<Node>,
     },
-    Evaluates {
-        expr: Box<Node>,
-    },
     Return {
         expr: Option<Box<Node>>,
     },
@@ -109,7 +106,11 @@ pub enum Node {
         kind: ShortCircuitOpKind,
         lhs: Box<Node>,
         rhs: Box<Node>,
-    }
+    },
+    Semi {
+        expr: Box<Node>,
+    },
+    Empty,
 }
 
 pub fn new_binary_op_node(kind: BinaryOpKind, lhs: Node, rhs: Node) -> Node {
@@ -172,12 +173,6 @@ pub fn new_block_node(stmts: Vec<Node>) -> Node {
 pub fn new_return_node(expr: Option<Node>) -> Node {
     Node::Return {
         expr: expr.map(Box::new),
-    }
-}
-
-pub fn new_evaluates_node(expr: Node) -> Node {
-    Node::Evaluates {
-        expr: Box::new(expr),
     }
 }
 
@@ -251,10 +246,10 @@ pub fn new_struct_expr_node(symbol_table: &mut SymbolTable, name: &str, field: V
     }
 }
 
-pub fn new_field_node(function: &mut Function, name: &str, expr: Node) -> Node {
+pub fn new_field_node(expr: Node, ident: &str) -> Node {
     Node::Field {
-        name: name.to_string(),
         expr: Box::new(expr),
+        ident: ident.to_string(),
     }
 }
 
@@ -281,5 +276,15 @@ pub fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str, ty
         Node::Variable {
             obj,
         }
+    }
+}
+
+pub fn new_empty_node() -> Node {
+    Node::Empty
+}
+
+pub fn new_semi_node(expr: Node) -> Node {
+    Node::Semi {
+        expr: Box::new(expr),
     }
 }
