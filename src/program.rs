@@ -26,9 +26,9 @@ impl Program {
         self.structs.find(name)
     }
 
-    pub fn push_or_merge_struct(&mut self, mut s: Struct) {
+    pub fn push_struct(&mut self, mut s: Struct) {
         if let Some(dst) = self.structs.find_mut(&s.name) {
-            dst.field.append(&mut s.field);
+            panic!("the name `{}` is defined multiple times", s.name);
         } else {
             self.structs.push(s);
         }

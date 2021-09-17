@@ -334,7 +334,7 @@ impl<'a> Parser<'a> {
         let mut program = Program::new();
         while !self.is_eof() {
             if self.eat_keyword(Keyword::Struct) {
-                program.push_or_merge_struct(self.parse_item_struct());
+                program.push_struct(self.parse_item_struct());
             } else if self.eat_keyword(Keyword::Impl) {
                 program.push_or_merge_impl(self.parse_item_impl());
             } else if self.eat_keyword(Keyword::Fn) {

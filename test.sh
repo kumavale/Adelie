@@ -199,19 +199,14 @@ impl Rectangle {
     //fn area(&self) -> i32 { self.width * self.height }
 }
 fn main() {
-    let rect: Rectangle = Rectangle { 30, 50, 40, 20 };
+    let rect: Rectangle = Rectangle { 30, 50, };
     //rect.width = 42;
     //if rect.width == 42 {
     //    println("ok");
     //} else {
     //    println("failed");
     //}
-}
-struct Rectangle {
-    width2: i32,
-    height2: i32,
-}
-'
+}'
 
 # clean up
 rm -f tmp.il tmp.exe # ttmp.cs mp.dll
