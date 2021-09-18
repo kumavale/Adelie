@@ -36,7 +36,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                             .functions
                             .iter()
                             .find(|f|f.name==ident)
-                            .expect(&format!("The name '{}' does not exist in the current context", ident));
+                            .unwrap_or_else(|| panic!("The name '{}' does not exist in the current context", ident));
                         for arg in args {
                             gen_il(arg, p);
                         }
@@ -60,16 +60,16 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
         }
         Node::Struct { obj, field } => {
-            if let Some(st) = p.find_struct(&obj.ty.to_str()) {
+            if let Some(st) = p.find_struct(&obj.ty.to_string()) {
                 if field.len() != st.field.len() {
                     panic!("missing field");
                 }
                 println!("\tldloca {}", obj.offset);
-                println!("\tinitobj {}", obj.ty.to_str());
+                println!("\tinitobj {}", obj.ty.to_string());
                 for (field_expr, field_dec) in field.into_iter().zip(&st.field) {
                     println!("\tldloca {}", obj.offset);
                     gen_il(field_expr, p);
-                    println!("\tstfld {} {}::{}", field_dec.ty.to_ilstr(), obj.ty.to_str(), field_dec.name);
+                    println!("\tstfld {} {}::{}", field_dec.ty.to_ilstr(), obj.ty.to_string(), field_dec.name);
                 }
                 println!("\tldloc {}", obj.offset);
             } else {
@@ -155,7 +155,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         Node::If { cond, then, els } => {
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
-                panic!("expected `{}`, found `{}`", Type::Bool.to_str(), cond_type.to_str());
+                panic!("expected `{}`, found `{}`", Type::Bool.to_string(), cond_type.to_string());
             }
             let seq = seq();
             let else_label = format!("IL_else{}", seq);
@@ -180,7 +180,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             println!("{}:", begin_label);
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
-                panic!("expected `{}`, found `{}`", Type::Bool.to_str(), cond_type.to_str());
+                panic!("expected `{}`, found `{}`", Type::Bool.to_string(), cond_type.to_string());
             }
             println!("\tbrfalse {}", end_label);
             let then_type = gen_il(*then, p);
@@ -249,7 +249,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
                 Type::Bool => {
                     if let Type::Numeric(_) = old_type {
-                        panic!("invalid cast as `{}`", Type::Bool.to_str());
+                        panic!("invalid cast as `{}`", Type::Bool.to_string());
                     }
                     println!("\tldc.i4.0");
                     println!("\tcgt");
@@ -261,7 +261,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     todo!("cast to ref type");
                 }
                 Type::Void => unreachable!(),
-                t => panic!("invalid cast as `{}`", t.to_str()),
+                t => panic!("invalid cast as `{}`", t.to_string()),
             }
             new_type
         }
@@ -305,7 +305,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         }
                         *ty
                     } else {
-                        panic!("type `{}` cannot be dereferenced", ty.to_str());
+                        panic!("type `{}` cannot be dereferenced", ty.to_string());
                     }
                 }
             }
@@ -314,7 +314,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             let ltype = gen_il(*lhs, p);
             let rtype = gen_il(*rhs, p);
             if ltype != rtype {
-                panic!("expected `{}`, found `{}`", ltype.to_str(), rtype.to_str());
+                panic!("expected `{}`, found `{}`", ltype.to_string(), rtype.to_string());
             }
             match kind {
                 BinaryOpKind::Add => { println!("\tadd"); ltype }
@@ -360,13 +360,13 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     println!("\tldc.i4.0");
                     let ltype = gen_il(*lhs, p);
                     if ltype != Type::Bool {
-                        panic!("expected `{}`, found `{}`", Type::Bool.to_str(), ltype.to_str());
+                        panic!("expected `{}`, found `{}`", Type::Bool.to_string(), ltype.to_string());
                     }
                     println!("\tbrfalse {}", end_label);
                     println!("\tpop");
                     let rtype = gen_il(*rhs, p);
                     if rtype != Type::Bool {
-                        panic!("expected `{}`, found `{}`", Type::Bool.to_str(), rtype.to_str());
+                        panic!("expected `{}`, found `{}`", Type::Bool.to_string(), rtype.to_string());
                     }
                     println!("{}:", end_label);
                 }
@@ -374,13 +374,13 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     println!("\tldc.i4.1");
                     let ltype = gen_il(*lhs, p);
                     if ltype != Type::Bool {
-                        panic!("expected `{}`, found `{}`", Type::Bool.to_str(), ltype.to_str());
+                        panic!("expected `{}`, found `{}`", Type::Bool.to_string(), ltype.to_string());
                     }
                     println!("\tbrtrue {}", end_label);
                     println!("\tpop");
                     let rtype = gen_il(*rhs, p);
                     if rtype != Type::Bool {
-                        panic!("expected `{}`, found `{}`", Type::Bool.to_str(), rtype.to_str());
+                        panic!("expected `{}`, found `{}`", Type::Bool.to_string(), rtype.to_string());
                     }
                     println!("{}:", end_label);
                 }

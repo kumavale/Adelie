@@ -9,6 +9,15 @@ pub enum Builtin {
     Println,
 }
 
+impl Builtin {
+    pub fn to_string(&self) -> String {
+        match self {
+            Builtin::Print   => "print".to_string(),
+            Builtin::Println => "println".to_string(),
+        }
+    }
+}
+
 pub fn gen_builtin_il(kind: Builtin, args: Vec<Node>, p: &Program) -> Type {
     match kind {
         Builtin::Print   => gen_print_il(args, p),

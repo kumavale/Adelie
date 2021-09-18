@@ -55,14 +55,14 @@ pub enum Numeric {
 }
 
 impl Type {
-    pub fn to_str(&self) -> String {
+    pub fn to_string(&self) -> String {
         match self {
             Type::Numeric(Numeric::I32) => "i32".to_string(),
             Type::Bool => "bool".to_string(),
             Type::Char => "char".to_string(),
             Type::String => "string".to_string(),
             Type::Struct(n) => n.to_string(),
-            Type::Ptr(t) => format!("&{}", t.to_str()),
+            Type::Ptr(t) => format!("&{}", t.to_string()),
             Type::_Self(n) => n.to_string(),
             Type::Void => "void".to_string(),
         }
