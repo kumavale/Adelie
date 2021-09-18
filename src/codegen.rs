@@ -17,7 +17,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             gen_builtin_il(kind, args, p)
         }
         Node::Call { name, args } => {
-            if let Some(func) = p.find_function(&name) {
+            if let Some(func) = p.find_fn(&name) {
                 for arg in args {
                     gen_il(arg, p);
                 }

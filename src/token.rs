@@ -61,7 +61,7 @@ pub enum TokenKind {
     Builtin(Builtin),
     Comment(CommentKind),
 
-    Illegal(String),
+    Unknown(String),
     Eof,
 }
 

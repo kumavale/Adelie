@@ -9,6 +9,8 @@ mod function;
 mod builtin;
 mod class;
 mod program;
+mod utils;
+mod error;
 
 fn main() {
     let input = std::env::args().nth(1).unwrap();

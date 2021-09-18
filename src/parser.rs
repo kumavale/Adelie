@@ -6,6 +6,7 @@ use super::object::*;
 use super::function::*;
 use super::program::*;
 use super::class::*;
+use super::error::*;
 
 // Grammar
 //
@@ -328,9 +329,7 @@ impl<'a> Parser<'a> {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
         } else {
-            let line = self.tokens[self.idx].line;
-            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-            panic!("expected `{:?}`, but got `{:?}`", kind, self.tokens[self.idx].kind);
+            e0001(self.lines.clone(), self.token(), kind);
         }
     }
 
@@ -338,14 +337,16 @@ impl<'a> Parser<'a> {
         if let Some(ident) = self.eat_ident() {
             ident
         } else {
-            let line = self.tokens[self.idx].line;
-            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-            panic!("expected `Identifier`, but got `{:?}`", self.tokens[self.idx].kind);
+            e0003(self.lines.clone(), self.token());
         }
     }
 
     fn is_eof(&self) -> bool {
         self.tokens[self.idx].kind == TokenKind::Eof
+    }
+
+    fn token(&self) -> &Token {
+        &self.tokens[self.idx]
     }
 
     fn type_no_bounds(&mut self) -> Type {
@@ -362,9 +363,7 @@ impl<'a> Parser<'a> {
             self.current_function.as_mut().unwrap().is_static = false;
             Type::_Self(self.current_impl.as_ref().unwrap().name.to_string())
         } else {
-            let line = self.tokens[self.idx].line;
-            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-            panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
+            e0002(self.lines.clone(), self.token());
         }
 
     }
@@ -373,15 +372,21 @@ impl<'a> Parser<'a> {
         let mut program = Program::new();
         while !self.is_eof() {
             if self.eat_keyword(Keyword::Struct) {
-                program.push_struct(self.parse_item_struct());
+                let st = self.parse_item_struct();
+                if program.find_struct(&st.name).is_some() {
+                    e0005(self.lines.clone(), self.token(), &st.name);
+                }
+                program.push_struct(st);
             } else if self.eat_keyword(Keyword::Impl) {
                 program.push_or_merge_impl(self.parse_item_impl());
             } else if self.eat_keyword(Keyword::Fn) {
-                program.functions.push(self.parse_item_fn());
+                let f = self.parse_item_fn();
+                if program.find_fn(&f.name).is_some() {
+                    e0005(self.lines.clone(), self.token(), &f.name);
+                }
+                program.push_fn(f);
             } else {
-                let line = self.tokens[self.idx].line;
-                eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-                panic!("invalid token: `{:?}`", self.tokens[self.idx].kind);
+                e0004(self.lines.clone(), self.token());
             }
         }
         program
@@ -393,10 +398,8 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::LBrace);
         while !self.eat(TokenKind::RBrace) {
             let ident = self.expect_ident();
-            if self.g_symbol_table.find(&ident).is_some() {
-                let line = self.tokens[self.idx].line;
-                eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-                panic!("the name `{}` is defined multiple times", ident);
+            if st.field.iter().find(|o|o.name==ident).is_some() {
+                e0005(self.lines.clone(), self.token(), &ident);
             } else {
                 self.expect(TokenKind::Colon);
                 let ty = self.type_no_bounds();
@@ -424,11 +427,6 @@ impl<'a> Parser<'a> {
 
     fn parse_item_fn(&mut self) -> Function {
         let ident = self.expect_ident();
-        if self.g_symbol_table.find(&ident).is_some() {
-            let line = self.tokens[self.idx].line;
-            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-            panic!("the name `{}` is defined multiple times", ident);
-        }
         let obj = Rc::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void));
         self.g_symbol_table.push(Rc::clone(&obj));
         self.current_function = Some(Function::new(&ident));
@@ -452,9 +450,7 @@ impl<'a> Parser<'a> {
     fn parse_fn_params(&mut self) {
         let ident = self.expect_ident();
         if self.current_function.as_mut().unwrap().param_symbol_table.find(&ident).is_some() {
-            let line = self.tokens[self.idx].line;
-            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-            panic!("A local variable or function named '{}' is already defined in this scope", ident);
+            e0005(self.lines.clone(), self.token(), &ident);
         } else {
             self.expect(TokenKind::Colon);
             let ty = self.type_no_bounds();
@@ -470,9 +466,7 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             self.current_function.as_mut().unwrap().rettype = ty.clone();
         } else {
-            let line = self.tokens[self.idx].line;
-            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-            panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
+            e0002(self.lines.clone(), self.token());
         }
     }
 
@@ -528,9 +522,7 @@ impl<'a> Parser<'a> {
                 new_empty_node()
             }
         } else {
-            let line = self.tokens[self.idx].line;
-            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-            panic!("The left-hand side of an assignment must be a variable")
+            e0003(self.lines.clone(), self.token());
         }
     }
 
@@ -850,9 +842,7 @@ impl<'a> Parser<'a> {
                 new_builtin_call_node(*kind, args)
             }
             _ => {
-                let line = self.tokens[self.idx].line;
-                eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
-                panic!("illegal TokenKind `{:?}`", self.tokens[self.idx].kind);
+                e0006(self.lines.clone(), self.token());
             }
         }
     }

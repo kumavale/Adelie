@@ -18,7 +18,7 @@ impl Program {
         }
     }
 
-    pub fn find_function(&self, name: &str) -> Option<&Function> {
+    pub fn find_fn(&self, name: &str) -> Option<&Function> {
         self.functions.find(name)
     }
 
@@ -30,8 +30,16 @@ impl Program {
         self.impls.find(name)
     }
 
+    pub fn push_fn(&mut self, f: Function) {
+        if let Some(dst) = self.functions.find(&f.name) {
+            panic!("the name `{}` is defined multiple times", f.name);
+        } else {
+            self.functions.push(f);
+        }
+    }
+
     pub fn push_struct(&mut self, s: Struct) {
-        if let Some(dst) = self.structs.find_mut(&s.name) {
+        if let Some(dst) = self.structs.find(&s.name) {
             panic!("the name `{}` is defined multiple times", s.name);
         } else {
             self.structs.push(s);

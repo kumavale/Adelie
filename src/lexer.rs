@@ -296,7 +296,7 @@ impl<'a> Lexer<'a> {
                 Token::new(TokenKind::Integer(num as i32), self.read_position, self.line)
             }
 
-            _ => Token::new(TokenKind::Illegal(self.ch.unwrap().to_string()), self.read_position + 1, self.line)
+            _ => Token::new(TokenKind::Unknown(self.ch.unwrap().to_string()), self.read_position + 1, self.line)
         };
 
         self.seek(1);
