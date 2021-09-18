@@ -272,8 +272,13 @@ use super::class::*;
 //         | '(' expr ')'
 //
 
-pub fn gen_ast<'a>(tokens: &'a [Token], g_symbol_table: &'a mut SymbolTable) -> Program {
+pub fn gen_ast<'a>(
+    input: &'a str,
+    tokens: &'a [Token],
+    g_symbol_table: &'a mut SymbolTable
+) -> Program {
     let mut parser = Parser {
+        lines: input.lines(),
         g_symbol_table,
         current_function: None,
         current_impl: None,
@@ -287,6 +292,7 @@ pub fn gen_ast<'a>(tokens: &'a [Token], g_symbol_table: &'a mut SymbolTable) -> 
 
 #[derive(Debug)]
 struct Parser<'a> {
+    lines: std::str::Lines<'a>,
     g_symbol_table: &'a mut SymbolTable,  // global symbol table
     current_function: Option<Function>,
     current_impl: Option<Impl>,
@@ -322,7 +328,8 @@ impl<'a> Parser<'a> {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
         } else {
-            eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
+            let line = self.tokens[self.idx].line;
+            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
             panic!("expected `{:?}`, but got `{:?}`", kind, self.tokens[self.idx].kind);
         }
     }
@@ -331,7 +338,8 @@ impl<'a> Parser<'a> {
         if let Some(ident) = self.eat_ident() {
             ident
         } else {
-            eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
+            let line = self.tokens[self.idx].line;
+            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
             panic!("expected `Identifier`, but got `{:?}`", self.tokens[self.idx].kind);
         }
     }
@@ -354,6 +362,8 @@ impl<'a> Parser<'a> {
             self.current_function.as_mut().unwrap().is_static = false;
             Type::_Self(self.current_impl.as_ref().unwrap().name.to_string())
         } else {
+            let line = self.tokens[self.idx].line;
+            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
             panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
         }
 
@@ -369,6 +379,8 @@ impl<'a> Parser<'a> {
             } else if self.eat_keyword(Keyword::Fn) {
                 program.functions.push(self.parse_item_fn());
             } else {
+                let line = self.tokens[self.idx].line;
+                eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
                 panic!("invalid token: `{:?}`", self.tokens[self.idx].kind);
             }
         }
@@ -377,26 +389,19 @@ impl<'a> Parser<'a> {
 
     fn parse_item_struct(&mut self) -> Struct {
         let mut st = Struct::new();
-        if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            st.name = name.to_string();
-        } else {
-            panic!("expected identifier");
-        }
+        st.name = self.expect_ident();
         self.expect(TokenKind::LBrace);
         while !self.eat(TokenKind::RBrace) {
-            if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-                self.idx += 1;
-                if self.g_symbol_table.find(name).is_some() {
-                    panic!("the name `{}` is defined multiple times", name);
-                } else {
-                    self.expect(TokenKind::Colon);
-                    let ty = self.type_no_bounds();
-                    let obj = Object::new(name.to_string(), st.field.len(), false, ty);
-                    st.field.push(obj);
-                }
+            let ident = self.expect_ident();
+            if self.g_symbol_table.find(&ident).is_some() {
+                let line = self.tokens[self.idx].line;
+                eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
+                panic!("the name `{}` is defined multiple times", ident);
             } else {
-                panic!("expected identifier");
+                self.expect(TokenKind::Colon);
+                let ty = self.type_no_bounds();
+                let obj = Object::new(ident, st.field.len(), false, ty);
+                st.field.push(obj);
             }
             self.eat(TokenKind::Comma);
         }
@@ -420,6 +425,8 @@ impl<'a> Parser<'a> {
     fn parse_item_fn(&mut self) -> Function {
         let ident = self.expect_ident();
         if self.g_symbol_table.find(&ident).is_some() {
+            let line = self.tokens[self.idx].line;
+            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
             panic!("the name `{}` is defined multiple times", ident);
         }
         let obj = Rc::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void));
@@ -445,6 +452,8 @@ impl<'a> Parser<'a> {
     fn parse_fn_params(&mut self) {
         let ident = self.expect_ident();
         if self.current_function.as_mut().unwrap().param_symbol_table.find(&ident).is_some() {
+            let line = self.tokens[self.idx].line;
+            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
             panic!("A local variable or function named '{}' is already defined in this scope", ident);
         } else {
             self.expect(TokenKind::Colon);
@@ -461,7 +470,8 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             self.current_function.as_mut().unwrap().rettype = ty.clone();
         } else {
-            eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
+            let line = self.tokens[self.idx].line;
+            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
             panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
         }
     }
@@ -518,6 +528,8 @@ impl<'a> Parser<'a> {
                 new_empty_node()
             }
         } else {
+            let line = self.tokens[self.idx].line;
+            eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
             panic!("The left-hand side of an assignment must be a variable")
         }
     }
@@ -838,7 +850,8 @@ impl<'a> Parser<'a> {
                 new_builtin_call_node(*kind, args)
             }
             _ => {
-                eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
+                let line = self.tokens[self.idx].line;
+                eprintln!("{}: {}", line, self.lines.nth(line-1).unwrap());
                 panic!("illegal TokenKind `{:?}`", self.tokens[self.idx].kind);
             }
         }

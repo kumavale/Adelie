@@ -75,12 +75,16 @@ pub enum CommentKind {
 pub struct Token {
     pub kind: TokenKind,
     pub cur: usize,
-    //pub line: u32,
+    pub line: usize,
     //pub literal: String,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, cur: usize) -> Self {
-        Token { kind, cur }
+    pub fn new(kind: TokenKind, cur: usize, line: usize) -> Self {
+        Token {
+            kind,
+            cur,
+            line,
+        }
     }
 }
