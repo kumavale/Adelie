@@ -157,8 +157,9 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             if cond_type != Type::Bool {
                 panic!("expected `{}`, found `{}`", Type::Bool.to_str(), cond_type.to_str());
             }
-            let else_label = format!("IL_else{}", seq());
-            let end_label = format!("IL_end{}", seq());
+            let seq = seq();
+            let else_label = format!("IL_else{}", seq);
+            let end_label = format!("IL_end{}", seq);
             println!("\tbrfalse {}", else_label);
             let then_type = gen_il(*then, p);
             println!("\tbr {}", end_label);
@@ -173,8 +174,9 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             then_type
         }
         Node::While { cond, then } => {
-            let begin_label = format!("IL_begin{}", seq());
-            let end_label = format!("IL_end{}", seq());
+            let seq = seq();
+            let begin_label = format!("IL_begin{}", seq);
+            let end_label = format!("IL_end{}", seq);
             println!("{}:", begin_label);
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
@@ -187,8 +189,9 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             then_type
         }
         Node::Loop { then } => {
-            let begin_label = format!("IL_begin{}", seq());
-            let end_label = format!("IL_end{}", seq());
+            let seq = seq();
+            let begin_label = format!("IL_begin{}", seq);
+            let end_label = format!("IL_end{}", seq);
             println!("{}:", begin_label);
             let then_type = gen_il(*then, p);
             println!("\tbr {}", begin_label);
