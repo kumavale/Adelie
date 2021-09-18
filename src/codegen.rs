@@ -47,9 +47,21 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             Type::Struct(obj.name.to_string())
         }
         Node::Field { expr, ident } => {
-            let ty = gen_il(*expr, p);
-            // TODO
-            ty
+            if let Type::Struct(tag) = gen_il(*expr, p) {
+                if let Some(st) = p.find_struct(&tag) {
+                    if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
+                        let ty = field.ty.clone();
+                        println!("\tldfld {} {}::{}", ty.to_ilstr(), tag, ident);
+                        ty
+                    } else {
+                        panic!("no field `{}` on type `{}`", ident, tag);
+                    }
+                } else {
+                    panic!("cannot find value `{}` in this scope", tag);
+                }
+            } else {
+                unimplemented!("primitive type");
+            }
         }
         Node::Variable { obj } => {
             if obj.is_param {

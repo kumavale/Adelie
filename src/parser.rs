@@ -502,19 +502,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self) -> Node {
-        let mut node = self.parse_expr1();
-
-        loop {
-            if self.eat(TokenKind::Dot) {
-                let ident = self.expect_ident();
-                node = new_field_node(node, &ident);
-            } else {
-                return node;
-            }
-        }
-    }
-
-    fn parse_expr1(&mut self) -> Node {
         if self.eat(TokenKind::LBrace) {
             self.parse_block_expr()
         } else if self.eat_keyword(Keyword::If) {
@@ -735,7 +722,20 @@ impl<'a> Parser<'a> {
         } else if self.eat(TokenKind::Star) {
             new_unary_op_node(UnaryOpKind::Deref, self.parse_unary())
         } else {
-            self.parse_term()
+            self.parse_field_expr()
+        }
+    }
+
+    fn parse_field_expr(&mut self) -> Node {
+        let mut node = self.parse_term();
+
+        loop {
+            if self.eat(TokenKind::Dot) {
+                let ident = self.expect_ident();
+                node = new_field_node(node, &ident);
+            } else {
+                return node;
+            }
         }
     }
 
@@ -745,6 +745,12 @@ impl<'a> Parser<'a> {
             self.except_struct_expression = false;
             let node = self.parse_expr();
             self.expect(TokenKind::RParen);
+            self.except_struct_expression = except_struct_expression;
+            return node;
+        } else if self.eat(TokenKind::LBrace) {
+            let except_struct_expression = self.except_struct_expression;
+            self.except_struct_expression = false;
+            let node = self.parse_block_expr();
             self.except_struct_expression = except_struct_expression;
             return node;
         }

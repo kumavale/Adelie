@@ -194,18 +194,24 @@ run '
 struct Rectangle {
     width: i32,
     height: i32,
+    color: Color,
+}
+struct Color {
+    r: i32,
+    g: i32,
+    b: i32,
 }
 impl Rectangle {
     //fn area(&self) -> i32 { self.width * self.height }
 }
 fn main() {
-    let rect: Rectangle = Rectangle { 30, 50, };
+    let rect: Rectangle = Rectangle { 30, 50, Color { 128, 192, 255 } };
     //rect.width = 42;
-    //if rect.width == 42 {
-    //    println("ok");
-    //} else {
-    //    println("failed");
-    //}
+    if rect.color.r == 128 {
+        println("ok");
+    } else {
+        println("failed");
+    }
 }'
 
 # clean up
