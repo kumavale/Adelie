@@ -37,7 +37,14 @@ fn main() {
         println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", im.name);
         println!("{{");
         for func in &im.functions {
-            let args = func.param_symbol_table.objs.iter().map(|o|format!("{} {}", o.ty.to_ilstr(), o.name)).collect::<Vec<String>>().join(", ");
+            let args = func
+                .param_symbol_table
+                .objs
+                .iter()
+                .skip(if func.is_static { 0 } else { 1 })
+                .map(|o|format!("{} {}", o.ty.to_ilstr(), o.name))
+                .collect::<Vec<String>>()
+                .join(", ");
             println!("\t.method public instance {} {}({}) cil managed {{", func.rettype.to_ilstr(), func.name, args);
             println!("\t\t.maxstack 32");
 
@@ -70,7 +77,13 @@ fn main() {
             println!(".method static void Main() cil managed {{");
             println!("\t.entrypoint");
         } else {
-            let args = func.param_symbol_table.objs.iter().map(|o|format!("{} {}", o.ty.to_ilstr(), o.name)).collect::<Vec<String>>().join(", ");
+            let args = func
+                .param_symbol_table
+                .objs
+                .iter()
+                .map(|o|format!("{} {}", o.ty.to_ilstr(), o.name))
+                .collect::<Vec<String>>()
+                .join(", ");
             println!(".method static {} {}({}) cil managed {{", func.rettype.to_ilstr(), func.name, args);
         }
         println!("\t.maxstack 32");

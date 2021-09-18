@@ -276,6 +276,7 @@ pub fn gen_ast<'a>(tokens: &'a [Token], g_symbol_table: &'a mut SymbolTable) -> 
     let mut parser = Parser {
         g_symbol_table,
         current_function: None,
+        current_impl: None,
         tokens,
         idx: 0,
         except_struct_expression: false,
@@ -288,6 +289,7 @@ pub fn gen_ast<'a>(tokens: &'a [Token], g_symbol_table: &'a mut SymbolTable) -> 
 struct Parser<'a> {
     g_symbol_table: &'a mut SymbolTable,  // global symbol table
     current_function: Option<Function>,
+    current_impl: Option<Impl>,
     tokens: &'a [Token],
     idx: usize,
     except_struct_expression: bool,
@@ -307,6 +309,15 @@ impl<'a> Parser<'a> {
         self.eat(TokenKind::Keyword(kw))
     }
 
+    fn eat_ident(&mut self) -> Option<String> {
+        if let TokenKind::Ident(ident) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            Some(ident.to_string())
+        } else {
+            None
+        }
+    }
+
     fn expect(&mut self, kind: TokenKind) {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
@@ -317,9 +328,8 @@ impl<'a> Parser<'a> {
     }
 
     fn expect_ident(&mut self) -> String {
-        if let TokenKind::Ident(ident) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            ident.to_string()
+        if let Some(ident) = self.eat_ident() {
+            ident
         } else {
             eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
             panic!("expected `Identifier`, but got `{:?}`", self.tokens[self.idx].kind);
@@ -338,9 +348,11 @@ impl<'a> Parser<'a> {
         } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
             ty.clone()
-        } else if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            Type::Struct(name.to_string())
+        } else if let Some(ident) = self.eat_ident() {
+            Type::Struct(ident)
+        } else if self.eat_keyword(Keyword::SelfLower) {
+            self.current_function.as_mut().unwrap().is_static = false;
+            Type::_Self(self.current_impl.as_ref().unwrap().name.to_string())
         } else {
             panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
         }
@@ -393,13 +405,16 @@ impl<'a> Parser<'a> {
 
     fn parse_item_impl(&mut self) -> Impl {
         let ident = self.expect_ident();
+        self.current_impl = Some(Impl::new(ident));
         self.expect(TokenKind::LBrace);
-        let mut functions = vec![];
         while self.eat_keyword(Keyword::Fn) {
-            functions.push(self.parse_item_fn());
+            let func = self.parse_item_fn();
+            self.current_impl.as_mut().unwrap()
+                .functions
+                .push(func);
         }
         self.expect(TokenKind::RBrace);
-        Impl::new(ident, functions)
+        self.current_impl.take().unwrap()
     }
 
     fn parse_item_fn(&mut self) -> Function {
@@ -412,8 +427,10 @@ impl<'a> Parser<'a> {
         self.current_function = Some(Function::new(&ident));
 
         self.expect(TokenKind::LParen);
-        while !self.eat(TokenKind::RParen) {
-            self.parse_fn_params();
+        if !self.eat(TokenKind::RParen) {
+            while !self.eat(TokenKind::RParen) {
+                self.parse_fn_params();
+            }
         }
 
         if self.eat(TokenKind::RArrow) {
@@ -426,19 +443,15 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_fn_params(&mut self) {
-        if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            if self.current_function.as_mut().unwrap().param_symbol_table.find(name).is_some() {
-                panic!("A local variable or function named '{}' is already defined in this scope", name);
-            } else {
-                self.expect(TokenKind::Colon);
-                let ty = self.type_no_bounds();
-                let current_function = self.current_function.as_mut().unwrap();
-                let obj = Rc::new(Object::new(name.to_string(), current_function.param_symbol_table.len(), true, ty));
-                current_function.param_symbol_table.push(Rc::clone(&obj));
-            }
+        let ident = self.expect_ident();
+        if self.current_function.as_mut().unwrap().param_symbol_table.find(&ident).is_some() {
+            panic!("A local variable or function named '{}' is already defined in this scope", ident);
         } else {
-            panic!("expected identifier");
+            self.expect(TokenKind::Colon);
+            let ty = self.type_no_bounds();
+            let current_function = self.current_function.as_mut().unwrap();
+            let obj = Rc::new(Object::new(ident, current_function.param_symbol_table.len(), true, ty));
+            current_function.param_symbol_table.push(Rc::clone(&obj));
         }
         self.eat(TokenKind::Comma);
     }

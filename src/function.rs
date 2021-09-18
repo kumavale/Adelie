@@ -9,6 +9,7 @@ pub struct Function {
     pub statements: Node,
     pub lvar_symbol_table: SymbolTable,
     pub param_symbol_table: SymbolTable,
+    pub is_static: bool,
 }
 
 impl Function {
@@ -19,6 +20,7 @@ impl Function {
             statements: Node::Block { stmts: vec![] },
             lvar_symbol_table: SymbolTable::new(),
             param_symbol_table: SymbolTable::new(),
+            is_static: true,
         }
     }
 }

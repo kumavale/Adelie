@@ -17,10 +17,10 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             gen_builtin_il(kind, args, p)
         }
         Node::Call { name, args } => {
-            for arg in args {
-                gen_il(arg, p);
-            }
             if let Some(func) = p.find_function(&name) {
+                for arg in args {
+                    gen_il(arg, p);
+                }
                 let args = func.param_symbol_table.objs.iter().map(|o|o.ty.to_ilstr()).collect::<Vec<String>>().join(", ");
                 println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, args);
                 func.rettype.clone()
@@ -29,9 +29,6 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
         }
         Node::Method { expr, ident, args } => {
-            for arg in args {
-                gen_il(arg, p);
-            }
             match gen_il(*expr, p) {
                 Type::Struct(st) => {
                     if let Some(im) = p.find_impl(&st) {
@@ -40,10 +37,14 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                             .iter()
                             .find(|f|f.name==ident)
                             .expect(&format!("The name '{}' does not exist in the current context", ident));
+                        for arg in args {
+                            gen_il(arg, p);
+                        }
                         let args = func
                             .param_symbol_table
                             .objs
                             .iter()
+                            .skip(if func.is_static { 0 } else { 1 })
                             .map(|o|o.ty.to_ilstr())
                             .collect::<Vec<String>>()
                             .join(", ");
@@ -77,27 +78,48 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             Type::Struct(obj.name.to_string())
         }
         Node::Field { expr, ident } => {
-            if let Type::Struct(tag) = gen_il(*expr, p) {
-                if let Some(st) = p.find_struct(&tag) {
-                    if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
-                        let ty = field.ty.clone();
-                        match ty {
-                            Type::Struct(..) => {
-                                println!("\tldflda {} {}::{}", ty.to_ilstr(), tag, ident);
-                            }
-                            _ => {
-                                println!("\tldfld {} {}::{}", ty.to_ilstr(), tag, ident);
-                            }
+            let stname = match gen_il(*expr, p) {
+                Type::Struct(stname) => {
+                    stname
+                }
+                Type::_Self(stname) => {
+                    //println!("\tldarg.0");
+                    stname
+                }
+                Type::Ptr(ty) => {
+                    match *ty {
+                        Type::_Self(stname) => {
+                            // &self
+                            // tmp
+                            //println!("\tldarg.0");
+                            stname
                         }
-                        ty
-                    } else {
-                        panic!("no field `{}` on type `{}`", ident, tag);
+                        _ => {
+                            unimplemented!()
+                        }
                     }
+                }
+                _ => {
+                    unimplemented!("primitive type");
+                }
+            };
+            if let Some(st) = p.find_struct(&stname) {
+                if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
+                    let ty = field.ty.clone();
+                    match ty {
+                        Type::Struct(..) => {
+                            println!("\tldflda {} {}::{}", ty.to_ilstr(), stname, ident);
+                        }
+                        _ => {
+                            println!("\tldfld {} {}::{}", ty.to_ilstr(), stname, ident);
+                        }
+                    }
+                    ty
                 } else {
-                    panic!("cannot find value `{}` in this scope", tag);
+                    panic!("no field `{}` on type `{}`", ident, stname);
                 }
             } else {
-                unimplemented!("primitive type");
+                panic!("cannot find value `{}` in this scope", stname);
             }
         }
         Node::Variable { obj } => {

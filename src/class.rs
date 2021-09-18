@@ -35,10 +35,10 @@ pub struct Impl {
 }
 
 impl Impl {
-    pub fn new(name: String, functions: Vec<Function>) -> Self {
+    pub fn new(name: String) -> Self {
         Impl {
             name,
-            functions,
+            functions: vec![],
         }
     }
 }

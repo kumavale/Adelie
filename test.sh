@@ -201,13 +201,9 @@ struct Point {
     y: i32,
 }
 impl Rectangle {
-    fn print_ok() {
-        println("ok");
-    }
-    fn max(a: i32, b: i32) -> i32 {
-        if a > b { a } else { b }
-    }
-    //fn area(&self) -> i32 { self.width * self.height }
+    fn print_ok() { println("ok"); }
+    fn max(_: &self, a: i32, b: i32) -> i32 { if a > b { a } else { b } }
+    fn area(this: &self) -> i32 { this.width * this.height }
 }
 fn main() {
     let rect: Rectangle = Rectangle { 30, 50, Point { 128, 255 } };
@@ -220,6 +216,11 @@ fn main() {
     }
     rect.print_ok();
     if rect.max(3, 6) == 6 {
+        println("ok");
+    } else {
+        println("failed");
+    }
+    if rect.area() == 2100 {
         println("ok");
     } else {
         println("failed");

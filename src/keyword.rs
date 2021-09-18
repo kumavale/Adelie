@@ -8,6 +8,8 @@ pub enum Keyword {
     Impl,
     Let,
     Loop,
+    SelfLower,
+    SelfUpper,
     Struct,
     True,
     Return,
@@ -25,6 +27,8 @@ impl Keyword {
             Keyword::Impl => "impl",
             Keyword::Let => "let",
             Keyword::Loop => "loop",
+            Keyword::SelfLower => "self",
+            Keyword::SelfUpper => "Self",
             Keyword::Struct => "struct",
             Keyword::True => "true",
             Keyword::Return => "return",
@@ -41,6 +45,7 @@ pub enum Type {
     String,
     Struct(String),
     Ptr(Box<Type>),
+    _Self(String),
     Void,
 }
 
@@ -58,6 +63,7 @@ impl Type {
             Type::String => "string".to_string(),
             Type::Struct(n) => n.to_string(),
             Type::Ptr(t) => format!("&{}", t.to_str()),
+            Type::_Self(n) => n.to_string(),
             Type::Void => "void".to_string(),
         }
     }
@@ -70,6 +76,7 @@ impl Type {
             Type::String => "string".to_string(),
             Type::Struct(n) => format!("valuetype {}", n),
             Type::Ptr(t) => format!("{}&", t.to_ilstr()),
+            Type::_Self(n) => n.to_string(),
             Type::Void => "void".to_string(),
         }
     }
