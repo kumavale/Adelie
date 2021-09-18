@@ -51,7 +51,14 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 if let Some(st) = p.find_struct(&tag) {
                     if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
                         let ty = field.ty.clone();
-                        println!("\tldfld {} {}::{}", ty.to_ilstr(), tag, ident);
+                        match ty {
+                            Type::Struct(..) => {
+                                println!("\tldflda {} {}::{}", ty.to_ilstr(), tag, ident);
+                            }
+                            _ => {
+                                println!("\tldfld {} {}::{}", ty.to_ilstr(), tag, ident);
+                            }
+                        }
                         ty
                     } else {
                         panic!("no field `{}` on type `{}`", ident, tag);
@@ -67,7 +74,14 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             if obj.is_param {
                 println!("\tldarg {}", obj.offset);
             } else {
-                println!("\tldloc {}", obj.offset);
+                match obj.ty {
+                    Type::Struct(..) => {
+                        println!("\tldloca {}", obj.offset);
+                    }
+                    _ => {
+                        println!("\tldloc {}", obj.offset);
+                    }
+                }
             }
             obj.ty.clone()
         }
@@ -142,6 +156,22 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     gen_il(*expr, p);
                     gen_il(*rhs, p);
                     println!("\tstind.i4");
+                }
+                Node::Field { expr, ident } => {
+                    if let Type::Struct(tag) = gen_il(*expr, p) {
+                        if let Some(st) = p.find_struct(&tag) {
+                            if let Some(field) = st.field.iter().find(|o|o.name==ident) {
+                                gen_il(*rhs, p);
+                                println!("\tstfld {} {}::{}", field.ty.to_ilstr(), tag, ident);
+                            } else {
+                                panic!("no field `{}` on type `{}`", ident, tag);
+                            }
+                        } else {
+                            panic!("cannot find value `{}` in this scope", tag);
+                        }
+                    } else {
+                        unimplemented!("primitive type");
+                    }
                 }
                 _ => panic!("The left-hand side of an assignment must be a variable")
             }
