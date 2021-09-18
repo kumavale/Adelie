@@ -330,6 +330,23 @@ impl<'a> Parser<'a> {
         self.tokens[self.idx].kind == TokenKind::Eof
     }
 
+    fn type_no_bounds(&mut self) -> Type {
+        if self.eat(TokenKind::And) {
+            Type::Ptr(Box::new(self.type_no_bounds()))
+        } else if self.eat(TokenKind::AndAnd) {
+            Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()))))
+        } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            ty.clone()
+        } else if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            Type::Struct(name.to_string())
+        } else {
+            panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
+        }
+
+    }
+
     fn program(&mut self) -> Program {
         let mut program = Program::new();
         while !self.is_eof() {
@@ -375,37 +392,28 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item_impl(&mut self) -> Impl {
-        let name = if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            name
-        } else {
-            panic!("expected identifier");
-        };
+        let ident = self.expect_ident();
         self.expect(TokenKind::LBrace);
         let mut functions = vec![];
         while self.eat_keyword(Keyword::Fn) {
-            todo!("AssociatedItem");//functions.push(self.item_function());
+            functions.push(self.parse_item_fn());
         }
         self.expect(TokenKind::RBrace);
-        Impl::new(name, functions)
+        Impl::new(ident, functions)
     }
 
     fn parse_item_fn(&mut self) -> Function {
-        if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-            if self.g_symbol_table.find(name).is_some() {
-                panic!("the name `{}` is defined multiple times", name);
-            }
-            let obj = Rc::new(Object::new(name.to_string(), self.g_symbol_table.len(), false, Type::Void));
-            self.g_symbol_table.push(Rc::clone(&obj));
-            self.current_function = Some(Function::new(name));
-            self.idx += 1;
-            self.expect(TokenKind::LParen);
-            while !self.eat(TokenKind::RParen) {
-                self.parse_fn_params();
-            }
-        } else {
-            eprintln!("{}^", " ".repeat(self.tokens[self.idx].cur));
-            panic!("expected identifier");
+        let ident = self.expect_ident();
+        if self.g_symbol_table.find(&ident).is_some() {
+            panic!("the name `{}` is defined multiple times", ident);
+        }
+        let obj = Rc::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void));
+        self.g_symbol_table.push(Rc::clone(&obj));
+        self.current_function = Some(Function::new(&ident));
+
+        self.expect(TokenKind::LParen);
+        while !self.eat(TokenKind::RParen) {
+            self.parse_fn_params();
         }
 
         if self.eat(TokenKind::RArrow) {
@@ -722,17 +730,28 @@ impl<'a> Parser<'a> {
         } else if self.eat(TokenKind::Star) {
             new_unary_op_node(UnaryOpKind::Deref, self.parse_unary())
         } else {
-            self.parse_field_expr()
+            self.parse_field_or_method_expr()
         }
     }
 
-    fn parse_field_expr(&mut self) -> Node {
+    fn parse_field_or_method_expr(&mut self) -> Node {
         let mut node = self.parse_term();
 
         loop {
             if self.eat(TokenKind::Dot) {
                 let ident = self.expect_ident();
-                node = new_field_node(node, &ident);
+                if self.eat(TokenKind::LParen) {
+                    // method
+                    let mut args = vec![];
+                    while !self.eat(TokenKind::RParen) {
+                        args.push(self.parse_expr());
+                        self.eat(TokenKind::Comma);
+                    }
+                    node = new_method_call_node(node, ident, args);
+                } else {
+                    // field
+                    node = new_field_node(node, ident);
+                }
             } else {
                 return node;
             }
@@ -810,22 +829,5 @@ impl<'a> Parser<'a> {
                 panic!("illegal TokenKind `{:?}`", self.tokens[self.idx].kind);
             }
         }
-    }
-
-    fn type_no_bounds(&mut self) -> Type {
-        if self.eat(TokenKind::And) {
-            Type::Ptr(Box::new(self.type_no_bounds()))
-        } else if self.eat(TokenKind::AndAnd) {
-            Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()))))
-        } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            ty.clone()
-        } else if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            Type::Struct(name.to_string())
-        } else {
-            panic!("expected type, but got `{:?}`", self.tokens[self.idx].kind);
-        }
-
     }
 }

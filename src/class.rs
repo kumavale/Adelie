@@ -35,9 +35,9 @@ pub struct Impl {
 }
 
 impl Impl {
-    pub fn new(name: &str, functions: Vec<Function>) -> Self {
+    pub fn new(name: String, functions: Vec<Function>) -> Self {
         Impl {
-            name: name.to_string(),
+            name,
             functions,
         }
     }

@@ -28,6 +28,36 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 panic!("The name '{}' does not exist in the current context", name);
             }
         }
+        Node::Method { expr, ident, args } => {
+            for arg in args {
+                gen_il(arg, p);
+            }
+            match gen_il(*expr, p) {
+                Type::Struct(st) => {
+                    if let Some(im) = p.find_impl(&st) {
+                        let func = im
+                            .functions
+                            .iter()
+                            .find(|f|f.name==ident)
+                            .expect(&format!("The name '{}' does not exist in the current context", ident));
+                        let args = func
+                            .param_symbol_table
+                            .objs
+                            .iter()
+                            .map(|o|o.ty.to_ilstr())
+                            .collect::<Vec<String>>()
+                            .join(", ");
+                        println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st, ident, args);
+                        func.rettype.clone()
+                    } else {
+                        panic!("The name '{}' does not exist in the current context", ident);
+                    }
+                }
+                _ => {
+                    unimplemented!("primitive type")
+                }
+            }
+        }
         Node::Struct { obj, field } => {
             if let Some(st) = p.find_struct(&obj.ty.to_str()) {
                 if field.len() != st.field.len() {

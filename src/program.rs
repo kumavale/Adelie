@@ -26,6 +26,10 @@ impl Program {
         self.structs.find(name)
     }
 
+    pub fn find_impl(&self, name: &str) -> Option<&Impl> {
+        self.impls.find(name)
+    }
+
     pub fn push_struct(&mut self, s: Struct) {
         if let Some(dst) = self.structs.find_mut(&s.name) {
             panic!("the name `{}` is defined multiple times", s.name);

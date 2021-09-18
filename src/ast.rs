@@ -56,6 +56,11 @@ pub enum Node {
         name: String,
         args: Vec<Node>,
     },
+    Method {
+        expr: Box<Node>,
+        ident: String,
+        args: Vec<Node>,
+    },
     Struct {
         obj: Rc<Object>,
         field: Vec<Node>,
@@ -246,10 +251,18 @@ pub fn new_struct_expr_node(symbol_table: &mut SymbolTable, name: &str, field: V
     }
 }
 
-pub fn new_field_node(expr: Node, ident: &str) -> Node {
+pub fn new_field_node(expr: Node, ident: String) -> Node {
     Node::Field {
         expr: Box::new(expr),
-        ident: ident.to_string(),
+        ident,
+    }
+}
+
+pub fn new_method_call_node(expr: Node, ident: String, args: Vec<Node>) -> Node {
+    Node::Method {
+        expr: Box::new(expr),
+        ident,
+        args,
     }
 }
 
