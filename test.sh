@@ -159,6 +159,8 @@ fn main() {
     ngcnt += ASSERT(-1, { let i:i32=-1; i });
     ngcnt += ASSERT(-1, { let i:i32=-1; i>>=1; i });
 
+    ngcnt += ASSERT(2, { let a:i32=1; let a:i32=2; a });
+
     if ngcnt == 0 {
         println("ok");
     } else {

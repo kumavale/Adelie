@@ -272,15 +272,11 @@ pub fn new_variable_node(obj: &Rc<Object>) -> Node {
     }
 }
 
-pub fn new_variable_node_with_let(symbol_table: &mut SymbolTable, name: &str, ty: Type) -> Node {
-    if symbol_table.find_name_current_scope(name).is_some() {
-        panic!("A local variable or function named '{}' is already defined in this scope", name)
-    } else {
-        let obj = Rc::new(Object::new(name.to_string(), symbol_table.len(), false, ty));
-        symbol_table.push(Rc::clone(&obj));
-        Node::Variable {
-            obj,
-        }
+pub fn new_variable_node_with_let(symbol_table: &mut SymbolTable, ident: String, ty: Type) -> Node {
+    let obj = Rc::new(Object::new(ident, symbol_table.len(), false, ty));
+    symbol_table.push(Rc::clone(&obj));
+    Node::Variable {
+        obj,
     }
 }
 

@@ -515,21 +515,17 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_let_stmt(&mut self) -> Node {
-        if let TokenKind::Ident(name) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            self.expect(TokenKind::Colon);
-            let ty = self.type_no_bounds();
-            let node = new_variable_node_with_let(&mut self.current_fn_mut().lvar_symbol_table, name, ty);
-            if self.eat(TokenKind::Assign) {
-                let node = new_assign_node(node, self.parse_expr());
-                self.expect(TokenKind::Semi);
-                node
-            } else {
-                self.expect(TokenKind::Semi);
-                new_empty_node()
-            }
+        let ident = self.expect_ident();
+        self.expect(TokenKind::Colon);
+        let ty = self.type_no_bounds();
+        let node = new_variable_node_with_let(&mut self.current_fn_mut().lvar_symbol_table, ident, ty);
+        if self.eat(TokenKind::Assign) {
+            let node = new_assign_node(node, self.parse_expr());
+            self.expect(TokenKind::Semi);
+            node
         } else {
-            e0003(self.lines.clone(), self.token());
+            self.expect(TokenKind::Semi);
+            new_empty_node()
         }
     }
 

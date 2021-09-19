@@ -76,7 +76,7 @@ impl FindSymbol for SymbolTable {
 
     fn find(&self, name: &str) -> Option<&Self::Item> {
         for scope in self.scopes.iter().rev() {
-            if let Some(obj) = scope.iter().find(|o|o.name == name) {
+            if let Some(obj) = scope.iter().rev().find(|o|o.name == name) {
                 return Some(obj)
             }
         }
@@ -85,7 +85,7 @@ impl FindSymbol for SymbolTable {
 
     fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
         for scope in self.scopes.iter_mut().rev() {
-            if let Some(obj) = scope.iter_mut().find(|o|o.name == name) {
+            if let Some(obj) = scope.iter_mut().rev().find(|o|o.name == name) {
                 return Some(obj)
             }
         }
