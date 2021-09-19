@@ -196,7 +196,7 @@ run '
 struct Rectangle {
     width: i32,
     height: i32,
-    point: Point,
+    point: Point
 }
 struct Point {
     x: i32,
@@ -204,7 +204,7 @@ struct Point {
 }
 impl Rectangle {
     fn print_ok() { println("ok"); }
-    fn max(_: &self, a: i32, b: i32) -> i32 { if a > b { a } else { b } }
+    fn max(_: &self, a: i32, b: i32,) -> i32 { if a > b { a } else { b } }
     fn area(this: &self) -> i32 { this.width * this.height }
 }
 fn main() {

@@ -303,6 +303,10 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    fn lick(&self, kind: TokenKind) -> bool {
+        self.tokens[self.idx].kind == kind
+    }
+
     fn eat(&mut self, kind: TokenKind) -> bool {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
@@ -414,7 +418,9 @@ impl<'a> Parser<'a> {
                 let obj = Object::new(ident, st.field.len(), false, ty);
                 st.field.push(obj);
             }
-            self.eat(TokenKind::Comma);
+            if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RBrace) {
+                e0008(self.lines.clone(), self.token());
+            }
         }
         st
     }
@@ -443,6 +449,9 @@ impl<'a> Parser<'a> {
         if !self.eat(TokenKind::RParen) {
             while !self.eat(TokenKind::RParen) {
                 self.parse_fn_params();
+                if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RParen) {
+                    e0009(self.lines.clone(), self.token());
+                }
             }
         }
 
@@ -465,7 +474,6 @@ impl<'a> Parser<'a> {
             let obj = Rc::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty));
             self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
         }
-        self.eat(TokenKind::Comma);
     }
 
     fn parse_ret_ty(&mut self) {
@@ -765,7 +773,9 @@ impl<'a> Parser<'a> {
                     let mut args = vec![];
                     while !self.eat(TokenKind::RParen) {
                         args.push(self.parse_expr());
-                        self.eat(TokenKind::Comma);
+                        if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RParen) {
+                            e0010(self.lines.clone(), self.token());
+                        }
                     }
                     node = new_method_call_node(node, ident, args);
                 } else {
@@ -814,7 +824,9 @@ impl<'a> Parser<'a> {
                     let mut args = vec![];
                     while !self.eat(TokenKind::RParen) {
                         args.push(self.parse_expr());
-                        self.eat(TokenKind::Comma);
+                        if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RParen) {
+                            e0010(self.lines.clone(), self.token());
+                        }
                     }
                     new_function_call_node(name, args)
                 } else if !self.except_struct_expression && self.eat(TokenKind::LBrace) {
@@ -822,7 +834,9 @@ impl<'a> Parser<'a> {
                     let mut field = vec![];
                     while !self.eat(TokenKind::RBrace) {
                         field.push(self.parse_expr());
-                        self.eat(TokenKind::Comma);
+                        if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RBrace) {
+                            e0009(self.lines.clone(), self.token());
+                        }
                     }
                     new_struct_expr_node(&mut self.current_fn_mut().lvar_symbol_table, name, field)
                 } else {
@@ -846,7 +860,9 @@ impl<'a> Parser<'a> {
                 let mut args = vec![];
                 while !self.eat(TokenKind::RParen) {
                     args.push(self.parse_expr());
-                    self.eat(TokenKind::Comma);
+                    if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RParen) {
+                        e0010(self.lines.clone(), self.token());
+                    }
                 }
                 new_builtin_call_node(*kind, args)
             }

@@ -50,6 +50,27 @@ pub fn e0007<'a>(lines: std::str::Lines<'a>, token: &Token, ident: &str) -> ! {
     panic!();
 }
 
+/// expected `,`, or `}`
+pub fn e0008<'a>(lines: std::str::Lines<'a>, token: &Token) -> ! {
+    eprintln!("expected `,`, or `}}`, found `{}`", token.kind.to_string());
+    eprint_nearby(lines, token).ok();
+    panic!();
+}
+
+/// expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`
+pub fn e0009<'a>(lines: std::str::Lines<'a>, token: &Token) -> ! {
+    eprintln!("expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `{}`", token.kind.to_string());
+    eprint_nearby(lines, token).ok();
+    panic!();
+}
+
+/// expected one of `)`, `,`, `.`, `?`, or an operator
+pub fn e0010<'a>(lines: std::str::Lines<'a>, token: &Token) -> ! {
+    eprintln!("expected one of `)`, `,`, `.`, `?`, or an operator, found `{}`", token.kind.to_string());
+    eprint_nearby(lines, token).ok();
+    panic!();
+}
+
 fn eprint_nearby<'a>(mut lines: std::str::Lines<'a>, token: &Token) -> Result<(), ()> {
     let line = token.line;
     let digits = usize::digits(line+1);
