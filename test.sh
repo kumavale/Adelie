@@ -8,14 +8,6 @@ run() {
     ./tmp.exe
 }
 
-cargo build
-if [ "$?" != "0" ]; then
-    # build error
-    exit 1
-fi
-
-echo
-
 run '
 fn one() -> i32 { return 1; 2; 3; }
 fn two() -> i32 { 1; return 2; 3; }
@@ -228,7 +220,3 @@ fn main() {
         println("failed");
     }
 }'
-
-# clean up
-rm -f tmp.il tmp.exe # ttmp.cs mp.dll
-
