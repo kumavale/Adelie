@@ -523,22 +523,9 @@ impl<'a> Parser<'a> {
         } else if self.eat_keyword(Keyword::Let) {
             self.parse_let_stmt()
         } else if self.eat_keyword(Keyword::Return) {
-            if self.eat(TokenKind::Semi) {
-                new_return_node(None)
-            } else {
-                let node = new_return_node(Some(self.parse_expr()));
-                self.eat(TokenKind::Semi);
-                new_return_node(Some(node))
-            }
+            self.parse_return_expr()
         } else if self.eat_keyword(Keyword::Break) {
-            if !self.inside_of_a_loop() {
-                e0011(self.lines.clone(), &self.tokens[self.idx-1]);
-            }
-            if self.eat(TokenKind::Semi) {
-                new_break_node(self.brk_label_seq)
-            } else {
-                unimplemented!();
-            }
+            self.parse_break_expr()
         } else {
             let node = self.parse_expr();
             if self.eat(TokenKind::Semi) {
@@ -546,6 +533,27 @@ impl<'a> Parser<'a> {
             } else {
                 node
             }
+        }
+    }
+
+    fn parse_return_expr(&mut self) -> Node {
+        if self.eat(TokenKind::Semi) {
+            new_return_node(None)
+        } else {
+            let node = new_return_node(Some(self.parse_expr()));
+            self.eat(TokenKind::Semi);
+            new_return_node(Some(node))
+        }
+    }
+
+    fn parse_break_expr(&mut self) -> Node {
+        if !self.inside_of_a_loop() {
+            e0011(self.lines.clone(), &self.tokens[self.idx-1]);
+        }
+        if self.eat(TokenKind::Semi) {
+            new_break_node(self.brk_label_seq)
+        } else {
+            unimplemented!();
         }
     }
 
@@ -568,40 +576,52 @@ impl<'a> Parser<'a> {
         if self.eat(TokenKind::LBrace) {
             self.parse_block_expr()
         } else if self.eat_keyword(Keyword::If) {
-            let cond = self.parse_cond();
-            self.expect(TokenKind::LBrace);
-            let then = self.parse_block_expr();
-            let els = if self.eat_keyword(Keyword::Else) {
-                self.expect(TokenKind::LBrace);
-                Some(self.parse_block_expr())
-            } else {
-                None
-            };
-            new_if_node(cond, then, els)
-        } else if self.eat_keyword(Keyword::While) {
-            let tmp = self.brk_label_seq;
-            self.brk_label_seq = self.seq();
-            let brk_label_seq = self.brk_label_seq;
-            let cond = self.parse_cond();
-            self.loop_count += 1;
-            self.expect(TokenKind::LBrace);
-            let then = self.parse_block_expr();
-            self.loop_count -= 1;
-            self.brk_label_seq = tmp;
-            new_while_node(cond, then, brk_label_seq)
+            self.parse_if_expr()
         } else if self.eat_keyword(Keyword::Loop) {
-            let tmp = self.brk_label_seq;
-            self.brk_label_seq = self.seq();
-            let brk_label_seq = self.brk_label_seq;
-            self.loop_count += 1;
-            self.expect(TokenKind::LBrace);
-            let then = self.parse_block_expr();
-            self.loop_count -= 1;
-            self.brk_label_seq = tmp;
-            new_loop_node(then, brk_label_seq)
+            self.parse_infinite_loop_expr()
+        } else if self.eat_keyword(Keyword::While) {
+            self.parse_predicate_loop_expr()
         } else {
             self.parse_assign()
         }
+    }
+
+    fn parse_if_expr(&mut self) -> Node {
+        let cond = self.parse_cond();
+        self.expect(TokenKind::LBrace);
+        let then = self.parse_block_expr();
+        let els = if self.eat_keyword(Keyword::Else) {
+            self.expect(TokenKind::LBrace);
+            Some(self.parse_block_expr())
+        } else {
+            None
+        };
+        new_if_node(cond, then, els)
+    }
+
+    fn parse_infinite_loop_expr(&mut self) -> Node {
+        let tmp = self.brk_label_seq;
+        self.brk_label_seq = self.seq();
+        let brk_label_seq = self.brk_label_seq;
+        self.loop_count += 1;
+        self.expect(TokenKind::LBrace);
+        let then = self.parse_block_expr();
+        self.loop_count -= 1;
+        self.brk_label_seq = tmp;
+        new_loop_node(then, brk_label_seq)
+    }
+
+    fn parse_predicate_loop_expr(&mut self) -> Node {
+        let tmp = self.brk_label_seq;
+        self.brk_label_seq = self.seq();
+        let brk_label_seq = self.brk_label_seq;
+        let cond = self.parse_cond();
+        self.loop_count += 1;
+        self.expect(TokenKind::LBrace);
+        let then = self.parse_block_expr();
+        self.loop_count -= 1;
+        self.brk_label_seq = tmp;
+        new_while_node(cond, then, brk_label_seq)
     }
 
     fn parse_cond(&mut self) -> Node {
