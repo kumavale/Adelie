@@ -249,12 +249,12 @@ pub fn new_function_call_node(name: &str, args: Vec<Node>) -> Node {
 pub fn new_struct_expr_node(symbol_table: &mut SymbolTable, name: &str, field: Vec<Node>) -> Node {
     fn seq() -> usize {
         unsafe {
-            static mut SEQ: usize = 0;
-            SEQ += 1;
-            SEQ
+            static mut ID: usize = 0;
+            ID += 1;
+            ID
         }
     }
-    let unique_name = format!("{}{}", name, seq());
+    let unique_name = format!("{}:{}", name, seq());
     let obj = Rc::new(Object::new(unique_name, symbol_table.len(), false, Type::Struct(name.to_string())));
     symbol_table.push(Rc::clone(&obj));
     Node::Struct {

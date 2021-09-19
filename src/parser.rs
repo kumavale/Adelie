@@ -307,7 +307,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn lick(&self, kind: TokenKind) -> bool {
+    fn check(&self, kind: TokenKind) -> bool {
         self.tokens[self.idx].kind == kind
     }
 
@@ -434,7 +434,7 @@ impl<'a> Parser<'a> {
                 let obj = Object::new(ident, st.field.len(), false, ty);
                 st.field.push(obj);
             }
-            if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RBrace) {
+            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
                 e0008(self.lines.clone(), self.token());
             }
         }
@@ -465,7 +465,7 @@ impl<'a> Parser<'a> {
         if !self.eat(TokenKind::RParen) {
             while !self.eat(TokenKind::RParen) {
                 self.parse_fn_params();
-                if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RParen) {
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
                     e0009(self.lines.clone(), self.token());
                 }
             }
@@ -813,7 +813,7 @@ impl<'a> Parser<'a> {
                     let mut args = vec![];
                     while !self.eat(TokenKind::RParen) {
                         args.push(self.parse_expr());
-                        if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RParen) {
+                        if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
                             e0010(self.lines.clone(), self.token());
                         }
                     }
@@ -864,7 +864,7 @@ impl<'a> Parser<'a> {
                     let mut args = vec![];
                     while !self.eat(TokenKind::RParen) {
                         args.push(self.parse_expr());
-                        if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RParen) {
+                        if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
                             e0010(self.lines.clone(), self.token());
                         }
                     }
@@ -874,7 +874,7 @@ impl<'a> Parser<'a> {
                     let mut field = vec![];
                     while !self.eat(TokenKind::RBrace) {
                         field.push(self.parse_expr());
-                        if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RBrace) {
+                        if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
                             e0009(self.lines.clone(), self.token());
                         }
                     }
@@ -900,7 +900,7 @@ impl<'a> Parser<'a> {
                 let mut args = vec![];
                 while !self.eat(TokenKind::RParen) {
                     args.push(self.parse_expr());
-                    if !self.eat(TokenKind::Comma) && !self.lick(TokenKind::RParen) {
+                    if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
                         e0010(self.lines.clone(), self.token());
                     }
                 }
