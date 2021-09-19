@@ -51,18 +51,32 @@ pub enum TokenKind {
 
     RArrow,  // ->
 
-    Integer(i32),    // -?[1-9][0-9]*
-    Char(char),      // '.'
-    String(String),  // ".*"
-
-    Ident(String),  // [a-zA-Z_][0-9a-zA-Z_]*
     Keyword(Keyword),
+    Identifier(String),  // [a-zA-Z_][0-9a-zA-Z_]*
+    Literal(LiteralKind),
     Type(Type),
     Builtin(Builtin),
     Comment(CommentKind),
 
     Unknown(String),
     Eof,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum LiteralKind{
+    Char(char),
+    String(String),
+    Integer(i128),
+}
+
+impl LiteralKind {
+    pub fn to_string(&self) -> String {
+        match self {
+            LiteralKind::Char(c)    => format!("'{}'", c),
+            LiteralKind::String(s)  => format!("\"{}\"", s),
+            LiteralKind::Integer(i) => i.to_string(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -149,15 +163,12 @@ impl TokenKind {
 
             TokenKind::RArrow => "->".to_string(),
 
-            TokenKind::Integer(n) => n.to_string(),
-            TokenKind::Char(c)    => format!("'{}'", c),
-            TokenKind::String(s)  => format!("\"{}\"", s),
-
-            TokenKind::Ident(id)   => id.to_string(),
-            TokenKind::Keyword(kw) => kw.as_str().to_string(),
-            TokenKind::Type(ty)    => ty.to_string(),
-            TokenKind::Builtin(bi) => bi.to_string(),
-            TokenKind::Comment(ck) => ck.to_string(),
+            TokenKind::Keyword(kw)    => kw.as_str().to_string(),
+            TokenKind::Identifier(id) => id.to_string(),
+            TokenKind::Literal(li)    => li.to_string(),
+            TokenKind::Type(ty)       => ty.to_string(),
+            TokenKind::Builtin(bi)    => bi.to_string(),
+            TokenKind::Comment(co)    => co.to_string(),
 
             TokenKind::Unknown(s) => s.to_string(),
             TokenKind::Eof => "".to_string(),

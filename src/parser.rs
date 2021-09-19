@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use super::ast::*;
+use super::builtin::*;
 use super::token::*;
 use super::keyword::*;
 use super::object::*;
@@ -325,7 +326,7 @@ impl<'a> Parser<'a> {
     }
 
     fn eat_ident(&mut self) -> Option<String> {
-        if let TokenKind::Ident(ident) = &self.tokens[self.idx].kind {
+        if let TokenKind::Identifier(ident) = &self.tokens[self.idx].kind {
             self.idx += 1;
             Some(ident.to_string())
         } else {
@@ -865,50 +866,13 @@ impl<'a> Parser<'a> {
         }
 
         match &self.tokens[self.idx].kind {
-            TokenKind::Integer(num) => {
+            TokenKind::Literal(lit) => {
                 self.idx += 1;
-                new_num_node(*num)
+                self.parse_lit(&lit)
             }
-            TokenKind::Char(c) => {
+            TokenKind::Identifier(name) => {
                 self.idx += 1;
-                new_char_node(*c)
-            }
-            TokenKind::String(s) => {
-                self.idx += 1;
-                new_string_node(s)
-            }
-            TokenKind::Ident(name) => {
-                self.idx += 1;
-                if self.eat(TokenKind::LParen) {
-                    // function
-                    let mut args = vec![];
-                    while !self.eat(TokenKind::RParen) {
-                        args.push(self.parse_expr());
-                        if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                            e0010(self.lines.clone(), self.token());
-                        }
-                    }
-                    new_function_call_node(name, args)
-                } else if !self.except_struct_expression && self.eat(TokenKind::LBrace) {
-                    // struct
-                    let mut field = vec![];
-                    while !self.eat(TokenKind::RBrace) {
-                        field.push(self.parse_expr());
-                        if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
-                            e0009(self.lines.clone(), self.token());
-                        }
-                    }
-                    new_struct_expr_node(&mut self.current_fn_mut().lvar_symbol_table, name, field)
-                } else {
-                    // local variable or parameter
-                    if let Some(obj) = self.current_fn().lvar_symbol_table.find(name) {
-                        new_variable_node(obj)
-                    } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
-                        new_variable_node(obj)
-                    } else {
-                        e0007(self.lines.clone(), self.token(), name);
-                    }
-                }
+                self.parse_ident(name)
             }
             TokenKind::Keyword(b) if matches!(b, Keyword::True|Keyword::False) => {
                 self.idx += 1;
@@ -916,19 +880,70 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Builtin(kind) => {
                 self.idx += 1;
-                self.expect(TokenKind::LParen);
-                let mut args = vec![];
-                while !self.eat(TokenKind::RParen) {
-                    args.push(self.parse_expr());
-                    if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                        e0010(self.lines.clone(), self.token());
-                    }
-                }
-                new_builtin_call_node(*kind, args)
+                self.parse_builtin(kind)
             }
             _ => {
                 e0006(self.lines.clone(), self.token());
             }
         }
+    }
+
+    fn parse_lit(&mut self, kind: &LiteralKind) -> Node {
+        match kind {
+            LiteralKind::Char(c) => {
+                new_char_node(*c)
+            }
+            LiteralKind::String(s) => {
+                new_string_node(s)
+            }
+            LiteralKind::Integer(i) => {
+                new_num_node(*i as i32)  // TODO
+            }
+        }
+    }
+
+    fn parse_ident(&mut self, name: &str) -> Node {
+        if self.eat(TokenKind::LParen) {
+            // function
+            let mut args = vec![];
+            while !self.eat(TokenKind::RParen) {
+                args.push(self.parse_expr());
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
+                    e0010(self.lines.clone(), self.token());
+                }
+            }
+            new_function_call_node(name, args)
+        } else if !self.except_struct_expression && self.eat(TokenKind::LBrace) {
+            // struct
+            let mut field = vec![];
+            while !self.eat(TokenKind::RBrace) {
+                field.push(self.parse_expr());
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
+                    e0009(self.lines.clone(), self.token());
+                }
+            }
+            new_struct_expr_node(&mut self.current_fn_mut().lvar_symbol_table, name, field)
+        } else {
+            // local variable or parameter
+            if let Some(obj) = self.current_fn().lvar_symbol_table.find(name) {
+                new_variable_node(obj)
+            } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
+                new_variable_node(obj)
+            } else {
+                e0007(self.lines.clone(), self.token(), name);
+            }
+        }
+    }
+
+    fn parse_builtin(&mut self, kind: &Builtin) -> Node {
+        self.expect(TokenKind::LParen);
+        let mut args = vec![];
+        while !self.eat(TokenKind::RParen) {
+            args.push(self.parse_expr());
+            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
+                e0010(self.lines.clone(), self.token());
+            }
+        }
+        new_builtin_call_node(*kind, args)
     }
 }

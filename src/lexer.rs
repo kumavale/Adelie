@@ -243,7 +243,7 @@ impl<'a> Lexer<'a> {
                     }
                     s.push(c);
                 }
-                Token::new(TokenKind::Char(s.parse::<char>().expect("invalid char")), self.col, self.line)
+                Token::new(TokenKind::Literal(LiteralKind::Char(s.parse::<char>().expect("invalid char"))), self.col, self.line)
             }
             Some('"') => {
                 let mut s = String::new();
@@ -254,7 +254,7 @@ impl<'a> Lexer<'a> {
                     }
                     s.push(c);
                 }
-                Token::new(TokenKind::String(s), self.col, self.line)
+                Token::new(TokenKind::Literal(LiteralKind::String(s)), self.col, self.line)
             }
 
             None => Token::new(TokenKind::Eof, self.col, self.line),
@@ -289,17 +289,17 @@ impl<'a> Lexer<'a> {
                     "true"   => Token::new(TokenKind::Keyword(Keyword::True),    self.col, self.line),
                     "return" => Token::new(TokenKind::Keyword(Keyword::Return),  self.col, self.line),
                     "while"  => Token::new(TokenKind::Keyword(Keyword::While),   self.col, self.line),
-                    _ => Token::new(TokenKind::Ident(ident), self.col, self.line)
+                    _ => Token::new(TokenKind::Identifier(ident), self.col, self.line)
                 }
             }
 
             Some(n@'0'..='9') => {
-                let mut num = n.to_digit(10).unwrap();
+                let mut num: i128 = n.to_digit(10).unwrap() as i128;
                 while let Some(n@'0'..='9') = self.peek_char() {
-                    num = num * 10 + n.to_digit(10).unwrap();
+                    num = num * 10 + n.to_digit(10).unwrap() as i128;
                     self.seek(1);
                 }
-                Token::new(TokenKind::Integer(num as i32), self.col, self.line)
+                Token::new(TokenKind::Literal(LiteralKind::Integer(num)), self.col, self.line)
             }
 
             _ => Token::new(TokenKind::Unknown(self.ch.unwrap().to_string()), self.col + 1, self.line)
