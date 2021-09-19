@@ -266,17 +266,9 @@ pub fn new_method_call_node(expr: Node, ident: String, args: Vec<Node>) -> Node 
     }
 }
 
-pub fn new_variable_node(function: &mut Function, name: &str) -> Node {
-    if let Some(obj) = function.lvar_symbol_table.find(name) {
-        Node::Variable {
-            obj: Rc::clone(obj),
-        }
-    } else if let Some(obj) = function.param_symbol_table.find(name) {
-        Node::Variable {
-            obj: Rc::clone(obj),
-        }
-    } else {
-        panic!("The name '{}' does not exist in the current context", name)
+pub fn new_variable_node(obj: &Rc<Object>) -> Node {
+    Node::Variable {
+        obj: Rc::clone(obj),
     }
 }
 

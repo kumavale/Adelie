@@ -281,7 +281,7 @@ pub fn gen_ast<'a>(
     let mut parser = Parser {
         lines: input.lines(),
         g_symbol_table,
-        current_function: None,
+        current_fn: None,
         current_impl: None,
         tokens,
         idx: 0,
@@ -292,10 +292,10 @@ pub fn gen_ast<'a>(
 }
 
 #[derive(Debug)]
-struct Parser<'a> {
+pub struct Parser<'a> {
     lines: std::str::Lines<'a>,
     g_symbol_table: &'a mut SymbolTable,  // global symbol table
-    current_function: Option<Function>,
+    current_fn: Option<Function>,
     current_impl: Option<Impl>,
     tokens: &'a [Token],
     idx: usize,
@@ -349,6 +349,14 @@ impl<'a> Parser<'a> {
         &self.tokens[self.idx]
     }
 
+    fn current_fn(&self) -> &Function {
+        self.current_fn.as_ref().unwrap()
+    }
+
+    fn current_fn_mut(&mut self) -> &mut Function {
+        self.current_fn.as_mut().unwrap()
+    }
+
     fn type_no_bounds(&mut self) -> Type {
         if self.eat(TokenKind::And) {
             Type::Ptr(Box::new(self.type_no_bounds()))
@@ -360,7 +368,7 @@ impl<'a> Parser<'a> {
         } else if let Some(ident) = self.eat_ident() {
             Type::Struct(ident)
         } else if self.eat_keyword(Keyword::SelfLower) {
-            self.current_function.as_mut().unwrap().is_static = false;
+            self.current_fn_mut().is_static = false;
             Type::_Self(self.current_impl.as_ref().unwrap().name.to_string())
         } else {
             e0002(self.lines.clone(), self.token());
@@ -429,7 +437,7 @@ impl<'a> Parser<'a> {
         let ident = self.expect_ident();
         let obj = Rc::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void));
         self.g_symbol_table.push(Rc::clone(&obj));
-        self.current_function = Some(Function::new(&ident));
+        self.current_fn = Some(Function::new(&ident));
 
         self.expect(TokenKind::LParen);
         if !self.eat(TokenKind::RParen) {
@@ -443,20 +451,19 @@ impl<'a> Parser<'a> {
         }
 
         self.expect(TokenKind::LBrace);
-        self.current_function.as_mut().unwrap().statements = self.parse_block_expr();
-        self.current_function.take().unwrap()
+        self.current_fn_mut().statements = self.parse_block_expr();
+        self.current_fn.take().unwrap()
     }
 
     fn parse_fn_params(&mut self) {
         let ident = self.expect_ident();
-        if self.current_function.as_mut().unwrap().param_symbol_table.find(&ident).is_some() {
+        if self.current_fn_mut().param_symbol_table.find(&ident).is_some() {
             e0005(self.lines.clone(), self.token(), &ident);
         } else {
             self.expect(TokenKind::Colon);
             let ty = self.type_no_bounds();
-            let current_function = self.current_function.as_mut().unwrap();
-            let obj = Rc::new(Object::new(ident, current_function.param_symbol_table.len(), true, ty));
-            current_function.param_symbol_table.push(Rc::clone(&obj));
+            let obj = Rc::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty));
+            self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
         }
         self.eat(TokenKind::Comma);
     }
@@ -464,14 +471,14 @@ impl<'a> Parser<'a> {
     fn parse_ret_ty(&mut self) {
         if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
-            self.current_function.as_mut().unwrap().rettype = ty.clone();
+            self.current_fn_mut().rettype = ty.clone();
         } else {
             e0002(self.lines.clone(), self.token());
         }
     }
 
     fn parse_block_expr(&mut self) -> Node {
-        self.current_function.as_mut().unwrap().lvar_symbol_table.enter_scope();
+        self.current_fn_mut().lvar_symbol_table.enter_scope();
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
         if self.eat(TokenKind::RBrace) {
@@ -482,7 +489,7 @@ impl<'a> Parser<'a> {
             stmts.push(self.parse_stmt());
         }
         self.except_struct_expression = except_struct_expression;
-        self.current_function.as_mut().unwrap().lvar_symbol_table.leave_scope();
+        self.current_fn_mut().lvar_symbol_table.leave_scope();
         new_block_node(stmts)
     }
 
@@ -512,7 +519,7 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             self.expect(TokenKind::Colon);
             let ty = self.type_no_bounds();
-            let node = new_variable_node_with_let(&mut self.current_function.as_mut().unwrap().lvar_symbol_table, name, ty);
+            let node = new_variable_node_with_let(&mut self.current_fn_mut().lvar_symbol_table, name, ty);
             if self.eat(TokenKind::Assign) {
                 let node = new_assign_node(node, self.parse_expr());
                 self.expect(TokenKind::Semi);
@@ -821,10 +828,16 @@ impl<'a> Parser<'a> {
                         field.push(self.parse_expr());
                         self.eat(TokenKind::Comma);
                     }
-                    new_struct_expr_node(&mut self.current_function.as_mut().unwrap().lvar_symbol_table, name, field)
+                    new_struct_expr_node(&mut self.current_fn_mut().lvar_symbol_table, name, field)
                 } else {
                     // local variable or parameter
-                    new_variable_node(self.current_function.as_mut().unwrap(), name)
+                    if let Some(obj) = self.current_fn().lvar_symbol_table.find(name) {
+                        new_variable_node(obj)
+                    } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
+                        new_variable_node(obj)
+                    } else {
+                        e0007(self.lines.clone(), self.token(), name);
+                    }
                 }
             }
             TokenKind::Keyword(b) if matches!(b, Keyword::True|Keyword::False) => {

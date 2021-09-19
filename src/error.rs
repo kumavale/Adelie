@@ -43,6 +43,13 @@ pub fn e0006<'a>(lines: std::str::Lines<'a>, token: &Token) -> ! {
     panic!();
 }
 
+/// cannot find value in this scope
+pub fn e0007<'a>(lines: std::str::Lines<'a>, token: &Token, ident: &str) -> ! {
+    eprintln!("cannot find value `{}` in this scope", ident);
+    eprint_nearby(lines, token).ok();
+    panic!();
+}
+
 fn eprint_nearby<'a>(mut lines: std::str::Lines<'a>, token: &Token) -> Result<(), ()> {
     let line = token.line;
     let digits = usize::digits(line+1);
