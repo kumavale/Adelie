@@ -71,6 +71,13 @@ pub fn e0010<'a>(lines: std::str::Lines<'a>, token: &Token) -> ! {
     panic!();
 }
 
+/// `break` outside of a loop
+pub fn e0011<'a>(lines: std::str::Lines<'a>, token: &Token) -> ! {
+    eprintln!("cannot `break` outside of a loop");
+    eprint_nearby(lines, token).ok();
+    panic!();
+}
+
 fn eprint_nearby<'a>(mut lines: std::str::Lines<'a>, token: &Token) -> Result<(), ()> {
     let line = token.line;
     let digits = usize::digits(line+1);

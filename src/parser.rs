@@ -286,6 +286,8 @@ pub fn gen_ast<'a>(
         tokens,
         idx: 0,
         except_struct_expression: false,
+        brk_label_seq: 0,
+        loop_count: 0,
     };
 
     parser.program()
@@ -300,6 +302,8 @@ pub struct Parser<'a> {
     tokens: &'a [Token],
     idx: usize,
     except_struct_expression: bool,
+    brk_label_seq: usize,
+    loop_count: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -378,6 +382,18 @@ impl<'a> Parser<'a> {
             e0002(self.lines.clone(), self.token());
         }
 
+    }
+
+    fn inside_of_a_loop(&self) -> bool {
+        self.loop_count != 0
+    }
+
+    fn seq(&self) -> usize {
+        unsafe {
+            static mut ID: usize = 0;
+            ID += 1;
+            ID
+        }
     }
 
     fn program(&mut self) -> Program {
@@ -510,7 +526,18 @@ impl<'a> Parser<'a> {
             if self.eat(TokenKind::Semi) {
                 new_return_node(None)
             } else {
-                new_return_node(Some(self.parse_expr()))
+                let node = new_return_node(Some(self.parse_expr()));
+                self.eat(TokenKind::Semi);
+                new_return_node(Some(node))
+            }
+        } else if self.eat_keyword(Keyword::Break) {
+            if !self.inside_of_a_loop() {
+                e0011(self.lines.clone(), &self.tokens[self.idx-1]);
+            }
+            if self.eat(TokenKind::Semi) {
+                new_break_node(self.brk_label_seq)
+            } else {
+                unimplemented!();
             }
         } else {
             let node = self.parse_expr();
@@ -542,23 +569,36 @@ impl<'a> Parser<'a> {
             self.parse_block_expr()
         } else if self.eat_keyword(Keyword::If) {
             let cond = self.parse_cond();
-            self.expect(TokenKind::LBrace );
+            self.expect(TokenKind::LBrace);
             let then = self.parse_block_expr();
             let els = if self.eat_keyword(Keyword::Else) {
-                self.expect(TokenKind::LBrace );
+                self.expect(TokenKind::LBrace);
                 Some(self.parse_block_expr())
             } else {
                 None
             };
             new_if_node(cond, then, els)
         } else if self.eat_keyword(Keyword::While) {
+            let tmp = self.brk_label_seq;
+            self.brk_label_seq = self.seq();
+            let brk_label_seq = self.brk_label_seq;
             let cond = self.parse_cond();
-            self.expect(TokenKind::LBrace );
+            self.loop_count += 1;
+            self.expect(TokenKind::LBrace);
             let then = self.parse_block_expr();
-            new_while_node(cond, then)
+            self.loop_count -= 1;
+            self.brk_label_seq = tmp;
+            new_while_node(cond, then, brk_label_seq)
         } else if self.eat_keyword(Keyword::Loop) {
-            self.expect(TokenKind::LBrace );
-            new_loop_node(self.parse_block_expr())
+            let tmp = self.brk_label_seq;
+            self.brk_label_seq = self.seq();
+            let brk_label_seq = self.brk_label_seq;
+            self.loop_count += 1;
+            self.expect(TokenKind::LBrace);
+            let then = self.parse_block_expr();
+            self.loop_count -= 1;
+            self.brk_label_seq = tmp;
+            new_loop_node(then, brk_label_seq)
         } else {
             self.parse_assign()
         }

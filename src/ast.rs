@@ -1,7 +1,6 @@
 use std::rc::Rc;
 use super::object::*;
 use super::keyword::*;
-use super::function::*;
 use super::builtin::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -83,9 +82,11 @@ pub enum Node {
     While {
         cond: Box<Node>,
         then: Box<Node>,
+        brk_label_seq: usize,
     },
     Loop {
         then: Box<Node>,
+        brk_label_seq: usize,
     },
     Assign {
         lhs: Box<Node>,
@@ -93,6 +94,9 @@ pub enum Node {
     },
     Return {
         expr: Option<Box<Node>>,
+    },
+    Break {
+        brk_label_seq: usize,
     },
     Cast {
         ty: Type,
@@ -156,16 +160,18 @@ pub fn new_if_node(cond: Node, then: Node, els: Option<Node>) -> Node {
     }
 }
 
-pub fn new_while_node(cond: Node, then: Node) -> Node {
+pub fn new_while_node(cond: Node, then: Node, brk_label_seq: usize) -> Node {
     Node::While {
         cond: Box::new(cond),
         then: Box::new(then),
+        brk_label_seq,
     }
 }
 
-pub fn new_loop_node(then: Node) -> Node {
+pub fn new_loop_node(then: Node, brk_label_seq: usize) -> Node {
     Node::Loop {
         then: Box::new(then),
+        brk_label_seq,
     }
 }
 
@@ -178,6 +184,12 @@ pub fn new_block_node(stmts: Vec<Node>) -> Node {
 pub fn new_return_node(expr: Option<Node>) -> Node {
     Node::Return {
         expr: expr.map(Box::new),
+    }
+}
+
+pub fn new_break_node(brk_label_seq: usize) -> Node {
+    Node::Break {
+        brk_label_seq,
     }
 }
 

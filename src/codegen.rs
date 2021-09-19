@@ -173,10 +173,9 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
             then_type
         }
-        Node::While { cond, then } => {
-            let seq = seq();
-            let begin_label = format!("IL_begin{}", seq);
-            let end_label = format!("IL_end{}", seq);
+        Node::While { cond, then, brk_label_seq } => {
+            let begin_label = format!("IL_begin{}", seq());
+            let end_label = format!("IL_break{}", brk_label_seq);
             println!("{}:", begin_label);
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
@@ -188,10 +187,9 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             println!("{}:", end_label);
             then_type
         }
-        Node::Loop { then } => {
-            let seq = seq();
-            let begin_label = format!("IL_begin{}", seq);
-            let end_label = format!("IL_end{}", seq);
+        Node::Loop { then, brk_label_seq } => {
+            let begin_label = format!("IL_begin{}", seq());
+            let end_label = format!("IL_break{}", brk_label_seq);
             println!("{}:", begin_label);
             let then_type = gen_il(*then, p);
             println!("\tbr {}", begin_label);
@@ -240,6 +238,10 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             };
             println!("\tret");
             rettype
+        }
+        Node::Break { brk_label_seq } => {
+            println!("\tbr IL_break{}", brk_label_seq);
+            Type::Void
         }
         Node::Cast { ty: new_type, expr } => {
             let old_type = gen_il(*expr, p);

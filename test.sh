@@ -153,6 +153,12 @@ fn main() {
 
     ngcnt += ASSERT(2, { let a:i32=1; let a:i32=2; a });
 
+    ngcnt += ASSERT(3, { let i:i32=0; while true{if i==3{break;}i+=1;}i });
+    ngcnt += ASSERT(3, { let i:i32=0; while true{while true{break;}if i==3{break;}i+=1;}i });
+    ngcnt += ASSERT(3, { let i:i32=0; loop{loop{break;}if i==3{break;}i+=1;}i });
+    ngcnt += ASSERT(3, { let i:i32=0; loop{while true{break;}if i==3{break;}i+=1;}i });
+    ngcnt += ASSERT(3, { let i:i32=0; while true{loop{break;}if i==3{break;}i+=1;}i });
+
     if ngcnt == 0 {
         println("ok");
     } else {

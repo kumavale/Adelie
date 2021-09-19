@@ -1,6 +1,7 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Keyword {
     As,
+    Break,
     Else,
     False,
     Fn,
@@ -20,6 +21,7 @@ impl Keyword {
     pub fn as_str(&self) -> &str {
         match self {
             Keyword::As => "as",
+            Keyword::Break => "break",
             Keyword::Else => "else",
             Keyword::False => "false",
             Keyword::Fn => "fn",
