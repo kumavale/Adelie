@@ -266,8 +266,9 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                 }
                 match &*ident {
-                    "print"   => Token::new(TokenKind::Builtin(Builtin::Print),   self.col, self.line),
-                    "println" => Token::new(TokenKind::Builtin(Builtin::Println), self.col, self.line),
+                    "print"     => Token::new(TokenKind::Builtin(Builtin::Print),    self.col, self.line),
+                    "println"   => Token::new(TokenKind::Builtin(Builtin::Println),  self.col, self.line),
+                    "read_line" => Token::new(TokenKind::Builtin(Builtin::ReadLine), self.col, self.line),
 
                     "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), self.col, self.line),
                     "bool"   => Token::new(TokenKind::Type(Type::Bool),                  self.col, self.line),

@@ -7,21 +7,24 @@ use super::program::*;
 pub enum Builtin {
     Print,
     Println,
+    ReadLine,
 }
 
 impl Builtin {
     pub fn to_string(&self) -> String {
         match self {
-            Builtin::Print   => "print".to_string(),
-            Builtin::Println => "println".to_string(),
+            Builtin::Print    => "print".to_string(),
+            Builtin::Println  => "println".to_string(),
+            Builtin::ReadLine => "read_line".to_string(),
         }
     }
 }
 
 pub fn gen_builtin_il(kind: Builtin, args: Vec<Node>, p: &Program) -> Type {
     match kind {
-        Builtin::Print   => gen_print_il(args, p),
-        Builtin::Println => gen_println_il(args, p),
+        Builtin::Print    => gen_print_il(args, p),
+        Builtin::Println  => gen_println_il(args, p),
+        Builtin::ReadLine => gen_read_line_il(args, p),
     }
 }
 
@@ -79,4 +82,12 @@ fn gen_println_il(mut args: Vec<Node>, p: &Program) -> Type {
         }
     }
     Type::Void
+}
+
+fn gen_read_line_il(mut args: Vec<Node>, p: &Program) -> Type {
+    if args.len() > 0 {
+        panic!();
+    }
+    println!("\tcall string [mscorlib]System.Console::ReadLine()");
+    Type::String
 }
