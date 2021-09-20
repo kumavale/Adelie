@@ -275,11 +275,13 @@ use super::error::*;
 //
 
 pub fn gen_ast<'a>(
+    path: &'a str,
     input: &'a str,
     tokens: &'a [Token],
     g_symbol_table: &'a mut SymbolTable
 ) -> Program {
     let mut parser = Parser {
+        path,
         lines: input.lines(),
         g_symbol_table,
         current_fn: None,
@@ -296,6 +298,7 @@ pub fn gen_ast<'a>(
 
 #[derive(Debug)]
 pub struct Parser<'a> {
+    path: &'a str,
     lines: std::str::Lines<'a>,
     g_symbol_table: &'a mut SymbolTable,  // global symbol table
     current_fn: Option<Function>,
@@ -338,7 +341,7 @@ impl<'a> Parser<'a> {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
         } else {
-            e0001(self.lines.clone(), self.token(), kind);
+            e0001(self.errorset(), kind);
         }
     }
 
@@ -346,7 +349,7 @@ impl<'a> Parser<'a> {
         if let Some(ident) = self.eat_ident() {
             ident
         } else {
-            e0003(self.lines.clone(), self.token());
+            e0003(self.errorset());
         }
     }
 
@@ -380,7 +383,7 @@ impl<'a> Parser<'a> {
             self.current_fn_mut().is_static = false;
             Type::_Self(self.current_impl.as_ref().unwrap().name.to_string())
         } else {
-            e0002(self.lines.clone(), self.token());
+            e0002(self.errorset());
         }
 
     }
@@ -397,13 +400,17 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn errorset(&self) -> (&str, std::str::Lines<'a>, &Token) {
+        (self.path, self.lines.clone(), self.token())
+    }
+
     fn program(&mut self) -> Program {
         let mut program = Program::new();
         while !self.is_eof() {
             if self.eat_keyword(Keyword::Struct) {
                 let st = self.parse_item_struct();
                 if program.find_struct(&st.name).is_some() {
-                    e0005(self.lines.clone(), self.token(), &st.name);
+                    e0005(self.errorset(), &st.name);
                 }
                 program.push_struct(st);
             } else if self.eat_keyword(Keyword::Impl) {
@@ -411,11 +418,11 @@ impl<'a> Parser<'a> {
             } else if self.eat_keyword(Keyword::Fn) {
                 let f = self.parse_item_fn();
                 if program.find_fn(&f.name).is_some() {
-                    e0005(self.lines.clone(), self.token(), &f.name);
+                    e0005(self.errorset(), &f.name);
                 }
                 program.push_fn(f);
             } else {
-                e0004(self.lines.clone(), self.token());
+                e0004(self.errorset());
             }
         }
         program
@@ -428,7 +435,7 @@ impl<'a> Parser<'a> {
         while !self.eat(TokenKind::RBrace) {
             let ident = self.expect_ident();
             if st.field.iter().any(|o|o.name==ident) {
-                e0005(self.lines.clone(), self.token(), &ident);
+                e0005(self.errorset(), &ident);
             } else {
                 self.expect(TokenKind::Colon);
                 let ty = self.type_no_bounds();
@@ -436,7 +443,7 @@ impl<'a> Parser<'a> {
                 st.field.push(obj);
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
-                e0008(self.lines.clone(), self.token());
+                e0008(self.errorset());
             }
         }
         st
@@ -467,7 +474,7 @@ impl<'a> Parser<'a> {
             while !self.eat(TokenKind::RParen) {
                 self.parse_fn_params();
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                    e0009(self.lines.clone(), self.token());
+                    e0009(self.errorset());
                 }
             }
         }
@@ -484,7 +491,7 @@ impl<'a> Parser<'a> {
     fn parse_fn_params(&mut self) {
         let ident = self.expect_ident();
         if self.current_fn_mut().param_symbol_table.find(&ident).is_some() {
-            e0005(self.lines.clone(), self.token(), &ident);
+            e0005(self.errorset(), &ident);
         } else {
             self.expect(TokenKind::Colon);
             let ty = self.type_no_bounds();
@@ -544,7 +551,7 @@ impl<'a> Parser<'a> {
 
     fn parse_break_expr(&mut self) -> Node {
         if !self.inside_of_a_loop() {
-            e0011(self.lines.clone(), &self.tokens[self.idx-1]);
+            e0011((self.path, self.lines.clone(), &self.tokens[self.idx-1]));
         }
         if self.eat(TokenKind::Semi) {
             new_break_node(self.brk_label_seq)
@@ -830,7 +837,7 @@ impl<'a> Parser<'a> {
                     while !self.eat(TokenKind::RParen) {
                         args.push(self.parse_expr());
                         if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                            e0010(self.lines.clone(), self.token());
+                            e0010(self.errorset());
                         }
                     }
                     node = new_method_call_node(node, ident, args);
@@ -878,7 +885,7 @@ impl<'a> Parser<'a> {
                 self.parse_builtin(kind)
             }
             _ => {
-                e0006(self.lines.clone(), self.token());
+                e0006(self.errorset());
             }
         }
     }
@@ -906,7 +913,7 @@ impl<'a> Parser<'a> {
             while !self.eat(TokenKind::RParen) {
                 args.push(self.parse_expr());
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                    e0010(self.lines.clone(), self.token());
+                    e0010(self.errorset());
                 }
             }
             new_function_call_node(name, args)
@@ -916,7 +923,7 @@ impl<'a> Parser<'a> {
             while !self.eat(TokenKind::RBrace) {
                 field.push(self.parse_expr());
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
-                    e0009(self.lines.clone(), self.token());
+                    e0009(self.errorset());
                 }
             }
             new_struct_expr_node(&mut self.current_fn_mut().lvar_symbol_table, name, field)
@@ -927,7 +934,7 @@ impl<'a> Parser<'a> {
             } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
                 new_variable_node(obj)
             } else {
-                e0007(self.lines.clone(), self.token(), name);
+                e0007(self.errorset(), name);
             }
         }
     }
@@ -938,7 +945,7 @@ impl<'a> Parser<'a> {
         while !self.eat(TokenKind::RParen) {
             args.push(self.parse_expr());
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                e0010(self.lines.clone(), self.token());
+                e0010(self.errorset());
             }
         }
         new_builtin_call_node(*kind, args)
