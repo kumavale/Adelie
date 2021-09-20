@@ -427,7 +427,7 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::LBrace);
         while !self.eat(TokenKind::RBrace) {
             let ident = self.expect_ident();
-            if st.field.iter().find(|o|o.name==ident).is_some() {
+            if st.field.iter().any(|o|o.name==ident) {
                 e0005(self.lines.clone(), self.token(), &ident);
             } else {
                 self.expect(TokenKind::Colon);
@@ -863,7 +863,7 @@ impl<'a> Parser<'a> {
         match &self.tokens[self.idx].kind {
             TokenKind::Literal(lit) => {
                 self.idx += 1;
-                self.parse_lit(&lit)
+                self.parse_lit(lit)
             }
             TokenKind::Identifier(name) => {
                 self.idx += 1;

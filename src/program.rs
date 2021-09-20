@@ -36,7 +36,7 @@ impl Program {
     }
 
     pub fn push_fn(&mut self, f: Function) {
-        if self.functions.iter().find(|e|e.name == f.name).is_some() {
+        if self.functions.iter().any(|e|e.name == f.name) {
             panic!("the name `{}` is defined multiple times", f.name);
         } else {
             let f = Rc::new(f);
@@ -55,7 +55,7 @@ impl Program {
 
     pub fn push_or_merge_impl(&mut self, mut i: Impl) {
         if let Some(dst) = self.impls.find_mut(&i.name) {
-            if let Some(mut ns) = self.namespace.find_mut(&i.name) {
+            if let Some(ns) = self.namespace.find_mut(&i.name) {
                 ns.elements.extend_from_slice(&i.functions);
                 dst.functions.append(&mut i.functions);
             } else {

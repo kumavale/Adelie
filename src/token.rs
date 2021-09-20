@@ -1,3 +1,4 @@
+use std::fmt;
 use super::keyword::*;
 use super::builtin::*;
 
@@ -70,12 +71,12 @@ pub enum LiteralKind{
     Integer(i128),
 }
 
-impl LiteralKind {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for LiteralKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            LiteralKind::Char(c)    => format!("'{}'", c),
-            LiteralKind::String(s)  => format!("\"{}\"", s),
-            LiteralKind::Integer(i) => i.to_string(),
+            LiteralKind::Char(c)    => write!(f, "'{}'", c),
+            LiteralKind::String(s)  => write!(f, "\"{}\"", s),
+            LiteralKind::Integer(i) => write!(f, "{}", i),
         }
     }
 }
@@ -86,11 +87,11 @@ pub enum CommentKind {
     BlockComment(String),
 }
 
-impl CommentKind {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for CommentKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CommentKind::LineComment(s)  => s.to_string(),
-            CommentKind::BlockComment(s) => s.to_string(),
+            CommentKind::LineComment(s)  => write!(f, "{}", s),
+            CommentKind::BlockComment(s) => write!(f, "{}", s),
         }
     }
 }
@@ -113,67 +114,67 @@ impl Token {
     }
 }
 
-impl TokenKind {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TokenKind::Plus    => "+".to_string(),
-            TokenKind::Minus   => "-".to_string(),
-            TokenKind::Star    => "*".to_string(),
-            TokenKind::Slash   => "/".to_string(),
-            TokenKind::Percent => "%".to_string(),
+            TokenKind::Plus    => write!(f, "+"),
+            TokenKind::Minus   => write!(f, "-"),
+            TokenKind::Star    => write!(f, "*"),
+            TokenKind::Slash   => write!(f, "/"),
+            TokenKind::Percent => write!(f, "%"),
 
-            TokenKind::Caret => "^".to_string(),
-            TokenKind::Not   => "!".to_string(),
-            TokenKind::And   => "&".to_string(),
-            TokenKind::Or    => "|".to_string(),
+            TokenKind::Caret => write!(f, "^"),
+            TokenKind::Not   => write!(f, "!"),
+            TokenKind::And   => write!(f, "&"),
+            TokenKind::Or    => write!(f, "|"),
 
-            TokenKind::AndAnd => "&&".to_string(),
-            TokenKind::OrOr   => "||".to_string(),
+            TokenKind::AndAnd => write!(f, "&&"),
+            TokenKind::OrOr   => write!(f, "||"),
 
-            TokenKind::Shl => "<<".to_string(),
-            TokenKind::Shr => ">>".to_string(),
+            TokenKind::Shl => write!(f, "<<"),
+            TokenKind::Shr => write!(f, ">>"),
 
-            TokenKind::LBrace => "{".to_string(),
-            TokenKind::RBrace => "}".to_string(),
-            TokenKind::LParen => "(".to_string(),
-            TokenKind::RParen => ")".to_string(),
+            TokenKind::LBrace => write!(f, "{{"),
+            TokenKind::RBrace => write!(f, "}}"),
+            TokenKind::LParen => write!(f, "("),
+            TokenKind::RParen => write!(f, ")"),
 
-            TokenKind::EqEq    => "==".to_string(),
-            TokenKind::Lt      => "<".to_string(),
-            TokenKind::Le      => "<=".to_string(),
-            TokenKind::Ne      => "!=".to_string(),
-            TokenKind::Gt      => ">".to_string(),
-            TokenKind::Ge      => ">=".to_string(),
-            TokenKind::CaretEq => "^=".to_string(),
-            TokenKind::AndEq   => "&=".to_string(),
-            TokenKind::OrEq    => "|=".to_string(),
-            TokenKind::ShlEq   => "<<=".to_string(),
-            TokenKind::ShrEq   => ">>=".to_string(),
+            TokenKind::EqEq    => write!(f, "=="),
+            TokenKind::Lt      => write!(f, "<"),
+            TokenKind::Le      => write!(f, "<="),
+            TokenKind::Ne      => write!(f, "!="),
+            TokenKind::Gt      => write!(f, ">"),
+            TokenKind::Ge      => write!(f, ">="),
+            TokenKind::CaretEq => write!(f, "^="),
+            TokenKind::AndEq   => write!(f, "&="),
+            TokenKind::OrEq    => write!(f, "|="),
+            TokenKind::ShlEq   => write!(f, "<<="),
+            TokenKind::ShrEq   => write!(f, ">>="),
 
-            TokenKind::Assign    => "=".to_string(),
-            TokenKind::PlusEq    => "+=".to_string(),
-            TokenKind::MinusEq   => "-=".to_string(),
-            TokenKind::StarEq    => "*=".to_string(),
-            TokenKind::SlashEq   => "/=".to_string(),
-            TokenKind::PercentEq => "%=".to_string(),
+            TokenKind::Assign    => write!(f, "="),
+            TokenKind::PlusEq    => write!(f, "+="),
+            TokenKind::MinusEq   => write!(f, "-="),
+            TokenKind::StarEq    => write!(f, "*="),
+            TokenKind::SlashEq   => write!(f, "/="),
+            TokenKind::PercentEq => write!(f, "%="),
 
-            TokenKind::Dot     => ".".to_string(),
-            TokenKind::Comma   => ",".to_string(),
-            TokenKind::Semi    => ";".to_string(),
-            TokenKind::Colon   => ":".to_string(),
-            TokenKind::PathSep => "::".to_string(),
+            TokenKind::Dot     => write!(f, "."),
+            TokenKind::Comma   => write!(f, ","),
+            TokenKind::Semi    => write!(f, ";"),
+            TokenKind::Colon   => write!(f, ":"),
+            TokenKind::PathSep => write!(f, "::"),
 
-            TokenKind::RArrow => "->".to_string(),
+            TokenKind::RArrow => write!(f, "->"),
 
-            TokenKind::Keyword(kw)    => kw.as_str().to_string(),
-            TokenKind::Identifier(id) => id.to_string(),
-            TokenKind::Literal(li)    => li.to_string(),
-            TokenKind::Type(ty)       => ty.to_string(),
-            TokenKind::Builtin(bi)    => bi.to_string(),
-            TokenKind::Comment(co)    => co.to_string(),
+            TokenKind::Keyword(kw)    => write!(f, "{}", kw),
+            TokenKind::Identifier(id) => write!(f, "{}", id),
+            TokenKind::Literal(li)    => write!(f, "{}", li),
+            TokenKind::Type(ty)       => write!(f, "{}", ty),
+            TokenKind::Builtin(bi)    => write!(f, "{}", bi),
+            TokenKind::Comment(co)    => write!(f, "{}", co),
 
-            TokenKind::Unknown(s) => s.to_string(),
-            TokenKind::Eof => "".to_string(),
+            TokenKind::Unknown(s) => write!(f, "{}", s),
+            TokenKind::Eof => write!(f, ""),
         }
     }
 }

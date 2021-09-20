@@ -1,3 +1,4 @@
+use std::fmt;
 use super::ast::*;
 use super::codegen::*;
 use super::keyword::*;
@@ -10,12 +11,12 @@ pub enum Builtin {
     ReadLine,
 }
 
-impl Builtin {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for Builtin {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Builtin::Print    => "print".to_string(),
-            Builtin::Println  => "println".to_string(),
-            Builtin::ReadLine => "read_line".to_string(),
+            Builtin::Print    => write!(f, "print"),
+            Builtin::Println  => write!(f, "println"),
+            Builtin::ReadLine => write!(f, "read_line"),
         }
     }
 }
@@ -84,8 +85,8 @@ fn gen_println_il(mut args: Vec<Node>, p: &Program) -> Type {
     Type::Void
 }
 
-fn gen_read_line_il(mut args: Vec<Node>, p: &Program) -> Type {
-    if args.len() > 0 {
+fn gen_read_line_il(args: Vec<Node>, _p: &Program) -> Type {
+    if args.is_empty() {
         panic!();
     }
     println!("\tcall string [mscorlib]System.Console::ReadLine()");
