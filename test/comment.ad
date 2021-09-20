@@ -1,0 +1,15 @@
+fn a() -> i32 { // return 1;
+    return 2;//comment
+}
+fn b() -> i32 { /* return 1; */ return 2; /**/ }
+fn c() { return; }
+fn main() {
+    if a() == 2 {
+        if b() == 2 {
+            c();
+            println("ok");
+            return;
+        }
+    }
+    println("failed");
+}

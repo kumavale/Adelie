@@ -1,2 +1,4 @@
 cargo.lock
 /target
+**/*.il
+**/*.exe

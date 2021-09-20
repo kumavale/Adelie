@@ -1,0 +1,7 @@
+fn a() {
+    println("ok");
+}
+
+fn main() {
+    a();
+}

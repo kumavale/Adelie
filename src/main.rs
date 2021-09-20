@@ -14,7 +14,8 @@ mod token;
 mod utils;
 
 fn main() {
-    let input = std::env::args().nth(1).unwrap();
+    let path = std::env::args().nth(1).unwrap();
+    let input = std::fs::read_to_string(&path).unwrap();
 
     let mut lexer = lexer::Lexer::new(&input);
     let tokens = lexer::tokenize(&mut lexer);
