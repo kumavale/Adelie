@@ -44,10 +44,11 @@ pub enum TokenKind {
     SlashEq,    // /=
     PercentEq,  // %=
 
-    Dot,    // .
-    Comma,  // ,
-    Colon,  // :
-    Semi,   // ;
+    Dot,      // .
+    Comma,    // ,
+    Semi,     // ;
+    Colon,    // :
+    PathSep,  // ::
 
     RArrow,  // ->
 
@@ -156,10 +157,11 @@ impl TokenKind {
             TokenKind::SlashEq   => "/=".to_string(),
             TokenKind::PercentEq => "%=".to_string(),
 
-            TokenKind::Dot   => ".".to_string(),
-            TokenKind::Comma => ",".to_string(),
-            TokenKind::Colon => ":".to_string(),
-            TokenKind::Semi  => ";".to_string(),
+            TokenKind::Dot     => ".".to_string(),
+            TokenKind::Comma   => ",".to_string(),
+            TokenKind::Semi    => ";".to_string(),
+            TokenKind::Colon   => ":".to_string(),
+            TokenKind::PathSep => "::".to_string(),
 
             TokenKind::RArrow => "->".to_string(),
 

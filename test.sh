@@ -6,6 +6,10 @@ run() {
     ./target/debug/adelie "$input" > tmp.il &&
     /mnt/c/Windows/Microsoft.NET/Framework/v4.0.30319/ilasm.exe /QUIET tmp.il &&
     ./tmp.exe
+
+    if [ "$?" != "0" ]; then
+        exit 1
+    fi
 }
 
 run '
@@ -201,8 +205,10 @@ struct Point {
     y: i32,
 }
 impl Rectangle {
+    fn new() -> Rectangle { Rectangle { 1, 2, Point { 3, 4 } } }
     fn print_ok() { println("ok"); }
     fn max(_: &self, a: i32, b: i32,) -> i32 { if a > b { a } else { b } }
+    fn min(a: i32, b: i32,) -> i32 { if a < b { a } else { b } }
     fn area(this: &self) -> i32 { this.width * this.height }
 }
 fn main() {
@@ -214,13 +220,24 @@ fn main() {
     } else {
         println("failed");
     }
-    rect.print_ok();
+    Rectangle::print_ok();
     if rect.max(3, 6) == 6 {
         println("ok");
     } else {
         println("failed");
     }
+    if Rectangle::min(3, 6) == 3 {
+        println("ok");
+    } else {
+        println("failed");
+    }
     if rect.area() == 2100 {
+        println("ok");
+    } else {
+        println("failed");
+    }
+    let rect2: Rectangle = Rectangle::new();
+    if rect2.width == 1 && rect2.height == 2 && rect2.point.x == 3 && rect2.point.y == 4 {
         println("ok");
     } else {
         println("failed");

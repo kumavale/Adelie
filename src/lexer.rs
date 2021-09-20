@@ -230,8 +230,14 @@ impl<'a> Lexer<'a> {
 
             Some('.') => Token::new(TokenKind::Dot,   self.col, self.line),
             Some(',') => Token::new(TokenKind::Comma, self.col, self.line),
-            Some(':') => Token::new(TokenKind::Colon, self.col, self.line),
             Some(';') => Token::new(TokenKind::Semi,  self.col, self.line),
+            Some(':') => match self.peek_char() {
+                Some(':') => {
+                    self.seek(1);
+                    Token::new(TokenKind::PathSep, self.col, self.line)
+                }
+                _ => Token::new(TokenKind::Colon, self.col, self.line),
+            }
 
             Some('\'') => {
                 //todo!('\n \r \\ ...');

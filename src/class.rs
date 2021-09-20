@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use super::object::*;
 use super::function::*;
 
@@ -31,7 +32,7 @@ impl FindSymbol for [Struct] {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Impl {
     pub name: String,
-    pub functions: Vec<Function>,
+    pub functions: Vec<Rc<Function>>,
 }
 
 impl Impl {

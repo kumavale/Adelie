@@ -450,7 +450,7 @@ impl<'a> Parser<'a> {
             let func = self.parse_item_fn();
             self.current_impl.as_mut().unwrap()
                 .functions
-                .push(func);
+                .push(Rc::new(func));
         }
         self.expect(TokenKind::RBrace);
         self.current_impl.take().unwrap()
@@ -494,12 +494,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_ret_ty(&mut self) {
-        if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
-            self.idx += 1;
-            self.current_fn_mut().rettype = ty.clone();
-        } else {
-            e0002(self.lines.clone(), self.token());
-        }
+        self.current_fn_mut().rettype = self.type_no_bounds(); 
     }
 
     fn parse_block_expr(&mut self) -> Node {
@@ -903,7 +898,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_ident(&mut self, name: &str) -> Node {
-        if self.eat(TokenKind::LParen) {
+        if self.eat(TokenKind::PathSep) {
+            self.parse_simple_path(name)
+        } else if self.eat(TokenKind::LParen) {
             // function
             let mut args = vec![];
             while !self.eat(TokenKind::RParen) {
@@ -945,5 +942,14 @@ impl<'a> Parser<'a> {
             }
         }
         new_builtin_call_node(*kind, args)
+    }
+
+    fn parse_simple_path(&mut self, segment: &str) -> Node {
+        let ident = self.expect_ident();
+        if self.eat(TokenKind::PathSep) {
+            new_path_node(segment, self.parse_simple_path(&ident))
+        } else {
+            new_path_node(segment, self.parse_ident(&ident))
+        }
     }
 }

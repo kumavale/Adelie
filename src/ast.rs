@@ -119,6 +119,10 @@ pub enum Node {
     Semi {
         expr: Box<Node>,
     },
+    Path {
+        segment: String,
+        child: Box<Node>,
+    },
     Empty,
 }
 
@@ -299,5 +303,12 @@ pub fn new_empty_node() -> Node {
 pub fn new_semi_node(expr: Node) -> Node {
     Node::Semi {
         expr: Box::new(expr),
+    }
+}
+
+pub fn new_path_node(segment: &str, child: Node) -> Node {
+    Node::Path {
+        segment: segment.to_string(),
+        child: Box::new(child),
     }
 }

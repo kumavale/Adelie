@@ -1,16 +1,17 @@
-mod token;
-mod keyword;
-mod lexer;
 mod ast;
-mod parser;
-mod codegen;
-mod object;
-mod function;
 mod builtin;
 mod class;
-mod program;
-mod utils;
+mod codegen;
 mod error;
+mod function;
+mod keyword;
+mod lexer;
+mod namespace;
+mod object;
+mod parser;
+mod program;
+mod token;
+mod utils;
 
 fn main() {
     let input = std::env::args().nth(1).unwrap();
@@ -47,7 +48,11 @@ fn main() {
                 .map(|o|format!("{} {}", o.ty.to_ilstr(), o.name))
                 .collect::<Vec<String>>()
                 .join(", ");
-            println!("\t.method public instance {} {}({}) cil managed {{", func.rettype.to_ilstr(), func.name, args);
+            println!("\t.method public {} {} {}({}) cil managed {{",
+                if func.is_static {"static"} else {"instance"},
+                func.rettype.to_ilstr(),
+                func.name,
+                args);
             println!("\t\t.maxstack 32");
 
             // prepare local variables

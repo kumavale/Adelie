@@ -1,12 +1,16 @@
+use std::borrow::Borrow;
+use std::rc::Rc;
 use super::class::*;
-use super::object::*;
 use super::function::*;
+use super::namespace::*;
+use super::object::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Program {
-    pub functions: Vec<Function>,
+    pub functions: Vec<Rc<Function>>,
     pub structs: Vec<Struct>,
     pub impls: Vec<Impl>,
+    pub namespace: NameSpace,
 }
 
 impl Program {
@@ -15,11 +19,12 @@ impl Program {
             functions: vec![],
             structs: vec![],
             impls: vec![],
+            namespace: NameSpace::new("crate"),
         }
     }
 
     pub fn find_fn(&self, name: &str) -> Option<&Function> {
-        self.functions.find(name)
+        self.functions.iter().find(|f|f.name == name).map(|f|f.borrow())
     }
 
     pub fn find_struct(&self, name: &str) -> Option<&Struct> {
@@ -31,15 +36,17 @@ impl Program {
     }
 
     pub fn push_fn(&mut self, f: Function) {
-        if let Some(dst) = self.functions.find(&f.name) {
+        if self.functions.iter().find(|e|e.name == f.name).is_some() {
             panic!("the name `{}` is defined multiple times", f.name);
         } else {
+            let f = Rc::new(f);
+            self.namespace.elements.push(Rc::clone(&f));
             self.functions.push(f);
         }
     }
 
     pub fn push_struct(&mut self, s: Struct) {
-        if let Some(dst) = self.structs.find(&s.name) {
+        if self.structs.find(&s.name).is_some() {
             panic!("the name `{}` is defined multiple times", s.name);
         } else {
             self.structs.push(s);
@@ -48,8 +55,16 @@ impl Program {
 
     pub fn push_or_merge_impl(&mut self, mut i: Impl) {
         if let Some(dst) = self.impls.find_mut(&i.name) {
-            dst.functions.append(&mut i.functions);
+            if let Some(mut ns) = self.namespace.find_mut(&i.name) {
+                ns.elements.extend_from_slice(&i.functions);
+                dst.functions.append(&mut i.functions);
+            } else {
+                unreachable!()
+            }
         } else {
+            let mut ns = NameSpace::new(&i.name);
+            ns.elements = i.functions.clone();
+            self.namespace.children.push(ns);
             self.impls.push(i);
         }
     }

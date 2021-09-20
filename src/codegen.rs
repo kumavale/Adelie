@@ -35,7 +35,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         let func = im
                             .functions
                             .iter()
-                            .find(|f|f.name==ident)
+                            .find(|f|f.name==ident && !f.is_static)
                             .unwrap_or_else(|| panic!("The name '{}' does not exist in the current context", ident));
                         for arg in args {
                             gen_il(arg, p);
@@ -75,7 +75,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             } else {
                 panic!("The name '{}' does not exist in the current context", obj.name);
             }
-            Type::Struct(obj.name.to_string())
+            Type::Struct(obj.ty.to_string())
         }
         Node::Field { expr, ident } => {
             let stname = match gen_il(*expr, p) {
@@ -395,6 +395,39 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 println!("\tpop");
             }
             ty
+        }
+        Node::Path { segment, child } => {
+            // TODO
+            match *child {
+                Node::Path { .. } => gen_il(*child, p),
+                Node::Call { name, args } => {
+                    if let Some(im) = p.find_impl(&segment) {
+                        let func = im
+                            .functions
+                            .iter()
+                            .find(|f|f.name==name)
+                            .unwrap_or_else(|| panic!("The name '{}' does not exist in the current context", name));
+                        for arg in args {
+                            gen_il(arg, p);
+                        }
+                        let args = func
+                            .param_symbol_table
+                            .objs
+                            .iter()
+                            .skip(if func.is_static { 0 } else { 1 })
+                            .map(|o|o.ty.to_ilstr())
+                            .collect::<Vec<String>>()
+                            .join(", ");
+                        println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, args);
+                        func.rettype.clone()
+                    } else {
+                        panic!("The name '{}' does not exist in the current context", name);
+                    }
+                }
+                _ => {
+                    gen_il(*child, p)
+                }
+            }
         }
         Node::Empty => {
             Type::Void
