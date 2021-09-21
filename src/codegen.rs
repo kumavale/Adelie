@@ -435,7 +435,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
     }
 }
 
-fn seq() -> usize {
+pub fn seq() -> usize {
     unsafe {
         static mut ID: usize = 0;
         ID += 1;

@@ -17,7 +17,7 @@ test/%.exe: build test/%.ad
 	$(ILASM) $(FLAGS) /OUTPUT=$@ test/$*.il
 
 test: $(TESTS)
-	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
+	for i in $^; do echo; echo $$i; ./$$i || exit 1; done
 
 clean:
 	cargo clean
