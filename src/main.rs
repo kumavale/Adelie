@@ -58,16 +58,23 @@ fn main() {
 
             // prepare local variables
             println!("\t\t.locals init (");
-            for (i, obj) in func.lvar_symbol_table.objs.iter().enumerate() {
-                if let keyword::Type::Struct(name) = &obj.ty{
-                    use crate::object::FindSymbol;
-                    if program.structs.find(name).is_none() {
-                        panic!("cannot find struct, variant or union type `{}` in this scope", name);
+            let locals = func
+                .lvar_symbol_table
+                .objs
+                .iter()
+                .enumerate()
+                .map(|(i, obj)| {
+                    if let keyword::Type::Struct(name) = &obj.ty{
+                        use crate::object::FindSymbol;
+                        if program.structs.find(name).is_none() {
+                            panic!("cannot find struct, variant or union type `{}` in this scope", name);
+                        }
                     }
-                }
-                println!("\t\t\t[{}] {} V_{}{}", i, obj.ty.to_ilstr(), i, if i+1<func.lvar_symbol_table.len(){","}else{""});
-            }
-            println!("\t\t)");
+                    format!("\t\t\t{} V_{}", obj.ty.to_ilstr(), i)
+                })
+                .collect::<Vec<String>>()
+                .join(",\n");
+            println!("\t\t{})", locals);
 
             let rettype = codegen::gen_il(func.statements.clone(), &program);
             if rettype != func.rettype {
@@ -98,16 +105,23 @@ fn main() {
 
         // prepare local variables
         println!("\t.locals init (");
-        for (i, obj) in func.lvar_symbol_table.objs.iter().enumerate() {
-            if let keyword::Type::Struct(name) = &obj.ty {
-                use crate::object::FindSymbol;
-                if program.structs.find(name).is_none() {
-                    panic!("cannot find struct, variant or union type `{}` in this scope", name);
+        let locals = func
+            .lvar_symbol_table
+            .objs
+            .iter()
+            .enumerate()
+            .map(|(i, obj)| {
+                if let keyword::Type::Struct(name) = &obj.ty{
+                    use crate::object::FindSymbol;
+                    if program.structs.find(name).is_none() {
+                        panic!("cannot find struct, variant or union type `{}` in this scope", name);
+                    }
                 }
-            }
-            println!("\t\t[{}] {} V_{}{}", i, obj.ty.to_ilstr(), i, if i+1<func.lvar_symbol_table.len(){","}else{""});
-        }
-        println!("\t)");
+                format!("\t\t{} V_{}", obj.ty.to_ilstr(), i)
+            })
+            .collect::<Vec<String>>()
+            .join(",\n");
+        println!("\t{})", locals);
 
         let rettype = codegen::gen_il(func.statements.clone(), &program);
         if rettype != func.rettype {
