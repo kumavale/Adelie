@@ -318,41 +318,188 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             if ltype != rtype {
                 panic!("expected `{}`, found `{}`", ltype, rtype);
             }
-            match kind {
-                BinaryOpKind::Add => { println!("\tadd"); ltype }
-                BinaryOpKind::Sub => { println!("\tsub"); ltype }
-                BinaryOpKind::Mul => { println!("\tmul"); ltype }
-                BinaryOpKind::Div => { println!("\tdiv"); ltype }
-                BinaryOpKind::Rem => { println!("\trem"); ltype }
+            match ltype {
+                Type::Numeric(Numeric::I32) => match kind {
+                    BinaryOpKind::Add => {
+                        println!("\tadd");
+                        ltype
+                    }
+                    BinaryOpKind::Sub => {
+                        println!("\tsub");
+                        ltype
+                    }
+                    BinaryOpKind::Mul => {
+                        println!("\tmul");
+                        ltype
+                    }
+                    BinaryOpKind::Div => {
+                        println!("\tdiv");
+                        ltype
+                    }
+                    BinaryOpKind::Rem => {
+                        println!("\trem");
+                        ltype
+                    }
 
-                BinaryOpKind::BitXor => { println!("\txor"); ltype }
-                BinaryOpKind::BitAnd => { println!("\tand"); ltype }
-                BinaryOpKind::BitOr  => { println!("\tor");  ltype }
+                    BinaryOpKind::BitXor => {
+                        println!("\txor");
+                        ltype
+                    }
+                    BinaryOpKind::BitAnd => {
+                        println!("\tand");
+                        ltype
+                    }
+                    BinaryOpKind::BitOr  => {
+                        println!("\tor");
+                        ltype
+                    }
 
-                BinaryOpKind::Shl => { println!("\tshl"); ltype }
-                BinaryOpKind::Shr => { println!("\tshr"); ltype }
+                    BinaryOpKind::Shl => {
+                        println!("\tshl");
+                        ltype
+                    }
+                    BinaryOpKind::Shr => {
+                        println!("\tshr");
+                        ltype
+                    }
 
-                BinaryOpKind::Eq => { println!("\tceq"); Type::Bool }
-                BinaryOpKind::Lt => { println!("\tclt"); Type::Bool }
-                BinaryOpKind::Le => {
-                    println!("\tcgt");
-                    println!("\tldc.i4.0");
-                    println!("\tceq");
-                    Type::Bool
+                    BinaryOpKind::Eq => {
+                        println!("\tceq");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Lt => {
+                        println!("\tclt");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Le => {
+                        println!("\tcgt");
+                        println!("\tldc.i4.0");
+                        println!("\tceq");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Ne => {
+                        println!("\tceq");
+                        println!("\tldc.i4.0");
+                        println!("\tceq");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Gt => {
+                        println!("\tcgt");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Ge => {
+                        println!("\tclt");
+                        println!("\tldc.i4.0");
+                        println!("\tceq");
+                        Type::Bool
+                    }
                 }
-                BinaryOpKind::Ne => {
-                    println!("\tceq");
-                    println!("\tldc.i4.0");
-                    println!("\tceq");
-                    Type::Bool
+                Type::Char | Type::Bool => match kind {
+                    BinaryOpKind::Add => {
+                        panic!("cannot add `{}` to `{}`", ltype, rtype);
+                    }
+                    BinaryOpKind::Sub => {
+                        panic!("cannot subtract `{}` from `{}`", ltype, rtype);
+                    }
+                    BinaryOpKind::Mul => {
+                        panic!("cannot multiply `{}` by `{}`", ltype, rtype);
+                    }
+                    BinaryOpKind::Div => {
+                        panic!("cannot divide `{}` by `{}`", ltype, rtype);
+                    }
+                    BinaryOpKind::Rem => {
+                        panic!("cannot mod `{}` by `{}`", ltype, rtype);
+                    }
+
+                    BinaryOpKind::Eq => {
+                        println!("\tceq");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Lt => {
+                        println!("\tclt");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Le => {
+                        println!("\tcgt");
+                        println!("\tldc.i4.0");
+                        println!("\tceq");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Ne => {
+                        println!("\tceq");
+                        println!("\tldc.i4.0");
+                        println!("\tceq");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Gt => {
+                        println!("\tcgt");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Ge => {
+                        println!("\tclt");
+                        println!("\tldc.i4.0");
+                        println!("\tceq");
+                        Type::Bool
+                    }
+                    _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
                 }
-                BinaryOpKind::Gt => { println!("\tcgt"); Type::Bool }
-                BinaryOpKind::Ge => {
-                    println!("\tclt");
-                    println!("\tldc.i4.0");
-                    println!("\tceq");
-                    Type::Bool
+                Type::String => match kind {
+                    BinaryOpKind::Add => {
+                        println!("\tcall string System.String::Concat(string, string)");
+                        Type::String
+                    }
+                    BinaryOpKind::Sub => {
+                        panic!("cannot subtract `{}` from `{}`", ltype, rtype);
+                    }
+                    BinaryOpKind::Mul => {
+                        panic!("cannot multiply `{}` by `{}`", ltype, rtype);
+                    }
+                    BinaryOpKind::Div => {
+                        panic!("cannot divide `{}` by `{}`", ltype, rtype);
+                    }
+                    BinaryOpKind::Rem => {
+                        panic!("cannot mod `{}` by `{}`", ltype, rtype);
+                    }
+
+                    BinaryOpKind::Eq => {
+                        println!("\tcall bool System.String::op_Equality(string, string)");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Lt => {
+                        println!("\tcallvirt instance int32 System.String::CompareTo(string)");
+                        println!("\tldc.i4.0");
+                        println!("\tclt");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Le => {
+                        println!("\tcallvirt instance int32 System.String::CompareTo(string)");
+                        println!("\tldc.i4.0");
+                        println!("\tcgt");
+                        println!("\tldc.i4.0");
+                        println!("\tceq");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Ne => {
+                        println!("call bool System.String::op_Inequality(string, string)");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Gt => {
+                        println!("\tcallvirt instance int32 System.String::CompareTo(string)");
+                        println!("\tldc.i4.0");
+                        println!("\tcgt");
+                        Type::Bool
+                    }
+                    BinaryOpKind::Ge => {
+                        println!("\tcallvirt instance int32 System.String::CompareTo(string)");
+                        println!("\tldc.i4.0");
+                        println!("\tclt");
+                        println!("\tldc.i4.0");
+                        println!("\tceq");
+                        Type::Bool
+                    }
+                    _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
                 }
+                _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
             }
         }
         Node::ShortCircuitOp { kind, lhs, rhs } => {

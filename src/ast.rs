@@ -1,3 +1,4 @@
+use std::fmt;
 use std::rc::Rc;
 use super::object::*;
 use super::keyword::*;
@@ -310,5 +311,48 @@ pub fn new_path_node(segment: &str, child: Node) -> Node {
     Node::Path {
         segment: segment.to_string(),
         child: Box::new(child),
+    }
+}
+
+impl fmt::Display for UnaryOpKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            UnaryOpKind::Neg   => write!(f, "-"),
+            UnaryOpKind::Not   => write!(f, "!"),
+            UnaryOpKind::Ref   => write!(f, "&"),
+            UnaryOpKind::Deref => write!(f, "*"),
+        }
+    }
+}
+
+impl fmt::Display for BinaryOpKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BinaryOpKind::Add    => write!(f, "+"),
+            BinaryOpKind::Sub    => write!(f, "-"),
+            BinaryOpKind::Mul    => write!(f, "*"),
+            BinaryOpKind::Div    => write!(f, "/"),
+            BinaryOpKind::Rem    => write!(f, "%"),
+            BinaryOpKind::BitXor => write!(f, "^"),
+            BinaryOpKind::BitAnd => write!(f, "&"),
+            BinaryOpKind::BitOr  => write!(f, "|"),
+            BinaryOpKind::Shl    => write!(f, "<<"),
+            BinaryOpKind::Shr    => write!(f, ">>"),
+            BinaryOpKind::Eq     => write!(f, "=="),
+            BinaryOpKind::Lt     => write!(f, "<"),
+            BinaryOpKind::Le     => write!(f, "<="),
+            BinaryOpKind::Ne     => write!(f, "!="),
+            BinaryOpKind::Gt     => write!(f, ">"),
+            BinaryOpKind::Ge     => write!(f, ">="),
+        }
+    }
+}
+
+impl fmt::Display for ShortCircuitOpKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ShortCircuitOpKind::And => write!(f, "&&"),
+            ShortCircuitOpKind::Or  => write!(f, "||"),
+        }
     }
 }
