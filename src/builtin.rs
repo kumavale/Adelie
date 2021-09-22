@@ -34,30 +34,12 @@ pub fn gen_builtin_il(kind: Builtin, args: Vec<Node>, p: &Program) -> Type {
 
 fn gen_assert_eq_il(mut args: Vec<Node>, p: &Program) -> Type {
     if args.len() != 2 {
-        panic!("missing arguments");
+        todo!();
     }
-    //println!("\t.locals init (int32 __left, int32 __right)");
-    let rtype = gen_il(args.pop().unwrap(), p);
-    // TODO: save right hand side value
-    //println!("\tldloc __left");
-    let ltype = gen_il(args.pop().unwrap(), p);
-    // TODO: save left hand side value
-    //println!("\tldloc __right");
-    if ltype != rtype {
-        panic!("expected `{}`, found `{}`", ltype, rtype);
-    }
-    println!("\tcall void assert_eq<{}>(!!0, !!0)", ltype.to_ilstr());
-    //match ltype {
-    //    Type::Bool | Type::Char | Type::Numeric(_) => println!("\tceq"),
-    //    _ => todo!("cmp string")
-    //}
-    ////println!("\ncall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
-    //let end_label = format!("IL_end{}", seq());
-    //println!("\tbrtrue {}", end_label);
-    //// TODO: error message
-    ////gen_println_il
-    //// TODO: panic
-    //println!("{}:", end_label);
+    let rhs = args.pop().unwrap();
+    let lhs = args.pop().unwrap();
+    gen_il(new_binary_op_node(BinaryOpKind::Eq, lhs, rhs), p);
+    println!("\ncall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
     Type::Void
 }
 

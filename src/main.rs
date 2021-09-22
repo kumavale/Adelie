@@ -117,32 +117,4 @@ fn main() {
         println!("\tret");
         println!("}}");
     }
-
-    println!(".method private hidebysig static void assert_eq<([mscorlib]System.IComparable) T> (
-            !!T left,
-            !!T right
-        ) cil managed 
-    {{
-        .locals init (
-            bool V_0
-        )
-        ldarga.s left
-        ldarg.1
-        box !!T
-        constrained. !!T
-        callvirt instance int32 [mscorlib]System.IComparable::CompareTo(object)
-        ldc.i4.0
-        cgt.un
-        brfalse.s IL_ret
-        call class [mscorlib]System.IO.TextWriter [mscorlib]System.Console::get_Error()
-        ldstr \"assertion failed: `(left == right)`\\n left: `{{0}}`,\\nright: `{{1}}`\"
-        ldarg.0
-        box !!T
-        ldarg.1
-        box !!T
-        callvirt instance void [mscorlib]System.IO.TextWriter::WriteLine(string, object, object)
-        ldc.i4.0
-        call void [mscorlib]System.Environment::Exit(int32)
-        IL_ret: ret
-    }}");
 }
