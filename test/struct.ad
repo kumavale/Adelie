@@ -9,7 +9,7 @@ struct Point {
 }
 impl Rectangle {
     fn new() -> Rectangle { Rectangle { 1, 2, Point { 3, 4 } } }
-    fn print_ok() { println("ok"); }
+    fn print_ok() { println!("ok"); }
     fn max(_: &self, a: i32, b: i32,) -> i32 { if a > b { a } else { b } }
     fn min(a: i32, b: i32,) -> i32 { if a < b { a } else { b } }
     fn area(this: &self) -> i32 { this.width * this.height }
@@ -18,31 +18,12 @@ fn main() {
     let rect: Rectangle = Rectangle { 30, 50, Point { 128, 255 } };
     rect.width = 42;
     rect.point.x = 64;
-    if rect.width == 42 && rect.height == 50 && rect.point.x == 64 && rect.point.y == 255 {
-        println("ok");
-    } else {
-        println("failed");
-    }
-    Rectangle::print_ok();
-    if rect.max(3, 6) == 6 {
-        println("ok");
-    } else {
-        println("failed");
-    }
-    if Rectangle::min(3, 6) == 3 {
-        println("ok");
-    } else {
-        println("failed");
-    }
-    if rect.area() == 2100 {
-        println("ok");
-    } else {
-        println("failed");
-    }
+    assert_eq!(true, rect.width == 42 && rect.height == 50 && rect.point.x == 64 && rect.point.y == 255);
+    assert_eq!(true, rect.max(3, 6) == 6);
+    assert_eq!(true, Rectangle::min(3, 6) == 3);
+    assert_eq!(true, rect.area() == 2100);
     let rect2: Rectangle = Rectangle::new();
-    if rect2.width == 1 && rect2.height == 2 && rect2.point.x == 3 && rect2.point.y == 4 {
-        println("ok");
-    } else {
-        println("failed");
-    }
+    assert_eq!(true, rect2.width == 1 && rect2.height == 2 && rect2.point.x == 3 && rect2.point.y == 4);
+
+    Rectangle::print_ok();
 }

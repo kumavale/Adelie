@@ -1,5 +1,5 @@
 fn a() {
-    println("ok");
+    println!("ok");
 }
 
 fn main() {

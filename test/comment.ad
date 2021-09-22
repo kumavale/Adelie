@@ -7,9 +7,9 @@ fn main() {
     if a() == 2 {
         if b() == 2 {
             c();
-            println("ok");
+            println!("ok");
             return;
         }
     }
-    println("failed");
+    println!("failed");
 }

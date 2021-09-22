@@ -940,6 +940,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_builtin(&mut self, kind: &Builtin) -> Node {
+        self.expect(TokenKind::Not);
         self.expect(TokenKind::LParen);
         let mut args = vec![];
         while !self.eat(TokenKind::RParen) {

@@ -3,8 +3,8 @@ fn b() -> bool { true }
 fn c() -> char { 'a' }
 fn main() {
     if a()==42 && b() && c()=='a' {
-        println("ok")
+        println!("ok")
     } else {
-        println("failed")
+        println!("failed")
     }
 }
