@@ -18,11 +18,24 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         }
         Node::Call { name, args } => {
             if let Some(func) = p.find_fn(&name) {
-                for arg in args {
-                    gen_il(arg, p);
+                let params = func
+                    .param_symbol_table
+                    .objs
+                    .iter()
+                    .map(|o|&o.ty)
+                    .collect::<Vec<&Type>>();
+                for (arg, param_ty) in args.into_iter().zip(&params) {
+                    let arg_ty = gen_il(arg, p);
+                    if &arg_ty != *param_ty {
+                        panic!("expected `{}`, found `{}`", param_ty, arg_ty);
+                    }
                 }
-                let args = func.param_symbol_table.objs.iter().map(|o|o.ty.to_ilstr()).collect::<Vec<String>>().join(", ");
-                println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, args);
+                let params = params
+                    .iter()
+                    .map(|p|p.to_ilstr())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
                 func.rettype.clone()
             } else {
                 panic!("The name '{}' does not exist in the current context", name);
@@ -37,18 +50,25 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                             .iter()
                             .find(|f|f.name==ident && !f.is_static)
                             .unwrap_or_else(|| panic!("The name '{}' does not exist in the current context", ident));
-                        for arg in args {
-                            gen_il(arg, p);
-                        }
-                        let args = func
+                        let params = func
                             .param_symbol_table
                             .objs
                             .iter()
                             .skip(if func.is_static { 0 } else { 1 })
-                            .map(|o|o.ty.to_ilstr())
+                            .map(|o|&o.ty)
+                            .collect::<Vec<&Type>>();
+                        for (arg, param_ty) in args.into_iter().zip(&params) {
+                            let arg_ty = gen_il(arg, p);
+                            if &arg_ty != *param_ty {
+                                panic!("expected `{}`, found `{}`", param_ty, arg_ty);
+                            }
+                        }
+                        let params = params
+                            .iter()
+                            .map(|p|p.to_ilstr())
                             .collect::<Vec<String>>()
                             .join(", ");
-                        println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st, ident, args);
+                        println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st, ident, params);
                         func.rettype.clone()
                     } else {
                         panic!("The name '{}' does not exist in the current context", ident);
