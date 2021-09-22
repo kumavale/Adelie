@@ -69,6 +69,7 @@ fn main() {
     assert_eq!(55, fib(9));
 
     assert_eq!(42, if 1==1 { let a:i32=42; if 1==1 { let a:i32=3; } a } else {0});
+    assert_eq!(42, { let a:i32=if true { 42 } else { 21 }; a });
 
     assert_eq!(-42, -42);
     assert_eq!(-43, !42);

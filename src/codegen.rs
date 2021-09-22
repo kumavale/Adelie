@@ -190,6 +190,11 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 if els_type != then_type {
                     panic!("expected `{}`, found `{}`", then_type, els_type)
                 }
+            } else {
+                if then_type != Type::Void {
+                    eprintln!("expect `()`, found `{}`", then_type);
+                    panic!("`if` may be missing an `else` clause")
+                }
             }
             then_type
         }
