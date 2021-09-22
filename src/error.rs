@@ -4,28 +4,28 @@ use super::utils::*;
 
 /// expected ...
 pub fn e0001((path, lines, token): (&str, Lines, &Token), expect: TokenKind) -> ! {
-    eprintln!("expected `{:?}`, but got `{:?}`", expect, token.kind);
+    eprintln!("expected `{}`, but got `{}`", expect, token.kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
 }
 
 /// expected type
 pub fn e0002((path, lines, token): (&str, Lines, &Token)) -> ! {
-    eprintln!("expected type, but got `{:?}`", token.kind);
+    eprintln!("expected type, but got `{}`", token.kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
 }
 
 /// expected identifier
 pub fn e0003((path, lines, token): (&str, Lines, &Token)) -> ! {
-    eprintln!("expected identifier, but got `{:?}`", token.kind);
+    eprintln!("expected identifier, but got `{}`", token.kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
 }
 
 /// expected item
 pub fn e0004((path, lines, token): (&str, Lines, &Token)) -> ! {
-    eprintln!("expected item, but got `{:?}`", token.kind);
+    eprintln!("expected item, but got `{}`", token.kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
 }
@@ -39,7 +39,7 @@ pub fn e0005((path, lines, token): (&str, Lines, &Token), ident: &str) -> ! {
 
 /// unknown start of token
 pub fn e0006((path, lines, token): (&str, Lines, &Token)) -> ! {
-    eprintln!("unknown start of token `{:?}`", token.kind);
+    eprintln!("unknown start of token `{}`", token.kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
 }
