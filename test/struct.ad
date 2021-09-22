@@ -18,12 +18,12 @@ fn main() {
     let rect: Rectangle = Rectangle { 30, 50, Point { 128, 255 } };
     rect.width = 42;
     rect.point.x = 64;
-    assert_eq!(true, rect.width == 42 && rect.height == 50 && rect.point.x == 64 && rect.point.y == 255);
-    assert_eq!(true, rect.max(3, 6) == 6);
-    assert_eq!(true, Rectangle::min(3, 6) == 3);
-    assert_eq!(true, rect.area() == 2100);
+    assert!(rect.width == 42 && rect.height == 50 && rect.point.x == 64 && rect.point.y == 255);
+    assert_eq!(6, rect.max(3, 6));
+    assert_eq!(3, Rectangle::min(3, 6));
+    assert_eq!(2100, rect.area());
     let rect2: Rectangle = Rectangle::new();
-    assert_eq!(true, rect2.width == 1 && rect2.height == 2 && rect2.point.x == 3 && rect2.point.y == 4);
+    assert!(rect2.width == 1 && rect2.height == 2 && rect2.point.x == 3 && rect2.point.y == 4);
 
     Rectangle::print_ok();
 }

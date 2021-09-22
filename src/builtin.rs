@@ -6,6 +6,7 @@ use super::program::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Builtin {
+    Assert,
     AssertEq,
     Print,
     Println,
@@ -15,6 +16,7 @@ pub enum Builtin {
 impl fmt::Display for Builtin {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Builtin::Assert   => write!(f, "assert"),
             Builtin::AssertEq => write!(f, "assert_eq"),
             Builtin::Print    => write!(f, "print"),
             Builtin::Println  => write!(f, "println"),
@@ -25,11 +27,21 @@ impl fmt::Display for Builtin {
 
 pub fn gen_builtin_il(kind: Builtin, args: Vec<Node>, p: &Program) -> Type {
     match kind {
+        Builtin::Assert   => gen_assert_il(args, p),
         Builtin::AssertEq => gen_assert_eq_il(args, p),
         Builtin::Print    => gen_print_il(args, p),
         Builtin::Println  => gen_println_il(args, p),
         Builtin::ReadLine => gen_read_line_il(args, p),
     }
+}
+
+fn gen_assert_il(mut args: Vec<Node>, p: &Program) -> Type {
+    if args.len() != 1 {
+        todo!();
+    }
+    gen_il(args.pop().unwrap(), p);
+    println!("\ncall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
+    Type::Void
 }
 
 fn gen_assert_eq_il(mut args: Vec<Node>, p: &Program) -> Type {

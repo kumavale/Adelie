@@ -1,10 +1,9 @@
 fn a() -> i32 { 42 }
 fn b() -> bool { true }
 fn c() -> char { 'a' }
+fn d() -> string { "d" }
 fn main() {
-    if a()==42 && b() && c()=='a' {
-        println!("ok")
-    } else {
-        println!("failed")
-    }
+    assert!(a()==42 && b() && c()=='a' && d()=="d");
+
+    println!("ok")
 }

@@ -7,17 +7,6 @@ fn add6(a:i32, b:i32, c:i32, d:i32, e:i32, f:i32) -> i32 { return a+b+c+d+e+f; }
 fn fib(x: i32) -> i32 { if x<=1 { return 1; } else { return fib(x-1)+fib(x-2); } }
 fn swap(x: &i32, y: &i32) { let tmp:i32=*x; *x=*y; *y=tmp; }
 fn loop_return() -> i32 { let x: i32 = 3; loop { return x + 2; } }
-fn ASSERT(expect: i32, actual: i32) -> i32 {
-    let format: string = "[  {0}  ] expect: {1}, actual: {2}";
-    if expect == actual {
-        println!(format, "OK", expect, actual);
-        0
-    } else {
-        println!(format, "NG", expect, actual);
-        1
-    }
-}
-
 fn main() {
     assert_eq!( 0, 0);
     assert_eq!(42, 42);
@@ -117,12 +106,12 @@ fn main() {
     assert_eq!(5, loop_return());
 
     assert_eq!(false, false && true);
-    assert_eq!(false, true && (1==2) && true);
-    assert_eq!(false, true && false);
-    assert_eq!(true, true && true);
-    assert_eq!(true, true && (1==1));
-    assert_eq!(true, false || true);
-    assert_eq!(true, false || (1==2) || true);
+    assert_eq!(false,  true && (1==2) && true);
+    assert_eq!(false,  true && false);
+    assert_eq!( true,  true && true);
+    assert_eq!( true,  true && (1==1));
+    assert_eq!( true, false || true);
+    assert_eq!( true, false || (1==2) || true);
     assert_eq!(false, false || false);
     assert_eq!(false, false || (1==2));
 
