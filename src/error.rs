@@ -53,21 +53,21 @@ pub fn e0007((path, lines, token): (&str, Lines, &Token), ident: &str) -> ! {
 
 /// expected `,`, or `}`
 pub fn e0008((path, lines, token): (&str, Lines, &Token)) -> ! {
-    eprintln!("expected `,`, or `}}`, found `{}`", token.kind.to_string());
+    eprintln!("expected `,`, or `}}`, found `{}`", token.kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
 }
 
 /// expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`
 pub fn e0009((path, lines, token): (&str, Lines, &Token)) -> ! {
-    eprintln!("expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `{}`", token.kind.to_string());
+    eprintln!("expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `{}`", token.kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
 }
 
 /// expected one of `)`, `,`, `.`, `?`, or an operator
 pub fn e0010((path, lines, token): (&str, Lines, &Token)) -> ! {
-    eprintln!("expected one of `)`, `,`, `.`, `?`, or an operator, found `{}`", token.kind.to_string());
+    eprintln!("expected one of `)`, `,`, `.`, `?`, or an operator, found `{}`", token.kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
 }

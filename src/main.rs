@@ -71,7 +71,7 @@ fn main() {
 
             let rettype = codegen::gen_il(func.statements.clone(), &program);
             if rettype != func.rettype {
-                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.to_string(), rettype.to_string());
+                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype, rettype);
             }
 
             println!("\t\tret");
@@ -111,7 +111,7 @@ fn main() {
 
         let rettype = codegen::gen_il(func.statements.clone(), &program);
         if rettype != func.rettype {
-            panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.to_string(), rettype.to_string());
+            panic!("{}: expected `{}`, found `{}`", func.name, func.rettype, rettype);
         }
 
         println!("\tret");
