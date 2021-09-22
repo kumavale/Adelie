@@ -168,7 +168,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             println!("{}:", end_label);
             if let Some(els_type) = els_type {
                 if els_type != then_type {
-                    panic!("expected `{}`, found `{}`", then_type.to_ilstr(), els_type.to_ilstr())
+                    panic!("expected `{}`, found `{}`", then_type, els_type)
                 }
             }
             then_type
