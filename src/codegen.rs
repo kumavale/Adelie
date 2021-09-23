@@ -4,19 +4,19 @@ use super::keyword::*;
 use super::program::*;
 
 pub fn gen_il(node: Node, p: &Program) -> Type {
-    match node {
-        Node::Integer { ty, num } => {
+    match node.kind {
+        NodeKind::Integer { ty, num } => {
             println!("\tldc.i4 {}", num as i32);
             ty
         }
-        Node::String { ty, str } => {
+        NodeKind::String { ty, str } => {
             println!("\tldstr \"{}\"", str);
             ty
         }
-        Node::Builtin { kind, args } => {
+        NodeKind::Builtin { kind, args } => {
             gen_builtin_il(kind, args, p)
         }
-        Node::Call { name, args } => {
+        NodeKind::Call { name, args } => {
             if let Some(func) = p.find_fn(&name) {
                 let params = func
                     .param_symbol_table
@@ -44,7 +44,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 panic!("The name '{}' does not exist in the current context", name);
             }
         }
-        Node::Method { expr, ident, args } => {
+        NodeKind::Method { expr, ident, args } => {
             match gen_il(*expr, p) {
                 Type::Struct(st) => {
                     if let Some(im) = p.find_impl(&st) {
@@ -85,7 +85,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
             }
         }
-        Node::Struct { obj, field } => {
+        NodeKind::Struct { obj, field } => {
             if let Some(st) = p.find_struct(&obj.ty.to_string()) {
                 if field.len() != st.field.len() {
                     panic!("missing field");
@@ -103,7 +103,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
             Type::Struct(obj.ty.to_string())
         }
-        Node::Field { expr, ident } => {
+        NodeKind::Field { expr, ident } => {
             let stname = match gen_il(*expr, p) {
                 Type::Struct(stname) => {
                     stname
@@ -148,7 +148,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 panic!("cannot find value `{}` in this scope", stname);
             }
         }
-        Node::Variable { obj } => {
+        NodeKind::Variable { obj } => {
             if obj.is_param {
                 println!("\tldarg {}", obj.offset);
             } else {
@@ -163,11 +163,11 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
             obj.ty.clone()
         }
-        Node::Block { stmts } => {
+        NodeKind::Block { stmts } => {
             let mut ty = Type::Void;
             for stmt in stmts {
-                match stmt {
-                    Node::Return { .. } => {
+                match stmt.kind {
+                    NodeKind::Return { .. } => {
                         ty = gen_il(stmt, p);
                         break;
                     }
@@ -178,7 +178,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
             ty
         }
-        Node::If { cond, then, els } => {
+        NodeKind::If { cond, then, els } => {
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
                 panic!("expected `{}`, found `{}`", Type::Bool, cond_type);
@@ -206,7 +206,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 then_type
             }
         }
-        Node::While { cond, then, brk_label_seq } => {
+        NodeKind::While { cond, then, brk_label_seq } => {
             let begin_label = format!("IL_begin{}", seq());
             let end_label = format!("IL_break{}", brk_label_seq);
             println!("{}:", begin_label);
@@ -220,7 +220,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             println!("{}:", end_label);
             then_type
         }
-        Node::Loop { then, brk_label_seq } => {
+        NodeKind::Loop { then, brk_label_seq } => {
             let begin_label = format!("IL_begin{}", seq());
             let end_label = format!("IL_break{}", brk_label_seq);
             println!("{}:", begin_label);
@@ -229,21 +229,21 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             println!("{}:", end_label);
             then_type
         }
-        Node::Assign { lhs, rhs } => {
-            match *lhs {
-                Node::Variable { obj } => {
+        NodeKind::Assign { lhs, rhs } => {
+            match lhs.kind {
+                NodeKind::Variable { obj } => {
                     gen_il(*rhs, p);
                     println!("\tstloc {}", obj.offset);
                 }
-                Node::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
+                NodeKind::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
                     //match expr {
-                    //    Node::Variable { obj }
+                    //    NodeKind::Variable { obj }
                     //}
                     gen_il(*expr, p);
                     gen_il(*rhs, p);
                     println!("\tstind.i4");
                 }
-                Node::Field { expr, ident } => {
+                NodeKind::Field { expr, ident } => {
                     if let Type::Struct(tag) = gen_il(*expr, p) {
                         if let Some(st) = p.find_struct(&tag) {
                             if let Some(field) = st.field.iter().find(|o|o.name==ident) {
@@ -263,7 +263,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
             Type::Void
         }
-        Node::Return { expr } => {
+        NodeKind::Return { expr } => {
             let rettype = if let Some(expr) = expr {
                 gen_il(*expr, p)
             } else {
@@ -272,11 +272,11 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             println!("\tret");
             rettype
         }
-        Node::Break { brk_label_seq } => {
+        NodeKind::Break { brk_label_seq } => {
             println!("\tbr IL_break{}", brk_label_seq);
             Type::Void
         }
-        Node::Cast { ty: new_type, expr } => {
+        NodeKind::Cast { ty: new_type, expr } => {
             let old_type = gen_il(*expr, p);
             match new_type {
                 Type::Numeric(Numeric::I32) => {
@@ -300,7 +300,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
             new_type
         }
-        Node::UnaryOp { kind, expr } => {
+        NodeKind::UnaryOp { kind, expr } => {
             match kind {
                 UnaryOpKind::Not => {
                     let ty = gen_il(*expr, p);
@@ -319,7 +319,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     ty
                 }
                 UnaryOpKind::Ref => {
-                    if let Node::Variable { obj } = *expr {
+                    if let NodeKind::Variable { obj } = expr.kind {
                         if obj.is_param {
                             println!("\tldarga {}", obj.offset);
                         } else {
@@ -345,7 +345,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
             }
         }
-        Node::BinaryOp { kind, lhs, rhs } => {
+        NodeKind::BinaryOp { kind, lhs, rhs } => {
             let ltype = gen_il(*lhs, p);
             let rtype = gen_il(*rhs, p);
             match &ltype {
@@ -505,7 +505,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 _ => panic!("expected `{}`, found `{}`", ltype, rtype)
             }
         }
-        Node::ShortCircuitOp { kind, lhs, rhs } => {
+        NodeKind::ShortCircuitOp { kind, lhs, rhs } => {
             let end_label  = format!("IL_end{}", seq());
             match kind {
                 ShortCircuitOpKind::And => {
@@ -539,18 +539,18 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
             Type::Bool
         }
-        Node::Semi { expr } => {
+        NodeKind::Semi { expr } => {
             let ty = gen_il(*expr, p);
             if ty != Type::Void {
                 println!("\tpop");
             }
             ty
         }
-        Node::Path { segment, child } => {
+        NodeKind::Path { segment, child } => {
             // TODO
-            match *child {
-                Node::Path { .. } => gen_il(*child, p),
-                Node::Call { name, args } => {
+            match child.kind {
+                NodeKind::Path { .. } => gen_il(*child, p),
+                NodeKind::Call { name, args } => {
                     if let Some(im) = p.find_impl(&segment) {
                         let func = im
                             .functions
@@ -579,7 +579,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
             }
         }
-        Node::Empty => {
+        NodeKind::Empty => {
             Type::Void
         }
     }

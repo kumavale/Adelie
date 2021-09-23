@@ -17,7 +17,7 @@ impl Function {
         Function {
             name: name.to_string(),
             rettype: Type::Void,
-            statements: Node::Block { stmts: vec![] },
+            statements: new_block_node(vec![]),
             lvar_symbol_table: SymbolTable::new(),
             param_symbol_table: SymbolTable::new(),
             is_static: true,

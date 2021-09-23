@@ -509,7 +509,7 @@ impl<'a> Parser<'a> {
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
         if self.eat(TokenKind::RBrace) {
-            return Node::Empty;
+            return new_empty_node()
         }
         let mut stmts = vec![];
         while !self.eat(TokenKind::RBrace) {
