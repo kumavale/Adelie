@@ -78,8 +78,7 @@ impl fmt::Display for Type {
 impl Type {
     pub fn to_ilstr(&self) -> String {
         match self {
-            Type::Numeric(Numeric::I32)     => "int32".to_string(),
-            Type::Numeric(Numeric::Integer) => "int32".to_string(),  // TODO: maybe unreachable
+            Type::Numeric(n) => n.to_ilstr(),
             Type::Bool => "bool".to_string(),
             Type::Char => "char".to_string(),
             Type::String => "string".to_string(),
@@ -87,6 +86,15 @@ impl Type {
             Type::Ptr(t) => format!("{}&", t.to_ilstr()),
             Type::_Self(n) => n.to_string(),
             Type::Void => "void".to_string(),
+        }
+    }
+}
+
+impl Numeric {
+    pub fn to_ilstr(&self) -> String {
+        match self {
+            Numeric::I32     => "int32".to_string(),
+            Numeric::Integer => "int32".to_string(),  // TODO: maybe unreachable
         }
     }
 }

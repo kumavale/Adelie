@@ -60,12 +60,20 @@ fn gen_print_il(mut args: Vec<Node>, p: &Program) -> Type {
     match argc {
         0 => println!("\tcall void [mscorlib]System.Console::Write()"),
         1 => {
-            gen_il(args.drain(..1).next().unwrap(), p);
-            println!("\tcall void [mscorlib]System.Console::Write(string)");
+            let ty = gen_il(args.drain(..1).next().unwrap(), p);
+            println!("\tcall void [mscorlib]System.Console::Write({})",
+                match ty {
+                    Type::Numeric(..) => Numeric::I32.to_ilstr(),
+                    Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
+                    _ => unimplemented!()
+                });
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
-            gen_il(format, p);
+            let fmtty = gen_il(format, p);
+            if fmtty != Type::String {
+                panic!("expected `{}`, found `{}`", Type::String, fmtty);
+            }
             println!("\tldc.i4 {}", argc);
             println!("\tnewarr object");
             args.into_iter()
@@ -88,12 +96,20 @@ fn gen_println_il(mut args: Vec<Node>, p: &Program) -> Type {
     match argc {
         0 => println!("\tcall void [mscorlib]System.Console::WriteLine()"),
         1 => {
-            gen_il(args.drain(..1).next().unwrap(), p);
-            println!("\tcall void [mscorlib]System.Console::WriteLine(string)");
+            let ty = gen_il(args.drain(..1).next().unwrap(), p);
+            println!("\tcall void [mscorlib]System.Console::WriteLine({})",
+                match ty {
+                    Type::Numeric(..) => Numeric::I32.to_ilstr(),
+                    Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
+                    _ => unimplemented!()
+                });
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
-            gen_il(format, p);
+            let fmtty = gen_il(format, p);
+            if fmtty != Type::String {
+                panic!("expected `{}`, found `{}`", Type::String, fmtty);
+            }
             println!("\tldc.i4 {}", argc);
             println!("\tnewarr object");
             args.into_iter()
