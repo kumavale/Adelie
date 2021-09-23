@@ -42,7 +42,7 @@ pub enum ShortCircuitOpKind {
 pub enum Node {
     Integer {
         ty: Type,
-        num: i32,  // -?[1-9][0-9]*
+        num: i128,  // -?[1-9][0-9]*
     },
     String {
         ty: Type,
@@ -198,9 +198,9 @@ pub fn new_break_node(brk_label_seq: usize) -> Node {
     }
 }
 
-pub fn new_num_node(num: i32) -> Node {
+pub fn new_num_node(num: i128) -> Node {
     Node::Integer {
-        ty: Type::Numeric(Numeric::I32),
+        ty: Type::Numeric(Numeric::Integer),
         num,
     }
 }
@@ -208,7 +208,7 @@ pub fn new_num_node(num: i32) -> Node {
 pub fn new_char_node(c: char) -> Node {
     Node::Integer {
         ty: Type::Char,
-        num: c as i32
+        num: c as i128
     }
 }
 

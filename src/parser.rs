@@ -899,7 +899,7 @@ impl<'a> Parser<'a> {
                 new_string_node(s)
             }
             LiteralKind::Integer(i) => {
-                new_num_node(*i as i32)  // TODO
+                new_num_node(*i)
             }
         }
     }

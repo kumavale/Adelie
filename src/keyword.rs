@@ -56,12 +56,14 @@ pub enum Type {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Numeric {
     I32,
+    Integer,
 }
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Type::Numeric(Numeric::I32) => write!(f, "i32"),
+            Type::Numeric(Numeric::I32)     => write!(f, "i32"),
+            Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
             Type::Bool      => write!(f, "bool"),
             Type::Char      => write!(f, "char"),
             Type::String    => write!(f, "string"),
@@ -76,7 +78,8 @@ impl fmt::Display for Type {
 impl Type {
     pub fn to_ilstr(&self) -> String {
         match self {
-            Type::Numeric(Numeric::I32) => "int32".to_string(),
+            Type::Numeric(Numeric::I32)     => "int32".to_string(),
+            Type::Numeric(Numeric::Integer) => "int32".to_string(),  // TODO: maybe unreachable
             Type::Bool => "bool".to_string(),
             Type::Char => "char".to_string(),
             Type::String => "string".to_string(),

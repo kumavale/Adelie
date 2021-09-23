@@ -13,6 +13,8 @@ mod program;
 mod token;
 mod utils;
 
+use crate::keyword::*;
+
 fn main() {
     let path = std::env::args().nth(1).unwrap();
     let input = std::fs::read_to_string(&path).unwrap();
@@ -77,8 +79,11 @@ fn main() {
             println!("\t\t{})", locals);
 
             let rettype = codegen::gen_il(func.statements.clone(), &program);
-            if rettype != func.rettype {
-                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype, rettype);
+            match (&rettype, &func.rettype) {
+                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                _ => if rettype != func.rettype {
+                    panic!("{}: expected `{}`, found `{}`", func.name, func.rettype, rettype);
+                }
             }
 
             println!("\t\tret");
@@ -124,8 +129,11 @@ fn main() {
         println!("\t{})", locals);
 
         let rettype = codegen::gen_il(func.statements.clone(), &program);
-        if rettype != func.rettype {
-            panic!("{}: expected `{}`, found `{}`", func.name, func.rettype, rettype);
+        match (&rettype, &func.rettype) {
+            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+            _ => if rettype != func.rettype {
+                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype, rettype);
+            }
         }
 
         println!("\tret");

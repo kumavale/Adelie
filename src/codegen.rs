@@ -26,8 +26,11 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     .collect::<Vec<&Type>>();
                 for (arg, param_ty) in args.into_iter().zip(&params) {
                     let arg_ty = gen_il(arg, p);
-                    if &arg_ty != *param_ty {
-                        panic!("expected `{}`, found `{}`", param_ty, arg_ty);
+                    match (&arg_ty, &param_ty) {
+                        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
+                        _ if &arg_ty == *param_ty => (),
+                        _ => panic!("expected `{}`, found `{}`", arg_ty, param_ty)
                     }
                 }
                 let params = params
@@ -59,8 +62,11 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                             .collect::<Vec<&Type>>();
                         for (arg, param_ty) in args.into_iter().zip(&params) {
                             let arg_ty = gen_il(arg, p);
-                            if &arg_ty != *param_ty {
-                                panic!("expected `{}`, found `{}`", param_ty, arg_ty);
+                            match (&arg_ty, &param_ty) {
+                                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
+                                _ if &arg_ty == *param_ty => (),
+                                _ => panic!("expected `{}`, found `{}`", arg_ty, param_ty)
                             }
                         }
                         let params = params
@@ -187,16 +193,18 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             let els_type = els.map(|els| gen_il(*els, p));
             println!("{}:", end_label);
             if let Some(els_type) = els_type {
-                if els_type != then_type {
-                    panic!("expected `{}`, found `{}`", then_type, els_type)
+                match (&then_type, &els_type) {
+                    (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => els_type,
+                    (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => then_type,
+                    _ if then_type == els_type => then_type,
+                    _ => panic!("expected `{}`, found `{}`", then_type, els_type)
                 }
+            } else if then_type != Type::Void {
+                eprintln!("expect `()`, found `{}`", then_type);
+                panic!("`if` may be missing an `else` clause")
             } else {
-                if then_type != Type::Void {
-                    eprintln!("expect `()`, found `{}`", then_type);
-                    panic!("`if` may be missing an `else` clause")
-                }
+                then_type
             }
-            then_type
         }
         Node::While { cond, then, brk_label_seq } => {
             let begin_label = format!("IL_begin{}", seq());
@@ -340,83 +348,48 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         Node::BinaryOp { kind, lhs, rhs } => {
             let ltype = gen_il(*lhs, p);
             let rtype = gen_il(*rhs, p);
-            if ltype != rtype {
-                panic!("expected `{}`, found `{}`", ltype, rtype);
-            }
-            match ltype {
-                Type::Numeric(Numeric::I32) => match kind {
-                    BinaryOpKind::Add => {
-                        println!("\tadd");
-                        ltype
-                    }
-                    BinaryOpKind::Sub => {
-                        println!("\tsub");
-                        ltype
-                    }
-                    BinaryOpKind::Mul => {
-                        println!("\tmul");
-                        ltype
-                    }
-                    BinaryOpKind::Div => {
-                        println!("\tdiv");
-                        ltype
-                    }
-                    BinaryOpKind::Rem => {
-                        println!("\trem");
-                        ltype
-                    }
-
-                    BinaryOpKind::BitXor => {
-                        println!("\txor");
-                        ltype
-                    }
-                    BinaryOpKind::BitAnd => {
-                        println!("\tand");
-                        ltype
-                    }
-                    BinaryOpKind::BitOr  => {
-                        println!("\tor");
-                        ltype
-                    }
-
-                    BinaryOpKind::Shl => {
-                        println!("\tshl");
-                        ltype
-                    }
-                    BinaryOpKind::Shr => {
-                        println!("\tshr");
-                        ltype
-                    }
+            match &ltype {
+                Type::Numeric(..) => match kind {
+                    BinaryOpKind::Add    => println!("\tadd"),
+                    BinaryOpKind::Sub    => println!("\tsub"),
+                    BinaryOpKind::Mul    => println!("\tmul"),
+                    BinaryOpKind::Div    => println!("\tdiv"),
+                    BinaryOpKind::Rem    => println!("\trem"),
+                    BinaryOpKind::BitXor => println!("\txor"),
+                    BinaryOpKind::BitAnd => println!("\tand"),
+                    BinaryOpKind::BitOr  => println!("\tor"),
+                    BinaryOpKind::Shl    => println!("\tshl"),
+                    BinaryOpKind::Shr    => println!("\tshr"),
 
                     BinaryOpKind::Eq => {
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Lt => {
                         println!("\tclt");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Le => {
                         println!("\tcgt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Ne => {
                         println!("\tceq");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Gt => {
                         println!("\tcgt");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Ge => {
                         println!("\tclt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                 }
                 Type::Char | Type::Bool => match kind {
@@ -438,40 +411,39 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
 
                     BinaryOpKind::Eq => {
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Lt => {
                         println!("\tclt");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Le => {
                         println!("\tcgt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Ne => {
                         println!("\tceq");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Gt => {
                         println!("\tcgt");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Ge => {
                         println!("\tclt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
                 }
                 Type::String => match kind {
                     BinaryOpKind::Add => {
                         println!("\tcall string System.String::Concat(string, string)");
-                        Type::String
                     }
                     BinaryOpKind::Sub => {
                         panic!("cannot subtract `{}` from `{}`", ltype, rtype);
@@ -488,13 +460,13 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
 
                     BinaryOpKind::Eq => {
                         println!("\tcall bool System.String::op_Equality(string, string)");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Lt => {
                         println!("\tcallvirt instance int32 System.String::CompareTo(string)");
                         println!("\tldc.i4.0");
                         println!("\tclt");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Le => {
                         println!("\tcallvirt instance int32 System.String::CompareTo(string)");
@@ -502,17 +474,17 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tcgt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Ne => {
                         println!("call bool System.String::op_Inequality(string, string)");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Gt => {
                         println!("\tcallvirt instance int32 System.String::CompareTo(string)");
                         println!("\tldc.i4.0");
                         println!("\tcgt");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     BinaryOpKind::Ge => {
                         println!("\tcallvirt instance int32 System.String::CompareTo(string)");
@@ -520,11 +492,17 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tclt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        Type::Bool
+                        return Type::Bool;
                     }
                     _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
                 }
                 _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
+            }
+            match (&ltype, &rtype) {
+                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => rtype,
+                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => ltype,
+                _ if ltype == rtype => ltype,
+                _ => panic!("expected `{}`, found `{}`", ltype, rtype)
             }
         }
         Node::ShortCircuitOp { kind, lhs, rhs } => {
