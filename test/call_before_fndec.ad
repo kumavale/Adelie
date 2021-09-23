@@ -1,0 +1,10 @@
+fn main() {
+    assert_eq!( 2, ret2());
+    assert_eq!( 3, ret3());
+    assert_eq!( 5, ret5());
+
+    println!("ok");
+}
+fn ret2() -> i32 { return 2; }
+fn ret3() -> i32 { return ret5() - ret2(); }
+fn ret5() -> i32 { return 5; }

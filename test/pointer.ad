@@ -1,0 +1,16 @@
+fn swap(x: &i32, y: &i32) {
+    let tmp:i32=*x;
+    *x=*y;
+    *y=tmp;
+}
+
+fn main() {
+    assert_eq!(3, { let x:i32=3; *&x });
+    assert_eq!(3, { let x:i32=3; let y:&i32=&x; let z:&&i32=&y; **z });
+    assert_eq!(3, { let a:i32=3;let b:&i32=&a;let c:&&i32=&b;let d:&&&i32=&c;let e:&&&&i32=&d; ****e });
+    assert_eq!(5, { let x:i32=3; let y:&i32=&x; *y=5; x });
+    assert_eq!(3, { let x:i32=3; let y:i32=5; swap(&x, &y); y });
+    assert_eq!(5, { let x:i32=3; let y:i32=5; swap(&x, &y); x });
+
+    println!("ok");
+}

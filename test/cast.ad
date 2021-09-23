@@ -1,0 +1,17 @@
+fn main() {
+    assert_eq!('a', 97 as char);
+    assert_eq!(97, 'a' as i32);
+    assert_eq!(1, true as i32);
+    assert_eq!(0, false as i32);
+
+    assert_eq!(1, 1 as i32);
+    assert_eq!('a', 'a' as char);
+    assert_eq!(true, true as bool);
+
+    // Should compile error
+    //assert_eq!(true, 1 as bool);
+    //assert_eq!(true, 'a' as bool);
+    //assert_eq!(true, true as char);
+
+    println!("ok");
+}

@@ -1,0 +1,14 @@
+fn one() -> i32 { return 1; 2; 3; }
+fn two() -> i32 { 1; return 2; 3; }
+fn three() -> i32 { 1; 2; return 3; }
+fn loop_return() -> i32 { let x: i32 = 3; loop { return x + 2; } }
+
+fn main() {
+    assert_eq!(1, one());
+    assert_eq!(2, two());
+    assert_eq!(3, three());
+
+    assert_eq!(5, loop_return());
+
+    println!("ok");
+}
