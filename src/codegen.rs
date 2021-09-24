@@ -26,12 +26,13 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     .map(|o|&o.ty)
                     .collect::<Vec<&Type>>();
                 for (arg, param_ty) in args.into_iter().zip(&params) {
+                    let token = arg.token;
                     let arg_ty = gen_il(arg, p);
                     match (&arg_ty, &param_ty) {
                         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                         _ if &arg_ty == *param_ty => (),
-                        _ => panic!("expected `{}`, found `{}`", arg_ty, param_ty)
+                        _ => e0012(("[TODO: path]", &p.lines, &token), &arg_ty, param_ty)
                     }
                 }
                 let params = params
@@ -62,12 +63,13 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                             .map(|o|&o.ty)
                             .collect::<Vec<&Type>>();
                         for (arg, param_ty) in args.into_iter().zip(&params) {
+                            let token = arg.token;
                             let arg_ty = gen_il(arg, p);
                             match (&arg_ty, &param_ty) {
                                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                                 _ if &arg_ty == *param_ty => (),
-                                _ => panic!("expected `{}`, found `{}`", arg_ty, param_ty)
+                                _ => e0012(("[TODO: path]", &p.lines, &token), &arg_ty, param_ty)
                             }
                         }
                         let params = params
@@ -180,11 +182,10 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             ty
         }
         NodeKind::If { cond, then, els } => {
-            let token = cond.token.clone();
+            let token = cond.token;
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
-                //eprintln!("expected `{}`, found `{}`", Type::Bool, cond_type);
-                e0012(("[TODO:path]", &p.lines, &token), Type::Bool, cond_type);
+                e0012(("[TODO: path]", &p.lines, &token), &Type::Bool, &cond_type);
             }
             let seq = seq();
             let else_label = format!("IL_else{}", seq);
@@ -193,14 +194,14 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             let then_type = gen_il(*then, p);
             println!("\tbr {}", end_label);
             println!("{}:", else_label);
-            let els_type = els.map(|els| gen_il(*els, p));
+            let els_type = els.map(|els| (els.token.clone(), gen_il(*els, p)));
             println!("{}:", end_label);
             if let Some(els_type) = els_type {
-                match (&then_type, &els_type) {
-                    (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => els_type,
+                match (&then_type, &els_type.1) {
+                    (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => els_type.1,
                     (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => then_type,
-                    _ if then_type == els_type => then_type,
-                    _ => panic!("expected `{}`, found `{}`", then_type, els_type)
+                    _ if then_type == els_type.1 => then_type,
+                    _ => e0012(("[TODO: path]", &p.lines, token), &then_type, &els_type.1)
                 }
             } else if then_type != Type::Void {
                 eprintln!("expect `()`, found `{}`", then_type);
@@ -213,9 +214,10 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             let begin_label = format!("IL_begin{}", seq());
             let end_label = format!("IL_break{}", brk_label_seq);
             println!("{}:", begin_label);
+            let token = cond.token;
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
-                panic!("expected `{}`, found `{}`", Type::Bool, cond_type);
+                e0012(("[TODO: path]", &p.lines, &token), &Type::Bool, &cond_type);
             }
             println!("\tbrfalse {}", end_label);
             let then_type = gen_il(*then, p);
@@ -318,7 +320,11 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
                 UnaryOpKind::Neg => {
                     let ty= gen_il(*expr, p);
-                    println!("\tneg");
+                    if let Type::Numeric(..) = ty {
+                        println!("\tneg");
+                    } else {
+                        panic!("cannot apply unary operator `-` to type `{}`", ty);
+                    }
                     ty
                 }
                 UnaryOpKind::Ref => {
@@ -351,6 +357,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         NodeKind::BinaryOp { kind, lhs, rhs } => {
             let ltype = gen_il(*lhs, p);
             let rtype = gen_il(*rhs, p);
+            let mut is_bool = false;
             match &ltype {
                 Type::Numeric(..) => match kind {
                     BinaryOpKind::Add    => println!("\tadd"),
@@ -366,33 +373,33 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
 
                     BinaryOpKind::Eq => {
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Lt => {
                         println!("\tclt");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Le => {
                         println!("\tcgt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Ne => {
                         println!("\tceq");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Gt => {
                         println!("\tcgt");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Ge => {
                         println!("\tclt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                 }
                 Type::Char | Type::Bool => match kind {
@@ -414,33 +421,33 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
 
                     BinaryOpKind::Eq => {
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Lt => {
                         println!("\tclt");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Le => {
                         println!("\tcgt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Ne => {
                         println!("\tceq");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Gt => {
                         println!("\tcgt");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Ge => {
                         println!("\tclt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
                 }
@@ -463,13 +470,13 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
 
                     BinaryOpKind::Eq => {
                         println!("\tcall bool System.String::op_Equality(string, string)");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Lt => {
                         println!("\tcallvirt instance int32 System.String::CompareTo(string)");
                         println!("\tldc.i4.0");
                         println!("\tclt");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Le => {
                         println!("\tcallvirt instance int32 System.String::CompareTo(string)");
@@ -477,17 +484,17 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tcgt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Ne => {
                         println!("call bool System.String::op_Inequality(string, string)");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Gt => {
                         println!("\tcallvirt instance int32 System.String::CompareTo(string)");
                         println!("\tldc.i4.0");
                         println!("\tcgt");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     BinaryOpKind::Ge => {
                         println!("\tcallvirt instance int32 System.String::CompareTo(string)");
@@ -495,17 +502,35 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tclt");
                         println!("\tldc.i4.0");
                         println!("\tceq");
-                        return Type::Bool;
+                        is_bool = true;
                     }
                     _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
                 }
                 _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
             }
             match (&ltype, &rtype) {
-                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => rtype,
-                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => ltype,
-                _ if ltype == rtype => ltype,
-                _ => panic!("expected `{}`, found `{}`", ltype, rtype)
+                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => {
+                    if is_bool {
+                        Type::Bool
+                    } else {
+                        rtype
+                    }
+                }
+                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => {
+                    if is_bool {
+                        Type::Bool
+                    } else {
+                        ltype
+                    }
+                }
+                _ if ltype == rtype => {
+                    if is_bool {
+                        Type::Bool
+                    } else {
+                        ltype
+                    }
+                }
+                _ => e0012(("[TODO: path]", &p.lines, node.token), &ltype, &rtype)
             }
         }
         NodeKind::ShortCircuitOp { kind, lhs, rhs } => {
@@ -513,29 +538,33 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             match kind {
                 ShortCircuitOpKind::And => {
                     println!("\tldc.i4.0");
+                    let token = lhs.token;
                     let ltype = gen_il(*lhs, p);
                     if ltype != Type::Bool {
-                        panic!("expected `{}`, found `{}`", Type::Bool, ltype);
+                        e0012(("[TODO: path]", &p.lines, token), &Type::Bool, &ltype);
                     }
                     println!("\tbrfalse {}", end_label);
                     println!("\tpop");
+                    let token = rhs.token;
                     let rtype = gen_il(*rhs, p);
                     if rtype != Type::Bool {
-                        panic!("expected `{}`, found `{}`", Type::Bool, rtype);
+                        e0012(("[TODO: path]", &p.lines, token), &Type::Bool, &rtype);
                     }
                     println!("{}:", end_label);
                 }
                 ShortCircuitOpKind::Or => {
                     println!("\tldc.i4.1");
+                    let token = lhs.token;
                     let ltype = gen_il(*lhs, p);
                     if ltype != Type::Bool {
-                        panic!("expected `{}`, found `{}`", Type::Bool, ltype);
+                        e0012(("[TODO: path]", &p.lines, token), &Type::Bool, &ltype);
                     }
                     println!("\tbrtrue {}", end_label);
                     println!("\tpop");
+                    let token = rhs.token;
                     let rtype = gen_il(*rhs, p);
                     if rtype != Type::Bool {
-                        panic!("expected `{}`, found `{}`", Type::Bool, rtype);
+                        e0012(("[TODO: path]", &p.lines, token), &Type::Bool, &rtype);
                     }
                     println!("{}:", end_label);
                 }

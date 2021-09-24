@@ -82,8 +82,8 @@ pub fn e0011((path, lines, token): (&str, &[&str], &Token)) -> ! {
 /// expect `{type}`, found `{type}`
 pub fn e0012(
     (path, lines, token): (&str, &[&str], &[Token]),
-    expect: Type,
-    actual: Type,
+    expect: &Type,
+    actual: &Type,
 ) -> ! {
     eprintln!("expect `{}`, found `{}`", expect, actual);
     _eprint_nearby(path, lines, token).ok();
@@ -111,19 +111,42 @@ pub fn _eprint_nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<(),
     let end    = &token[token.len()-1];
     let digits = usize::digits(end.line);
 
-    eprintln!("{1:>0$}--> {2}:{3}:{4}", digits, "", path, begin.line, token[0].cur);
+    eprintln!("{1:>0$}--> {2}:{3}:{4}", digits, "", path, begin.line, begin.cur);
     if begin.line == end.line {
         let target_len = end.cur - begin.cur + begin.kind.to_string().len();
         eprintln!("{1:>0$} | {2}", digits, begin.line, lines.get(begin.line-1).ok_or(())?);
         eprintln!("{1:>0$} | {1:2$}{3}",
             digits, "",
-            token[0].cur - token[0].kind.to_string().len(),
+            begin.cur - begin.kind.to_string().len(),
             "^".repeat(target_len));
     } else if end.line - begin.line < 10 {
-        eprintln!("multiple line error message");
+        eprintln!("[TODO: multiple line error message]");
+        eprintln!("{1:>0$} | {2}", digits, begin.line, lines.get(begin.line-1).ok_or(())?);
+        eprintln!("{1:>0$} | {1:2$}{3}",
+            digits, "",
+            begin.cur - begin.kind.to_string().len(),
+            "^".repeat(begin.kind.to_string().len()));
+        for line in begin.line+1..=end.line {
+            eprintln!("{1:>0$} | {2}", digits, line, lines.get(line-1).ok_or(())?);
+        }
+        eprintln!("{1:>0$} | {1:2$}{3}",
+            digits, "",
+            end.cur - end.kind.to_string().len(),
+            "^".repeat(end.kind.to_string().len()));
     } else {
-        //for line in &lines[begin..=end] {
-        eprintln!("multiple line split error message");
+        eprintln!("[TODO: multiple line split error message]");
+        eprintln!("{1:>0$} | {2}", digits, begin.line, lines.get(begin.line-1).ok_or(())?);
+        eprintln!("{1:>0$} | {1:2$}{3}",
+            digits, "",
+            begin.cur - begin.kind.to_string().len(),
+            "^".repeat(begin.kind.to_string().len()));
+        for line in begin.line+1..=end.line {
+            eprintln!("{1:>0$} | {2}", digits, line, lines.get(line-1).ok_or(())?);
+        }
+        eprintln!("{1:>0$} | {1:2$}{3}",
+            digits, "",
+            end.cur - end.kind.to_string().len(),
+            "^".repeat(end.kind.to_string().len()));
     }
 
     Ok(())

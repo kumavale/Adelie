@@ -134,7 +134,7 @@ pub enum NodeKind<'a> {
     Empty,
 }
 
-pub fn _new_binary_op_node<'a>(
+pub fn new_binary_op_node<'a>(
     kind: BinaryOpKind,
     lhs: Node<'a>,
     rhs: Node<'a>,
@@ -147,21 +147,6 @@ pub fn _new_binary_op_node<'a>(
             rhs: Box::new(rhs),
         },
         token,
-    }
-}
-
-pub fn new_binary_op_node<'a>(
-    kind: BinaryOpKind,
-    lhs: Node<'a>,
-    rhs: Node<'a>,
-) -> Node<'a> {
-    Node {
-        kind: NodeKind::BinaryOp {
-            kind,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        },
-        token: &[],
     }
 }
 
