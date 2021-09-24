@@ -5,17 +5,20 @@ use super::function::*;
 use super::namespace::*;
 use super::object::*;
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Program {
-    pub functions: Vec<Rc<Function>>,
+#[derive(Clone, Debug)]
+pub struct Program<'a> {
+    // TODO: Files { path, lines }
+    pub lines: Vec<&'a str>,
+    pub functions: Vec<Rc<Function<'a>>>,
     pub structs: Vec<Struct>,
-    pub impls: Vec<Impl>,
-    pub namespace: NameSpace,
+    pub impls: Vec<Impl<'a>>,
+    pub namespace: NameSpace<'a>,
 }
 
-impl Program {
-    pub fn new() -> Self {
+impl<'a> Program<'a> {
+    pub fn new(input: &'a str) -> Self {
         Program {
+            lines: input.lines().collect(),
             functions: vec![],
             structs: vec![],
             impls: vec![],
@@ -35,7 +38,7 @@ impl Program {
         self.impls.find(name)
     }
 
-    pub fn push_fn(&mut self, f: Function) {
+    pub fn push_fn(&mut self, f: Function<'a>) {
         if self.functions.iter().any(|e|e.name == f.name) {
             panic!("the name `{}` is defined multiple times", f.name);
         } else {
@@ -53,7 +56,7 @@ impl Program {
         }
     }
 
-    pub fn push_or_merge_impl(&mut self, mut i: Impl) {
+    pub fn push_or_merge_impl(&mut self, mut i: Impl<'a>) {
         if let Some(dst) = self.impls.find_mut(&i.name) {
             if let Some(ns) = self.namespace.find_mut(&i.name) {
                 ns.elements.extend_from_slice(&i.functions);

@@ -30,12 +30,12 @@ impl FindSymbol for [Struct] {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Impl {
+pub struct Impl<'a> {
     pub name: String,
-    pub functions: Vec<Rc<Function>>,
+    pub functions: Vec<Rc<Function<'a>>>,
 }
 
-impl Impl {
+impl<'a> Impl<'a> {
     pub fn new(name: String) -> Self {
         Impl {
             name,
@@ -44,8 +44,8 @@ impl Impl {
     }
 }
 
-impl FindSymbol for [Impl] {
-    type Item = Impl;
+impl<'a> FindSymbol for [Impl<'a>] {
+    type Item = Impl<'a>;
 
     fn find(&self, name: &str) -> Option<&Self::Item> {
         self.iter().find(|s|s.name == name)

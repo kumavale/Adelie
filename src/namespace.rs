@@ -2,13 +2,13 @@ use std::rc::Rc;
 use super::function::*;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct NameSpace {
+pub struct NameSpace<'a> {
     pub name: String,
-    pub children: Vec<NameSpace>,
-    pub elements: Vec<Rc<Function>>,
+    pub children: Vec<NameSpace<'a>>,
+    pub elements: Vec<Rc<Function<'a>>>,
 }
 
-impl NameSpace {
+impl<'a> NameSpace<'a> {
     pub fn new(name: &str) -> Self {
         NameSpace {
             name: name.to_string(),

@@ -3,16 +3,16 @@ use super::object::*;
 use super::keyword::*;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Function {
+pub struct Function<'a> {
     pub name: String,
     pub rettype: Type,
-    pub statements: Node,
+    pub statements: Node<'a>,
     pub lvar_symbol_table: SymbolTable,
     pub param_symbol_table: SymbolTable,
     pub is_static: bool,
 }
 
-impl Function {
+impl<'a> Function<'a> {
     pub fn new(name: &str) -> Self {
         Function {
             name: name.to_string(),
@@ -25,8 +25,8 @@ impl Function {
     }
 }
 
-impl FindSymbol for [Function] {
-    type Item = Function;
+impl<'a> FindSymbol for [Function<'a>] {
+    type Item = Function<'a>;
 
     fn find(&self, name: &str) -> Option<&Self::Item> {
         self.iter().find(|f|f.name == name)

@@ -1,8 +1,9 @@
 use std::fmt;
 use std::rc::Rc;
-use super::object::*;
-use super::keyword::*;
 use super::builtin::*;
+use super::keyword::*;
+use super::object::*;
+use super::token::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UnaryOpKind {
@@ -39,12 +40,13 @@ pub enum ShortCircuitOpKind {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Node {
-    pub kind: NodeKind,
+pub struct Node<'a> {
+    pub kind: NodeKind<'a>,
+    pub token: &'a [Token],
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum NodeKind {
+pub enum NodeKind<'a> {
     Integer {
         ty: Type,
         num: i128,  // -?[1-9][0-9]*
@@ -55,202 +57,271 @@ pub enum NodeKind {
     },
     Builtin {
         kind: Builtin,
-        args: Vec<Node>,
+        args: Vec<Node<'a>>,
     },
     Call {
         name: String,
-        args: Vec<Node>,
+        args: Vec<Node<'a>>,
     },
     Method {
-        expr: Box<Node>,
+        expr: Box<Node<'a>>,
         ident: String,
-        args: Vec<Node>,
+        args: Vec<Node<'a>>,
     },
     Struct {
         obj: Rc<Object>,
-        field: Vec<Node>,
+        field: Vec<Node<'a>>,
     },
     Field {
-        expr: Box<Node>,
+        expr: Box<Node<'a>>,
         ident: String,
     },
     Variable {
         obj: Rc<Object>,
     },
     Block {
-        stmts: Vec<Node>,
+        stmts: Vec<Node<'a>>,
     },
     If {
-        cond: Box<Node>,
-        then: Box<Node>,
-        els: Option<Box<Node>>,
+        cond: Box<Node<'a>>,
+        then: Box<Node<'a>>,
+        els: Option<Box<Node<'a>>>,
     },
     While {
-        cond: Box<Node>,
-        then: Box<Node>,
+        cond: Box<Node<'a>>,
+        then: Box<Node<'a>>,
         brk_label_seq: usize,
     },
     Loop {
-        then: Box<Node>,
+        then: Box<Node<'a>>,
         brk_label_seq: usize,
     },
     Assign {
-        lhs: Box<Node>,
-        rhs: Box<Node>,
+        lhs: Box<Node<'a>>,
+        rhs: Box<Node<'a>>,
     },
     Return {
-        expr: Option<Box<Node>>,
+        expr: Option<Box<Node<'a>>>,
     },
     Break {
         brk_label_seq: usize,
     },
     Cast {
         ty: Type,
-        expr: Box<Node>,
+        expr: Box<Node<'a>>,
     },
     UnaryOp {
         kind: UnaryOpKind,
-        expr: Box<Node>,
+        expr: Box<Node<'a>>,
     },
     BinaryOp {
         kind: BinaryOpKind,
-        lhs: Box<Node>,
-        rhs: Box<Node>,
+        lhs: Box<Node<'a>>,
+        rhs: Box<Node<'a>>,
     },
     ShortCircuitOp {
         kind: ShortCircuitOpKind,
-        lhs: Box<Node>,
-        rhs: Box<Node>,
+        lhs: Box<Node<'a>>,
+        rhs: Box<Node<'a>>,
     },
     Semi {
-        expr: Box<Node>,
+        expr: Box<Node<'a>>,
     },
     Path {
         segment: String,
-        child: Box<Node>,
+        child: Box<Node<'a>>,
     },
     Empty,
 }
 
-pub fn new_binary_op_node(kind: BinaryOpKind, lhs: Node, rhs: Node) -> Node {
+pub fn _new_binary_op_node<'a>(
+    kind: BinaryOpKind,
+    lhs: Node<'a>,
+    rhs: Node<'a>,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::BinaryOp {
             kind,
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
         },
+        token,
     }
 }
 
-pub fn new_unary_op_node(kind: UnaryOpKind, expr: Node) -> Node {
+pub fn new_binary_op_node<'a>(
+    kind: BinaryOpKind,
+    lhs: Node<'a>,
+    rhs: Node<'a>,
+) -> Node<'a> {
+    Node {
+        kind: NodeKind::BinaryOp {
+            kind,
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+        },
+        token: &[],
+    }
+}
+
+pub fn new_unary_op_node(
+    kind: UnaryOpKind,
+    expr: Node<'_>,
+) -> Node<'_> {
     Node {
         kind: NodeKind::UnaryOp {
             kind,
             expr: Box::new(expr),
         },
+        token: &[],
     }
 }
 
-pub fn new_assign_node(lhs: Node, rhs: Node) -> Node {
+pub fn new_assign_node<'a>(
+    lhs: Node<'a>,
+    rhs: Node<'a>,
+) -> Node<'a> {
     Node {
         kind: NodeKind::Assign {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
         },
+        token: &[],
     }
 }
 
-pub fn new_short_circuit_op_node(kind: ShortCircuitOpKind, lhs: Node, rhs: Node) -> Node {
+pub fn new_short_circuit_op_node<'a>(
+    kind: ShortCircuitOpKind,
+    lhs: Node<'a>,
+    rhs: Node<'a>,
+) -> Node<'a> {
     Node {
         kind: NodeKind::ShortCircuitOp {
             kind,
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
         },
+        token: &[],
     }
 }
 
-pub fn new_if_node(cond: Node, then: Node, els: Option<Node>) -> Node {
+pub fn new_if_node<'a>(
+    cond: Node<'a>,
+    then: Node<'a>,
+    els: Option<Node<'a>>,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::If {
             cond: Box::new(cond),
             then: Box::new(then),
             els: els.map(Box::new),
         },
+        token,
     }
 }
 
-pub fn new_while_node(cond: Node, then: Node, brk_label_seq: usize) -> Node {
+pub fn new_while_node<'a>(
+    cond: Node<'a>,
+    then: Node<'a>,
+    brk_label_seq: usize,
+) -> Node<'a> {
     Node {
         kind: NodeKind::While {
             cond: Box::new(cond),
             then: Box::new(then),
             brk_label_seq,
         },
+        token: &[],
     }
 }
 
-pub fn new_loop_node(then: Node, brk_label_seq: usize) -> Node {
+pub fn new_loop_node(
+    then: Node<'_>,
+    brk_label_seq: usize
+) -> Node<'_> {
     Node {
         kind: NodeKind::Loop {
             then: Box::new(then),
             brk_label_seq,
         },
+        token: &[],
     }
 }
 
-pub fn new_block_node(stmts: Vec<Node>) -> Node {
+pub fn new_block_node(
+    stmts: Vec<Node<'_>>,
+) -> Node<'_> {
     Node {
         kind: NodeKind::Block {
             stmts,
         },
+        token: &[],
     }
 }
 
-pub fn new_return_node(expr: Option<Node>) -> Node {
+pub fn new_return_node(
+    expr: Option<Node<'_>>,
+) -> Node<'_> {
     Node {
         kind: NodeKind::Return {
             expr: expr.map(Box::new),
         },
+        token: &[],
     }
 }
 
-pub fn new_break_node(brk_label_seq: usize) -> Node {
+pub fn new_break_node<'a>(
+    brk_label_seq: usize,
+) -> Node<'a> {
     Node {
         kind: NodeKind::Break {
             brk_label_seq,
         },
+        token: &[],
     }
 }
 
-pub fn new_num_node(num: i128) -> Node {
+pub fn new_num_node<'a>(
+    num: i128,
+) -> Node<'a> {
     Node {
         kind: NodeKind::Integer {
             ty: Type::Numeric(Numeric::Integer),
             num,
         },
+        token: &[],
     }
 }
 
-pub fn new_char_node(c: char) -> Node {
+pub fn new_char_node<'a>(
+    c: char,
+) -> Node<'a> {
     Node {
         kind: NodeKind::Integer {
             ty: Type::Char,
             num: c as i128
         },
+        token: &[],
     }
 }
 
-pub fn new_string_node(s: &str) -> Node {
+pub fn new_string_node<'a>(
+    s: &str,
+) -> Node<'a> {
     Node {
         kind: NodeKind::String {
             ty: Type::String,
             str: s.to_string(),
         },
+        token: &[],
     }
 }
 
-pub fn new_bool_node(b: Keyword) -> Node {
+pub fn new_bool_node<'a>(
+    b: Keyword,
+) -> Node<'a> {
     Node {
         kind: NodeKind::Integer {
             ty: Type::Bool,
@@ -260,37 +331,54 @@ pub fn new_bool_node(b: Keyword) -> Node {
                 _ => unreachable!(),
             },
         },
+        token: &[],
     }
 }
 
-pub fn new_cast_node(ty: Type, expr: Node) -> Node {
+pub fn new_cast_node(
+    ty: Type,
+    expr: Node<'_>,
+) -> Node<'_> {
     Node {
         kind: NodeKind::Cast {
             ty,
             expr: Box::new(expr),
         },
+        token: &[],
     }
 }
 
-pub fn new_builtin_call_node(kind: Builtin, args: Vec<Node>) -> Node {
+pub fn new_builtin_call_node(
+    kind: Builtin,
+    args: Vec<Node<'_>>,
+) -> Node<'_> {
     Node {
         kind: NodeKind::Builtin {
             kind,
             args,
         },
+        token: &[],
     }
 }
 
-pub fn new_function_call_node(name: &str, args: Vec<Node>) -> Node {
+pub fn new_function_call_node<'a>(
+    name: &str,
+    args: Vec<Node<'a>>,
+) -> Node<'a> {
     Node {
         kind: NodeKind::Call {
             name: name.to_string(),
             args,
         },
+        token: &[],
     }
 }
 
-pub fn new_struct_expr_node(symbol_table: &mut SymbolTable, name: &str, field: Vec<Node>) -> Node {
+pub fn new_struct_expr_node<'a>(
+    symbol_table: &mut SymbolTable,
+    name: &str,
+    field: Vec<Node<'a>>,
+) -> Node<'a> {
     fn seq() -> usize {
         unsafe {
             static mut ID: usize = 0;
@@ -306,66 +394,92 @@ pub fn new_struct_expr_node(symbol_table: &mut SymbolTable, name: &str, field: V
             obj,
             field,
         },
+        token: &[],
     }
 }
 
-pub fn new_field_node(expr: Node, ident: String) -> Node {
+pub fn new_field_node(
+    expr: Node<'_>,
+    ident: String,
+) -> Node<'_> {
     Node {
         kind: NodeKind::Field {
             expr: Box::new(expr),
             ident,
         },
+        token: &[],
     }
 }
 
-pub fn new_method_call_node(expr: Node, ident: String, args: Vec<Node>) -> Node {
+pub fn new_method_call_node<'a>(
+    expr: Node<'a>,
+    ident: String,
+    args: Vec<Node<'a>>,
+) -> Node<'a> {
     Node {
         kind: NodeKind::Method {
             expr: Box::new(expr),
             ident,
             args,
         },
+        token: &[],
     }
 }
 
-pub fn new_variable_node(obj: &Rc<Object>) -> Node {
+pub fn new_variable_node<'a>(
+    obj: &Rc<Object>,
+) -> Node<'a> {
     Node {
         kind: NodeKind::Variable {
             obj: Rc::clone(obj),
         },
+        token: &[],
     }
 }
 
-pub fn new_variable_node_with_let(symbol_table: &mut SymbolTable, ident: String, ty: Type) -> Node {
+pub fn new_variable_node_with_let<'a>(
+    symbol_table: &mut SymbolTable,
+    ident: String,
+    ty: Type,
+) -> Node<'a> {
     let obj = Rc::new(Object::new(ident, symbol_table.len(), false, ty));
     symbol_table.push(Rc::clone(&obj));
     Node {
         kind: NodeKind::Variable {
             obj,
         },
+        token: &[],
     }
 }
 
-pub fn new_empty_node() -> Node {
+pub fn new_empty_node<'a>() -> Node<'a> {
     Node {
         kind: NodeKind::Empty,
+        token: &[],
     }
 }
 
-pub fn new_semi_node(expr: Node) -> Node {
+pub fn new_semi_node(
+    expr: Node<'_>,
+) -> Node<'_> {
     Node {
         kind: NodeKind::Semi {
             expr: Box::new(expr),
         },
+        token: &[],
     }
 }
 
-pub fn new_path_node(segment: &str, child: Node) -> Node {
+pub fn new_path_node<'a>(
+    segment: &str,
+    child: Node<'a>,
+) -> Node<'a> {
     Node {
         kind: NodeKind::Path {
             segment: segment.to_string(),
             child: Box::new(child),
         },
+        token: &[],
     }
 }
 

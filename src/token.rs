@@ -96,12 +96,11 @@ impl fmt::Display for CommentKind {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub cur: usize,
     pub line: usize,
-    //pub literal: String,
 }
 
 impl Token {

@@ -274,35 +274,14 @@ use super::error::*;
 //         | '(' expr ')'
 //
 
-pub fn gen_ast<'a>(
-    path: &'a str,
-    input: &'a str,
-    tokens: &'a [Token],
-    g_symbol_table: &'a mut SymbolTable
-) -> Program {
-    let mut parser = Parser {
-        path,
-        lines: input.lines(),
-        g_symbol_table,
-        current_fn: None,
-        current_impl: None,
-        tokens,
-        idx: 0,
-        except_struct_expression: false,
-        brk_label_seq: 0,
-        loop_count: 0,
-    };
-
-    parser.program()
-}
-
 #[derive(Debug)]
 pub struct Parser<'a> {
     path: &'a str,
-    lines: std::str::Lines<'a>,
+    input: &'a str,
+    lines: Vec<&'a str>,
     g_symbol_table: &'a mut SymbolTable,  // global symbol table
-    current_fn: Option<Function>,
-    current_impl: Option<Impl>,
+    current_fn: Option<Function<'a>>,
+    current_impl: Option<Impl<'a>>,
     tokens: &'a [Token],
     idx: usize,
     except_struct_expression: bool,
@@ -311,6 +290,31 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    pub fn new(
+        path: &'a str,
+        input: &'a str,
+        tokens: &'a [Token],
+        g_symbol_table: &'a mut SymbolTable,
+    ) -> Self {
+        Parser {
+            path,
+            input,
+            lines: input.lines().collect(),
+            g_symbol_table,
+            current_fn: None,
+            current_impl: None,
+            tokens,
+            idx: 0,
+            except_struct_expression: false,
+            brk_label_seq: 0,
+            loop_count: 0,
+        }
+    } 
+
+    pub fn gen_ast(&mut self) -> Program<'_> {
+        self.program()
+    }
+
     fn check(&self, kind: TokenKind) -> bool {
         self.tokens[self.idx].kind == kind
     }
@@ -365,7 +369,7 @@ impl<'a> Parser<'a> {
         self.current_fn.as_ref().unwrap()
     }
 
-    fn current_fn_mut(&mut self) -> &mut Function {
+    fn current_fn_mut(&mut self) -> &mut Function<'a> {
         self.current_fn.as_mut().unwrap()
     }
 
@@ -400,12 +404,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn errorset(&self) -> (&str, std::str::Lines<'a>, &Token) {
-        (self.path, self.lines.clone(), self.token())
+    fn errorset(&self) -> (&str, &[&'a str], &Token) {
+        (self.path, &self.lines, self.token())
     }
 
     fn program(&mut self) -> Program {
-        let mut program = Program::new();
+        let mut program = Program::new(&self.input);
         while !self.is_eof() {
             if self.eat_keyword(Keyword::Struct) {
                 let st = self.parse_item_struct();
@@ -449,7 +453,7 @@ impl<'a> Parser<'a> {
         st
     }
 
-    fn parse_item_impl(&mut self) -> Impl {
+    fn parse_item_impl(&mut self) -> Impl<'a> {
         let ident = self.expect_ident();
         self.current_impl = Some(Impl::new(ident));
         self.expect(TokenKind::LBrace);
@@ -463,7 +467,7 @@ impl<'a> Parser<'a> {
         self.current_impl.take().unwrap()
     }
 
-    fn parse_item_fn(&mut self) -> Function {
+    fn parse_item_fn(&mut self) -> Function<'a> {
         let ident = self.expect_ident();
         let obj = Rc::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void));
         self.g_symbol_table.push(Rc::clone(&obj));
@@ -504,7 +508,7 @@ impl<'a> Parser<'a> {
         self.current_fn_mut().rettype = self.type_no_bounds(); 
     }
 
-    fn parse_block_expr(&mut self) -> Node {
+    fn parse_block_expr(&mut self) -> Node<'a> {
         self.current_fn_mut().lvar_symbol_table.enter_scope();
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
@@ -520,7 +524,7 @@ impl<'a> Parser<'a> {
         new_block_node(stmts)
     }
 
-    fn parse_stmt(&mut self) -> Node {
+    fn parse_stmt(&mut self) -> Node<'a> {
         if self.eat(TokenKind::Semi) {
             new_empty_node()
         } else if self.eat_keyword(Keyword::Let) {
@@ -539,7 +543,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_return_expr(&mut self) -> Node {
+    fn parse_return_expr(&mut self) -> Node<'a> {
         if self.eat(TokenKind::Semi) {
             new_return_node(None)
         } else {
@@ -549,9 +553,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_break_expr(&mut self) -> Node {
+    fn parse_break_expr(&mut self) -> Node<'a> {
         if !self.inside_of_a_loop() {
-            e0011((self.path, self.lines.clone(), &self.tokens[self.idx-1]));
+            e0011((self.path, &self.lines, &self.tokens[self.idx-1]));
         }
         if self.eat(TokenKind::Semi) {
             new_break_node(self.brk_label_seq)
@@ -560,7 +564,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_let_stmt(&mut self) -> Node {
+    fn parse_let_stmt(&mut self) -> Node<'a> {
         let ident = self.expect_ident();
         self.expect(TokenKind::Colon);
         let ty = self.type_no_bounds();
@@ -575,7 +579,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_expr(&mut self) -> Node {
+    fn parse_expr(&mut self) -> Node<'a> {
         if self.eat(TokenKind::LBrace) {
             self.parse_block_expr()
         } else if self.eat_keyword(Keyword::If) {
@@ -589,7 +593,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_if_expr(&mut self) -> Node {
+    fn parse_if_expr(&mut self) -> Node<'a> {
+        let begin = self.idx - 1;
         let cond = self.parse_cond();
         self.expect(TokenKind::LBrace);
         let then = self.parse_block_expr();
@@ -599,10 +604,10 @@ impl<'a> Parser<'a> {
         } else {
             None
         };
-        new_if_node(cond, then, els)
+        new_if_node(cond, then, els, &self.tokens[begin..self.idx])
     }
 
-    fn parse_infinite_loop_expr(&mut self) -> Node {
+    fn parse_infinite_loop_expr(&mut self) -> Node<'a> {
         let tmp = self.brk_label_seq;
         self.brk_label_seq = self.seq();
         let brk_label_seq = self.brk_label_seq;
@@ -614,7 +619,7 @@ impl<'a> Parser<'a> {
         new_loop_node(then, brk_label_seq)
     }
 
-    fn parse_predicate_loop_expr(&mut self) -> Node {
+    fn parse_predicate_loop_expr(&mut self) -> Node<'a> {
         let tmp = self.brk_label_seq;
         self.brk_label_seq = self.seq();
         let brk_label_seq = self.brk_label_seq;
@@ -627,14 +632,14 @@ impl<'a> Parser<'a> {
         new_while_node(cond, then, brk_label_seq)
     }
 
-    fn parse_cond(&mut self) -> Node {
+    fn parse_cond(&mut self) -> Node<'a> {
         self.except_struct_expression = true;
         let node = self.parse_expr();
         self.except_struct_expression = false;
         node
     }
 
-    fn parse_assign(&mut self) -> Node {
+    fn parse_assign(&mut self) -> Node<'a> {
         let node = self.parse_logical_or();
 
         if self.eat(TokenKind::Assign) {
@@ -674,7 +679,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_logical_or(&mut self) -> Node {
+    fn parse_logical_or(&mut self) -> Node<'a> {
         let mut node = self.parse_logical_and();
 
         loop {
@@ -686,7 +691,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_logical_and(&mut self) -> Node {
+    fn parse_logical_and(&mut self) -> Node<'a> {
         let mut node = self.parse_equality();
 
         loop {
@@ -698,7 +703,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_equality(&mut self) -> Node {
+    fn parse_equality(&mut self) -> Node<'a> {
         let mut node = self.parse_relational();
 
         loop {
@@ -712,7 +717,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_relational(&mut self) -> Node {
+    fn parse_relational(&mut self) -> Node<'a> {
         let mut node = self.parse_bitor();
 
         loop {
@@ -730,7 +735,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_bitor(&mut self) -> Node {
+    fn parse_bitor(&mut self) -> Node<'a> {
         let mut node = self.parse_bitxor();
         while self.eat(TokenKind::Or) {
             node = new_binary_op_node(BinaryOpKind::BitOr, node, self.parse_bitxor());
@@ -738,7 +743,7 @@ impl<'a> Parser<'a> {
         node
     }
 
-    fn parse_bitxor(&mut self) -> Node {
+    fn parse_bitxor(&mut self) -> Node<'a> {
         let mut node = self.parse_bitand();
         while self.eat(TokenKind::Caret) {
             node = new_binary_op_node(BinaryOpKind::BitXor, node, self.parse_bitand());
@@ -746,7 +751,7 @@ impl<'a> Parser<'a> {
         node
     }
 
-    fn parse_bitand(&mut self) -> Node {
+    fn parse_bitand(&mut self) -> Node<'a> {
         let mut node = self.parse_shift();
         while self.eat(TokenKind::And) {
             node = new_binary_op_node(BinaryOpKind::BitAnd, node, self.parse_shift());
@@ -754,7 +759,7 @@ impl<'a> Parser<'a> {
         node
     }
 
-    fn parse_shift(&mut self) -> Node {
+    fn parse_shift(&mut self) -> Node<'a> {
         let mut node = self.parse_add();
 
         loop {
@@ -768,12 +773,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_add(&mut self) -> Node {
+    fn parse_add(&mut self) -> Node<'a> {
+        let begin = self.idx;
         let mut node = self.parse_mul();
 
         loop {
             if self.eat(TokenKind::Plus) {
-                node = new_binary_op_node(BinaryOpKind::Add, node, self.parse_mul());
+                node = _new_binary_op_node(BinaryOpKind::Add, node, self.parse_mul(), &self.tokens[begin..self.idx]);
             } else if self.eat(TokenKind::Minus) {
                 node = new_binary_op_node(BinaryOpKind::Sub, node, self.parse_mul());
             } else {
@@ -782,7 +788,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_mul(&mut self) -> Node {
+    fn parse_mul(&mut self) -> Node<'a> {
         let mut node = self.parse_cast();
 
         loop {
@@ -798,7 +804,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_cast(&mut self) -> Node {
+    fn parse_cast(&mut self) -> Node<'a> {
         let mut node = self.parse_unary();
 
         loop {
@@ -811,7 +817,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_unary(&mut self) -> Node {
+    fn parse_unary(&mut self) -> Node<'a> {
         if self.eat(TokenKind::Minus) {
             new_unary_op_node(UnaryOpKind::Neg, self.parse_unary())
         } else if self.eat(TokenKind::Not) {
@@ -825,7 +831,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_field_or_method_expr(&mut self) -> Node {
+    fn parse_field_or_method_expr(&mut self) -> Node<'a> {
         let mut node = self.parse_term();
 
         loop {
@@ -851,7 +857,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_term(&mut self) -> Node {
+    fn parse_term(&mut self) -> Node<'a> {
         if self.eat(TokenKind::LParen) {
             let except_struct_expression = self.except_struct_expression;
             self.except_struct_expression = false;
@@ -890,7 +896,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_lit(&mut self, kind: &LiteralKind) -> Node {
+    fn parse_lit(&mut self, kind: &LiteralKind) -> Node<'a> {
         match kind {
             LiteralKind::Char(c) => {
                 new_char_node(*c)
@@ -904,7 +910,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_ident(&mut self, name: &str) -> Node {
+    fn parse_ident(&mut self, name: &str) -> Node<'a> {
         if self.eat(TokenKind::PathSep) {
             self.parse_simple_path(name)
         } else if self.eat(TokenKind::LParen) {
@@ -939,7 +945,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_builtin(&mut self, kind: &Builtin) -> Node {
+    fn parse_builtin(&mut self, kind: &Builtin) -> Node<'a> {
         self.expect(TokenKind::Not);
         self.expect(TokenKind::LParen);
         let mut args = vec![];
@@ -952,7 +958,7 @@ impl<'a> Parser<'a> {
         new_builtin_call_node(*kind, args)
     }
 
-    fn parse_simple_path(&mut self, segment: &str) -> Node {
+    fn parse_simple_path(&mut self, segment: &str) -> Node<'a> {
         let ident = self.expect_ident();
         if self.eat(TokenKind::PathSep) {
             new_path_node(segment, self.parse_simple_path(&ident))

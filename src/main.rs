@@ -25,7 +25,8 @@ fn main() {
     //eprintln!("{:?}", tokens);
 
     let mut g_symbol_table = object::SymbolTable::new();
-    let program = parser::gen_ast(&path, &input, &tokens, &mut g_symbol_table);
+    let mut parser = parser::Parser::new(&path, &input, &tokens, &mut g_symbol_table);
+    let program = parser.gen_ast();
 
     println!(".assembly extern mscorlib {{}}");
     println!(".assembly tmp {{}}");

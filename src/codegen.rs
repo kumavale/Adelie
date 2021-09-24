@@ -1,5 +1,6 @@
 use super::ast::*;
 use super::builtin::*;
+use super::error::*;
 use super::keyword::*;
 use super::program::*;
 
@@ -179,9 +180,11 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             ty
         }
         NodeKind::If { cond, then, els } => {
+            let token = cond.token.clone();
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
-                panic!("expected `{}`, found `{}`", Type::Bool, cond_type);
+                //eprintln!("expected `{}`, found `{}`", Type::Bool, cond_type);
+                e0012(("[TODO:path]", &p.lines, &token), Type::Bool, cond_type);
             }
             let seq = seq();
             let else_label = format!("IL_else{}", seq);
