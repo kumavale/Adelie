@@ -1,6 +1,7 @@
 use std::fmt;
 use super::ast::*;
 use super::codegen::*;
+use super::error::*;
 use super::keyword::*;
 use super::program::*;
 
@@ -70,9 +71,10 @@ fn gen_print_il(mut args: Vec<Node>, p: &Program) -> Type {
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
+            let token = format.token;
             let fmtty = gen_il(format, p);
             if fmtty != Type::String {
-                panic!("expected `{}`, found `{}`", Type::String, fmtty);
+                e0012(("[TODO: path]", &p.lines, &token), &Type::String, &fmtty);
             }
             println!("\tldc.i4 {}", argc);
             println!("\tnewarr object");
@@ -106,9 +108,10 @@ fn gen_println_il(mut args: Vec<Node>, p: &Program) -> Type {
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
+            let token = format.token;
             let fmtty = gen_il(format, p);
             if fmtty != Type::String {
-                panic!("expected `{}`, found `{}`", Type::String, fmtty);
+                e0012(("[TODO: path]", &p.lines, &token), &Type::String, &fmtty);
             }
             println!("\tldc.i4 {}", argc);
             println!("\tnewarr object");
@@ -128,7 +131,7 @@ fn gen_println_il(mut args: Vec<Node>, p: &Program) -> Type {
 }
 
 fn gen_read_line_il(args: Vec<Node>, _p: &Program) -> Type {
-    if args.is_empty() {
+    if !args.is_empty() {
         panic!();
     }
     println!("\tcall string [mscorlib]System.Console::ReadLine()");
