@@ -264,10 +264,10 @@ pub fn new_return_node<'a>(
     }
 }
 
-pub fn new_break_node<'a>(
+pub fn new_break_node(
     brk_label_seq: usize,
-    token: &'a [Token],
-) -> Node<'a> {
+    token: &[Token],
+) -> Node<'_> {
     Node {
         kind: NodeKind::Break {
             brk_label_seq,
@@ -276,10 +276,10 @@ pub fn new_break_node<'a>(
     }
 }
 
-pub fn new_num_node<'a>(
+pub fn new_num_node(
     num: i128,
-    token: &'a [Token],
-) -> Node<'a> {
+    token: &[Token],
+) -> Node<'_> {
     Node {
         kind: NodeKind::Integer {
             ty: Type::Numeric(Numeric::Integer),
@@ -289,10 +289,10 @@ pub fn new_num_node<'a>(
     }
 }
 
-pub fn new_char_node<'a>(
+pub fn new_char_node(
     c: char,
-    token: &'a [Token],
-) -> Node<'a> {
+    token: &[Token],
+) -> Node<'_> {
     Node {
         kind: NodeKind::Integer {
             ty: Type::Char,
@@ -315,10 +315,10 @@ pub fn new_string_node<'a>(
     }
 }
 
-pub fn new_bool_node<'a>(
+pub fn new_bool_node(
     b: Keyword,
-    token: &'a [Token],
-) -> Node<'a> {
+    token: &[Token],
+) -> Node<'_> {
     Node {
         kind: NodeKind::Integer {
             ty: Type::Bool,

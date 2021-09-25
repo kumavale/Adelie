@@ -9,8 +9,10 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         NodeKind::Integer { ty, num } => {
             use super::token::*;
             debug_assert!(matches!(node.token[0].kind,
-                TokenKind::Literal(LiteralKind::Char(_)|LiteralKind::Integer(_))
-              | TokenKind::Keyword(Keyword::True|Keyword::False)));
+                TokenKind::Literal(LiteralKind::Char(_))
+              | TokenKind::Literal(LiteralKind::Integer(_))
+              | TokenKind::Keyword(Keyword::True)
+              | TokenKind::Keyword(Keyword::False)));
             println!("\tldc.i4 {}", num as i32);
             ty
         }
@@ -36,7 +38,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                         _ if &arg_ty == *param_ty => (),
-                        _ => e0012(("[TODO: path]", &p.lines, &token), &arg_ty, param_ty)
+                        _ => e0012(("[TODO: path]", &p.lines, token), &arg_ty, param_ty)
                     }
                 }
                 let params = params
@@ -47,7 +49,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
                 func.rettype.clone()
             } else {
-                e0013(("[TODO: path]", &p.lines, &node.token), &name);
+                e0013(("[TODO: path]", &p.lines, node.token), &name);
             }
         }
         NodeKind::Method { expr, ident, args } => {
@@ -61,7 +63,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         {
                             func
                         } else {
-                            e0014(("[TODO: path]", &p.lines, &node.token), &ident, &st);
+                            e0014(("[TODO: path]", &p.lines, node.token), &ident, &st);
                         };
                         let params = func
                             .param_symbol_table
@@ -77,7 +79,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                                 _ if &arg_ty == *param_ty => (),
-                                _ => e0012(("[TODO: path]", &p.lines, &token), &arg_ty, param_ty)
+                                _ => e0012(("[TODO: path]", &p.lines, token), &arg_ty, param_ty)
                             }
                         }
                         let params = params
@@ -88,7 +90,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st, ident, params);
                         func.rettype.clone()
                     } else {
-                        e0014(("[TODO: path]", &p.lines, &node.token), &ident, &st);
+                        e0014(("[TODO: path]", &p.lines, node.token), &ident, &st);
                     }
                 }
                 _ => {
@@ -99,7 +101,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         NodeKind::Struct { obj, field } => {
             if let Some(st) = p.find_struct(&obj.ty.to_string()) {
                 if field.len() != st.field.len() {
-                    e0017(("[TODO: path]", &p.lines, &node.token), &st.name);
+                    e0017(("[TODO: path]", &p.lines, node.token), &st.name);
                 }
                 println!("\tldloca {}", obj.offset);
                 println!("\tinitobj {}", obj.ty);
@@ -153,10 +155,10 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     }
                     ty
                 } else {
-                    e0015(("[TODO: path]", &p.lines, &node.token), &stname, &ident);
+                    e0015(("[TODO: path]", &p.lines, node.token), &stname, &ident);
                 }
             } else {
-                e0016(("[TODO: path]", &p.lines, &node.token), &stname);
+                e0016(("[TODO: path]", &p.lines, node.token), &stname);
             }
         }
         NodeKind::Variable { obj } => {
@@ -193,7 +195,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             let token = cond.token;
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
-                e0012(("[TODO: path]", &p.lines, &token), &Type::Bool, &cond_type);
+                e0012(("[TODO: path]", &p.lines, token), &Type::Bool, &cond_type);
             }
             let seq = seq();
             let else_label = format!("IL_else{}", seq);
@@ -202,17 +204,17 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             let then_type = gen_il(*then, p);
             println!("\tbr {}", end_label);
             println!("{}:", else_label);
-            let els_type = els.map(|els| (els.token.clone(), gen_il(*els, p)));
+            let els_type = els.map(|els| (els.token, gen_il(*els, p)));
             println!("{}:", end_label);
             if let Some(els_type) = els_type {
                 match (&then_type, &els_type.1) {
                     (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => els_type.1,
                     (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => then_type,
                     _ if then_type == els_type.1 => then_type,
-                    _ => e0012(("[TODO: path]", &p.lines, &node.token), &then_type, &els_type.1)
+                    _ => e0012(("[TODO: path]", &p.lines, node.token), &then_type, &els_type.1)
                 }
             } else if then_type != Type::Void {
-                e0018(("[TODO: path]", &p.lines, &node.token), &then_type);
+                e0018(("[TODO: path]", &p.lines, node.token), &then_type);
             } else {
                 then_type
             }
@@ -224,7 +226,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             let token = cond.token;
             let cond_type = gen_il(*cond, p);
             if cond_type != Type::Bool {
-                e0012(("[TODO: path]", &p.lines, &token), &Type::Bool, &cond_type);
+                e0012(("[TODO: path]", &p.lines, token), &Type::Bool, &cond_type);
             }
             println!("\tbrfalse {}", end_label);
             let then_type = gen_il(*then, p);
@@ -262,16 +264,16 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                                 gen_il(*rhs, p);
                                 println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
                             } else {
-                                e0015(("[TODO: path]", &p.lines, &node.token), &stname, &ident);
+                                e0015(("[TODO: path]", &p.lines, node.token), &stname, &ident);
                             }
                         } else {
-                            e0016(("[TODO: path]", &p.lines, &node.token), &stname);
+                            e0016(("[TODO: path]", &p.lines, node.token), &stname);
                         }
                     } else {
                         unimplemented!("primitive type");
                     }
                 }
-                _ => e0019(("[TODO: path]", &p.lines, &node.token))
+                _ => e0019(("[TODO: path]", &p.lines, node.token))
             }
             Type::Void
         }
@@ -296,7 +298,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
                 Type::Bool => {
                     if let Type::Numeric(_) = old_type {
-                        e0020(("[TODO: path]", &p.lines, &node.token), &Type::Bool);
+                        e0020(("[TODO: path]", &p.lines, node.token), &Type::Bool);
                     }
                     println!("\tldc.i4.0");
                     println!("\tcgt");
@@ -308,7 +310,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     todo!("cast to ref type");
                 }
                 Type::Void => unreachable!(),
-                t => e0020(("[TODO: path]", &p.lines, &node.token), &t)
+                t => e0020(("[TODO: path]", &p.lines, node.token), &t)
             }
             new_type
         }
@@ -330,7 +332,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     if let Type::Numeric(..) = ty {
                         println!("\tneg");
                     } else {
-                        e0021(("[TODO: path]", &p.lines, &node.token), &ty);
+                        e0021(("[TODO: path]", &p.lines, node.token), &ty);
                     }
                     ty
                 }
@@ -356,7 +358,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         }
                         *ty
                     } else {
-                        e0022(("[TODO: path]", &p.lines, &node.token), &ty);
+                        e0022(("[TODO: path]", &p.lines, node.token), &ty);
                     }
                 }
             }
@@ -415,7 +417,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     BinaryOpKind::Mul |
                     BinaryOpKind::Div |
                     BinaryOpKind::Rem => {
-                        e0023(("[TODO: path]", &p.lines, &node.token),
+                        e0023(("[TODO: path]", &p.lines, node.token),
                             kind, &ltype, &rtype);
                     }
 
@@ -449,7 +451,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tceq");
                         is_bool = true;
                     }
-                    _ => e0024(("[TODO: path]", &p.lines, &node.token), kind, &ltype, &rtype)
+                    _ => e0024(("[TODO: path]", &p.lines, node.token), kind, &ltype, &rtype)
                 }
                 Type::String => match kind {
                     BinaryOpKind::Add => {
@@ -459,7 +461,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     BinaryOpKind::Mul |
                     BinaryOpKind::Div |
                     BinaryOpKind::Rem => {
-                        e0023(("[TODO: path]", &p.lines, &node.token),
+                        e0023(("[TODO: path]", &p.lines, node.token),
                             kind, &ltype, &rtype);
                     }
 
@@ -499,9 +501,9 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tceq");
                         is_bool = true;
                     }
-                    _ => e0024(("[TODO: path]", &p.lines, &node.token), kind, &ltype, &rtype)
+                    _ => e0024(("[TODO: path]", &p.lines, node.token), kind, &ltype, &rtype)
                 }
-                _ => e0024(("[TODO: path]", &p.lines, &node.token), kind, &ltype, &rtype)
+                _ => e0024(("[TODO: path]", &p.lines, node.token), kind, &ltype, &rtype)
             }
             match (&ltype, &rtype) {
                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => {
@@ -585,7 +587,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                             .find(|f|f.name==name) {
                                 func
                             } else {
-                                e0014(("[TODO: path]", &p.lines, &node.token), &segment, &name);
+                                e0014(("[TODO: path]", &p.lines, node.token), &segment, &name);
                             };
                         for arg in args {
                             gen_il(arg, p);
@@ -601,7 +603,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, args);
                         func.rettype.clone()
                     } else {
-                        e0014(("[TODO: path]", &p.lines, &node.token), &segment, &name);
+                        e0014(("[TODO: path]", &p.lines, node.token), &segment, &name);
                     }
                 }
                 _ => {

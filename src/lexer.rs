@@ -265,9 +265,11 @@ impl<'a> Lexer<'a> {
 
             None => Token::new(TokenKind::Eof, self.col, self.line),
 
-            Some('a'..='z'|'A'..='Z'|'_') => {
+            Some(c) if matches!(c, 'a'..='z'|'A'..='Z'|'_') => {
                 let mut ident = self.ch.unwrap().to_string();
-                while let Some('0'..='9'|'a'..='z'|'A'..='Z'|'_') = self.peek_char() {
+                while self.peek_char()
+                    .filter(|c| matches!(c, '0'..='9'|'a'..='z'|'A'..='Z'|'_')).is_some()
+                {
                     ident.push(self.peek_char().unwrap());
                     self.seek(1);
                 }
