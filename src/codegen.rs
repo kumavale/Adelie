@@ -7,6 +7,10 @@ use super::program::*;
 pub fn gen_il(node: Node, p: &Program) -> Type {
     match node.kind {
         NodeKind::Integer { ty, num } => {
+            use super::token::*;
+            debug_assert!(matches!(node.token[0].kind,
+                TokenKind::Literal(LiteralKind::Char(_)|LiteralKind::Integer(_))
+              | TokenKind::Keyword(Keyword::True|Keyword::False)));
             println!("\tldc.i4 {}", num as i32);
             ty
         }

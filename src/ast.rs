@@ -150,29 +150,31 @@ pub fn new_binary_op_node<'a>(
     }
 }
 
-pub fn new_unary_op_node(
+pub fn new_unary_op_node<'a>(
     kind: UnaryOpKind,
-    expr: Node<'_>,
-) -> Node<'_> {
+    expr: Node<'a>,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::UnaryOp {
             kind,
             expr: Box::new(expr),
         },
-        token: &[],
+        token,
     }
 }
 
 pub fn new_assign_node<'a>(
     lhs: Node<'a>,
     rhs: Node<'a>,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Assign {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
         },
-        token: &[],
+        token,
     }
 }
 
@@ -180,6 +182,7 @@ pub fn new_short_circuit_op_node<'a>(
     kind: ShortCircuitOpKind,
     lhs: Node<'a>,
     rhs: Node<'a>,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::ShortCircuitOp {
@@ -187,7 +190,7 @@ pub fn new_short_circuit_op_node<'a>(
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
         },
-        token: &[],
+        token,
     }
 }
 
@@ -211,6 +214,7 @@ pub fn new_while_node<'a>(
     cond: Node<'a>,
     then: Node<'a>,
     brk_label_seq: usize,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::While {
@@ -218,94 +222,102 @@ pub fn new_while_node<'a>(
             then: Box::new(then),
             brk_label_seq,
         },
-        token: &[],
+        token,
     }
 }
 
-pub fn new_loop_node(
-    then: Node<'_>,
-    brk_label_seq: usize
-) -> Node<'_> {
+pub fn new_loop_node<'a>(
+    then: Node<'a>,
+    brk_label_seq: usize,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::Loop {
             then: Box::new(then),
             brk_label_seq,
         },
-        token: &[],
+        token,
     }
 }
 
-pub fn new_block_node(
-    stmts: Vec<Node<'_>>,
-) -> Node<'_> {
+pub fn new_block_node<'a>(
+    stmts: Vec<Node<'a>>,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::Block {
             stmts,
         },
-        token: &[],
+        token,
     }
 }
 
-pub fn new_return_node(
-    expr: Option<Node<'_>>,
-) -> Node<'_> {
+pub fn new_return_node<'a>(
+    expr: Option<Node<'a>>,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::Return {
             expr: expr.map(Box::new),
         },
-        token: &[],
+        token,
     }
 }
 
 pub fn new_break_node<'a>(
     brk_label_seq: usize,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Break {
             brk_label_seq,
         },
-        token: &[],
+        token,
     }
 }
 
 pub fn new_num_node<'a>(
     num: i128,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Integer {
             ty: Type::Numeric(Numeric::Integer),
             num,
         },
-        token: &[],
+        token,
     }
 }
 
 pub fn new_char_node<'a>(
     c: char,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Integer {
             ty: Type::Char,
             num: c as i128
         },
-        token: &[],
+        token,
     }
 }
 
 pub fn new_string_node<'a>(
     s: &str,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::String {
             ty: Type::String,
             str: s.to_string(),
         },
-        token: &[],
+        token,
     }
 }
 
 pub fn new_bool_node<'a>(
     b: Keyword,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Integer {
@@ -316,46 +328,49 @@ pub fn new_bool_node<'a>(
                 _ => unreachable!(),
             },
         },
-        token: &[],
+        token,
     }
 }
 
-pub fn new_cast_node(
+pub fn new_cast_node<'a>(
     ty: Type,
-    expr: Node<'_>,
-) -> Node<'_> {
+    expr: Node<'a>,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::Cast {
             ty,
             expr: Box::new(expr),
         },
-        token: &[],
+        token,
     }
 }
 
-pub fn new_builtin_call_node(
+pub fn new_builtin_call_node<'a>(
     kind: Builtin,
-    args: Vec<Node<'_>>,
-) -> Node<'_> {
+    args: Vec<Node<'a>>,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::Builtin {
             kind,
             args,
         },
-        token: &[],
+        token,
     }
 }
 
 pub fn new_function_call_node<'a>(
     name: &str,
     args: Vec<Node<'a>>,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Call {
             name: name.to_string(),
             args,
         },
-        token: &[],
+        token,
     }
 }
 
@@ -363,6 +378,7 @@ pub fn new_struct_expr_node<'a>(
     symbol_table: &mut SymbolTable,
     name: &str,
     field: Vec<Node<'a>>,
+    token: &'a [Token],
 ) -> Node<'a> {
     fn seq() -> usize {
         unsafe {
@@ -379,20 +395,21 @@ pub fn new_struct_expr_node<'a>(
             obj,
             field,
         },
-        token: &[],
+        token,
     }
 }
 
-pub fn new_field_node(
-    expr: Node<'_>,
+pub fn new_field_node<'a>(
+    expr: Node<'a>,
     ident: String,
-) -> Node<'_> {
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::Field {
             expr: Box::new(expr),
             ident,
         },
-        token: &[],
+        token,
     }
 }
 
@@ -400,6 +417,7 @@ pub fn new_method_call_node<'a>(
     expr: Node<'a>,
     ident: String,
     args: Vec<Node<'a>>,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Method {
@@ -407,18 +425,19 @@ pub fn new_method_call_node<'a>(
             ident,
             args,
         },
-        token: &[],
+        token,
     }
 }
 
 pub fn new_variable_node<'a>(
     obj: &Rc<Object>,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Variable {
             obj: Rc::clone(obj),
         },
-        token: &[],
+        token,
     }
 }
 
@@ -426,6 +445,7 @@ pub fn new_variable_node_with_let<'a>(
     symbol_table: &mut SymbolTable,
     ident: String,
     ty: Type,
+    token: &'a [Token],
 ) -> Node<'a> {
     let obj = Rc::new(Object::new(ident, symbol_table.len(), false, ty));
     symbol_table.push(Rc::clone(&obj));
@@ -433,7 +453,7 @@ pub fn new_variable_node_with_let<'a>(
         kind: NodeKind::Variable {
             obj,
         },
-        token: &[],
+        token,
     }
 }
 
@@ -444,27 +464,29 @@ pub fn new_empty_node<'a>() -> Node<'a> {
     }
 }
 
-pub fn new_semi_node(
-    expr: Node<'_>,
-) -> Node<'_> {
+pub fn new_semi_node<'a>(
+    expr: Node<'a>,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::Semi {
             expr: Box::new(expr),
         },
-        token: &[],
+        token,
     }
 }
 
 pub fn new_path_node<'a>(
     segment: &str,
     child: Node<'a>,
+    token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Path {
             segment: segment.to_string(),
             child: Box::new(child),
         },
-        token: &[],
+        token,
     }
 }
 
