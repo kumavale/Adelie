@@ -47,18 +47,22 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
                 func.rettype.clone()
             } else {
-                panic!("The name '{}' does not exist in the current context", name);
+                e0013(("[TODO: path]", &p.lines, &node.token), &name);
             }
         }
         NodeKind::Method { expr, ident, args } => {
             match gen_il(*expr, p) {
                 Type::Struct(st) => {
                     if let Some(im) = p.find_impl(&st) {
-                        let func = im
+                        let func = if let Some(func) = im
                             .functions
                             .iter()
                             .find(|f|f.name==ident && !f.is_static)
-                            .unwrap_or_else(|| panic!("The name '{}' does not exist in the current context", ident));
+                        {
+                            func
+                        } else {
+                            e0014(("[TODO: path]", &p.lines, &node.token), &ident, &st);
+                        };
                         let params = func
                             .param_symbol_table
                             .objs
@@ -84,7 +88,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st, ident, params);
                         func.rettype.clone()
                     } else {
-                        panic!("The name '{}' does not exist in the current context", ident);
+                        e0014(("[TODO: path]", &p.lines, &node.token), &ident, &st);
                     }
                 }
                 _ => {
@@ -95,7 +99,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         NodeKind::Struct { obj, field } => {
             if let Some(st) = p.find_struct(&obj.ty.to_string()) {
                 if field.len() != st.field.len() {
-                    panic!("missing field");
+                    e0017(("[TODO: path]", &p.lines, &node.token), &st.name);
                 }
                 println!("\tldloca {}", obj.offset);
                 println!("\tinitobj {}", obj.ty);
@@ -106,7 +110,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
                 println!("\tldloc {}", obj.offset);
             } else {
-                panic!("The name '{}' does not exist in the current context", obj.name);
+                e0016(("[TODO: path]", &p.lines, node.token), &obj.name);
             }
             Type::Struct(obj.ty.to_string())
         }
@@ -149,10 +153,10 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     }
                     ty
                 } else {
-                    panic!("no field `{}` on type `{}`", ident, stname);
+                    e0015(("[TODO: path]", &p.lines, &node.token), &stname, &ident);
                 }
             } else {
-                panic!("cannot find value `{}` in this scope", stname);
+                e0016(("[TODO: path]", &p.lines, &node.token), &stname);
             }
         }
         NodeKind::Variable { obj } => {
@@ -205,11 +209,10 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => els_type.1,
                     (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => then_type,
                     _ if then_type == els_type.1 => then_type,
-                    _ => e0012(("[TODO: path]", &p.lines, token), &then_type, &els_type.1)
+                    _ => e0012(("[TODO: path]", &p.lines, &node.token), &then_type, &els_type.1)
                 }
             } else if then_type != Type::Void {
-                eprintln!("expect `()`, found `{}`", then_type);
-                panic!("`if` may be missing an `else` clause")
+                e0018(("[TODO: path]", &p.lines, &node.token), &then_type);
             } else {
                 then_type
             }
@@ -253,22 +256,22 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     println!("\tstind.i4");
                 }
                 NodeKind::Field { expr, ident } => {
-                    if let Type::Struct(tag) = gen_il(*expr, p) {
-                        if let Some(st) = p.find_struct(&tag) {
+                    if let Type::Struct(stname) = gen_il(*expr, p) {
+                        if let Some(st) = p.find_struct(&stname) {
                             if let Some(field) = st.field.iter().find(|o|o.name==ident) {
                                 gen_il(*rhs, p);
-                                println!("\tstfld {} {}::{}", field.ty.to_ilstr(), tag, ident);
+                                println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
                             } else {
-                                panic!("no field `{}` on type `{}`", ident, tag);
+                                e0015(("[TODO: path]", &p.lines, &node.token), &stname, &ident);
                             }
                         } else {
-                            panic!("cannot find value `{}` in this scope", tag);
+                            e0016(("[TODO: path]", &p.lines, &node.token), &stname);
                         }
                     } else {
                         unimplemented!("primitive type");
                     }
                 }
-                _ => panic!("The left-hand side of an assignment must be a variable")
+                _ => e0019(("[TODO: path]", &p.lines, &node.token))
             }
             Type::Void
         }
@@ -293,7 +296,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
                 Type::Bool => {
                     if let Type::Numeric(_) = old_type {
-                        panic!("invalid cast as `{}`", Type::Bool);
+                        e0020(("[TODO: path]", &p.lines, &node.token), &Type::Bool);
                     }
                     println!("\tldc.i4.0");
                     println!("\tcgt");
@@ -305,7 +308,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     todo!("cast to ref type");
                 }
                 Type::Void => unreachable!(),
-                t => panic!("invalid cast as `{}`", t),
+                t => e0020(("[TODO: path]", &p.lines, &node.token), &t)
             }
             new_type
         }
@@ -327,7 +330,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     if let Type::Numeric(..) = ty {
                         println!("\tneg");
                     } else {
-                        panic!("cannot apply unary operator `-` to type `{}`", ty);
+                        e0021(("[TODO: path]", &p.lines, &node.token), &ty);
                     }
                     ty
                 }
@@ -353,7 +356,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         }
                         *ty
                     } else {
-                        panic!("type `{}` cannot be dereferenced", ty);
+                        e0022(("[TODO: path]", &p.lines, &node.token), &ty);
                     }
                 }
             }
@@ -407,20 +410,13 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     }
                 }
                 Type::Char | Type::Bool => match kind {
-                    BinaryOpKind::Add => {
-                        panic!("cannot add `{}` to `{}`", ltype, rtype);
-                    }
-                    BinaryOpKind::Sub => {
-                        panic!("cannot subtract `{}` from `{}`", ltype, rtype);
-                    }
-                    BinaryOpKind::Mul => {
-                        panic!("cannot multiply `{}` by `{}`", ltype, rtype);
-                    }
-                    BinaryOpKind::Div => {
-                        panic!("cannot divide `{}` by `{}`", ltype, rtype);
-                    }
+                    BinaryOpKind::Add |
+                    BinaryOpKind::Sub |
+                    BinaryOpKind::Mul |
+                    BinaryOpKind::Div |
                     BinaryOpKind::Rem => {
-                        panic!("cannot mod `{}` by `{}`", ltype, rtype);
+                        e0023(("[TODO: path]", &p.lines, &node.token),
+                            kind, &ltype, &rtype);
                     }
 
                     BinaryOpKind::Eq => {
@@ -453,23 +449,18 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tceq");
                         is_bool = true;
                     }
-                    _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
+                    _ => e0024(("[TODO: path]", &p.lines, &node.token), kind, &ltype, &rtype)
                 }
                 Type::String => match kind {
                     BinaryOpKind::Add => {
                         println!("\tcall string System.String::Concat(string, string)");
                     }
-                    BinaryOpKind::Sub => {
-                        panic!("cannot subtract `{}` from `{}`", ltype, rtype);
-                    }
-                    BinaryOpKind::Mul => {
-                        panic!("cannot multiply `{}` by `{}`", ltype, rtype);
-                    }
-                    BinaryOpKind::Div => {
-                        panic!("cannot divide `{}` by `{}`", ltype, rtype);
-                    }
+                    BinaryOpKind::Sub |
+                    BinaryOpKind::Mul |
+                    BinaryOpKind::Div |
                     BinaryOpKind::Rem => {
-                        panic!("cannot mod `{}` by `{}`", ltype, rtype);
+                        e0023(("[TODO: path]", &p.lines, &node.token),
+                            kind, &ltype, &rtype);
                     }
 
                     BinaryOpKind::Eq => {
@@ -508,9 +499,9 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tceq");
                         is_bool = true;
                     }
-                    _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
+                    _ => e0024(("[TODO: path]", &p.lines, &node.token), kind, &ltype, &rtype)
                 }
-                _ => panic!("no implementation for `{}` {} `{}`", ltype, kind, rtype)
+                _ => e0024(("[TODO: path]", &p.lines, &node.token), kind, &ltype, &rtype)
             }
             match (&ltype, &rtype) {
                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => {
@@ -588,11 +579,14 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 NodeKind::Path { .. } => gen_il(*child, p),
                 NodeKind::Call { name, args } => {
                     if let Some(im) = p.find_impl(&segment) {
-                        let func = im
+                        let func = if let Some(func) = im
                             .functions
                             .iter()
-                            .find(|f|f.name==name)
-                            .unwrap_or_else(|| panic!("The name '{}' does not exist in the current context", name));
+                            .find(|f|f.name==name) {
+                                func
+                            } else {
+                                e0014(("[TODO: path]", &p.lines, &node.token), &segment, &name);
+                            };
                         for arg in args {
                             gen_il(arg, p);
                         }
@@ -607,7 +601,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, args);
                         func.rettype.clone()
                     } else {
-                        panic!("The name '{}' does not exist in the current context", name);
+                        e0014(("[TODO: path]", &p.lines, &node.token), &segment, &name);
                     }
                 }
                 _ => {

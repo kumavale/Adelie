@@ -1078,10 +1078,10 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.eat(TokenKind::Dot) {
+                let begin = self.idx;
                 let ident = self.expect_ident();
                 if self.eat(TokenKind::LParen) {
                     // method
-                    let begin = self.idx;
                     let mut args = vec![];
                     while !self.eat(TokenKind::RParen) {
                         args.push(self.parse_expr());
@@ -1097,7 +1097,7 @@ impl<'a> Parser<'a> {
                     );
                 } else {
                     // field
-                    node = new_field_node(node, ident, &self.tokens[self.idx-1..self.idx]);
+                    node = new_field_node(node, ident, &self.tokens[begin..self.idx]);
                 }
             } else {
                 return node;
