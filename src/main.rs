@@ -29,6 +29,9 @@ fn main() {
     let program = parser.gen_ast();
 
     println!(".assembly extern mscorlib {{}}");
+    println!(".assembly extern System.Diagnostics.Debug {{
+        .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)
+    }}");
     println!(".assembly tmp {{}}");
 
     for st in &program.structs {

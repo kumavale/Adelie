@@ -41,7 +41,7 @@ fn gen_assert_il(mut args: Vec<Node>, p: &Program) -> Type {
         todo!();
     }
     gen_il(args.pop().unwrap(), p);
-    println!("\ncall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
+    println!("\tcall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
     Type::Void
 }
 
@@ -52,7 +52,7 @@ fn gen_assert_eq_il(mut args: Vec<Node>, p: &Program) -> Type {
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
     gen_il(new_binary_op_node(BinaryOpKind::Eq, lhs, rhs, &[]), p);
-    println!("\ncall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
+    println!("\tcall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
     Type::Void
 }
 
