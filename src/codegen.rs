@@ -246,22 +246,42 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         NodeKind::Assign { lhs, rhs } => {
             match lhs.kind {
                 NodeKind::Variable { obj } => {
-                    gen_il(*rhs, p);
+                    let rty = gen_il(*rhs, p);
+                    match (&obj.ty, &rty) {
+                        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+                        _ if obj.ty == rty => (),
+                        _ => e0012((p.path, &p.lines, node.token), &obj.ty, &rty)
+                    }
                     println!("\tstloc {}", obj.offset);
                 }
                 NodeKind::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
-                    //match expr {
-                    //    NodeKind::Variable { obj }
-                    //}
-                    gen_il(*expr, p);
-                    gen_il(*rhs, p);
-                    println!("\tstind.i4");
+                    let lty = gen_il(*expr, p);
+                    let rty = gen_il(*rhs, p);
+                    if let Type::Ptr(lty) = lty {
+                        match (&*lty, &rty) {
+                            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+                            _ if *lty == rty => (),
+                            _ => e0012((p.path, &p.lines, node.token), &lty, &rty)
+                        }
+                        match *lty {
+                            Type::Ptr(_) => println!("\tstind.i"),
+                            Type::Numeric(Numeric::I32) => println!("\tstind.i4"),
+                            _ => unimplemented!(),
+                        }
+                    } else {
+                        e0022((p.path, &p.lines, node.token), &lty);
+                    }
                 }
                 NodeKind::Field { expr, ident } => {
                     if let Type::Struct(stname) = gen_il(*expr, p) {
                         if let Some(st) = p.find_struct(&stname) {
                             if let Some(field) = st.field.iter().find(|o|o.name==ident) {
-                                gen_il(*rhs, p);
+                                let rty = gen_il(*rhs, p);
+                                match (&field.ty, &rty) {
+                                    (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+                                    _ if field.ty == rty => (),
+                                    _ => e0012((p.path, &p.lines, node.token), &field.ty, &rty)
+                                }
                                 println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
                             } else {
                                 e0015((p.path, &p.lines, node.token), &stname, &ident);
@@ -350,7 +370,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
                 UnaryOpKind::Deref => {
                     let ty = gen_il(*expr, p);
-                    if let Type::Ptr(ty) = ty{
+                    if let Type::Ptr(ty) = ty {
                         match *ty {
                             Type::Ptr(_) => println!("\tldind.i"),
                             Type::Numeric(Numeric::I32) => println!("\tldind.i4"),
