@@ -8,6 +8,7 @@ use super::object::*;
 #[derive(Clone, Debug)]
 pub struct Program<'a> {
     // TODO: Files { path, lines }
+    pub path: &'a str,
     pub lines: Vec<&'a str>,
     pub functions: Vec<Rc<Function<'a>>>,
     pub structs: Vec<Struct>,
@@ -16,8 +17,9 @@ pub struct Program<'a> {
 }
 
 impl<'a> Program<'a> {
-    pub fn new(input: &'a str) -> Self {
+    pub fn new(path: &'a str, input: &'a str) -> Self {
         Program {
+            path,
             lines: input.lines().collect(),
             functions: vec![],
             structs: vec![],

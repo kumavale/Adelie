@@ -409,7 +409,7 @@ impl<'a> Parser<'a> {
     }
 
     fn program(&mut self) -> Program {
-        let mut program = Program::new(self.input);
+        let mut program = Program::new(self.path, self.input);
         while !self.is_eof() {
             if self.eat_keyword(Keyword::Struct) {
                 let st = self.parse_item_struct();

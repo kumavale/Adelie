@@ -74,7 +74,7 @@ fn gen_print_il(mut args: Vec<Node>, p: &Program) -> Type {
             let token = format.token;
             let fmtty = gen_il(format, p);
             if fmtty != Type::String {
-                e0012(("[TODO: path]", &p.lines, token), &Type::String, &fmtty);
+                e0012((p.path, &p.lines, token), &Type::String, &fmtty);
             }
             println!("\tldc.i4 {}", argc);
             println!("\tnewarr object");
@@ -111,7 +111,7 @@ fn gen_println_il(mut args: Vec<Node>, p: &Program) -> Type {
             let token = format.token;
             let fmtty = gen_il(format, p);
             if fmtty != Type::String {
-                e0012(("[TODO: path]", &p.lines, token), &Type::String, &fmtty);
+                e0012((p.path, &p.lines, token), &Type::String, &fmtty);
             }
             println!("\tldc.i4 {}", argc);
             println!("\tnewarr object");
