@@ -404,8 +404,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn errorset(&self) -> (&str, &[&'a str], &Token) {
-        (self.path, &self.lines, self.token())
+    fn errorset(&self) -> (&str, &[&'a str], &[Token]) {
+        (self.path, &self.lines, &self.tokens[self.idx..=self.idx])
     }
 
     fn program(&mut self) -> Program {
@@ -561,7 +561,7 @@ impl<'a> Parser<'a> {
 
     fn parse_break_expr(&mut self) -> Node<'a> {
         if !self.inside_of_a_loop() {
-            e0011((self.path, &self.lines, &self.tokens[self.idx-1]));
+            e0011((self.path, &self.lines, &self.tokens[self.idx-1..self.idx]));
         }
         let begin = self.idx;
         if self.eat(TokenKind::Semi) {
