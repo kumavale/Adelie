@@ -4,6 +4,7 @@ use super::codegen::*;
 use super::error::*;
 use super::keyword::*;
 use super::program::*;
+use super::token::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Builtin {
@@ -72,6 +73,10 @@ fn gen_print_il(mut args: Vec<Node>, p: &Program) -> Type {
         _ => {
             let format = args.drain(..1).next().unwrap();
             let token = format.token;
+            if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
+                // format argument must be a string literal
+                e0025((p.path, &p.lines, token));
+            }
             let fmtty = gen_il(format, p);
             if fmtty != Type::String {
                 e0012((p.path, &p.lines, token), &Type::String, &fmtty);
@@ -109,6 +114,10 @@ fn gen_println_il(mut args: Vec<Node>, p: &Program) -> Type {
         _ => {
             let format = args.drain(..1).next().unwrap();
             let token = format.token;
+            if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
+                // format argument must be a string literal
+                e0025((p.path, &p.lines, token));
+            }
             let fmtty = gen_il(format, p);
             if fmtty != Type::String {
                 e0012((p.path, &p.lines, token), &Type::String, &fmtty);

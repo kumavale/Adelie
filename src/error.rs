@@ -248,6 +248,16 @@ pub fn e0024(
     panic!();
 }
 
+/// format argument must be a string literal
+pub fn e0025(
+    (path, lines, token): (&str, &[&str], &[Token]),
+) -> ! {
+    disp_error_code(25);
+    eprintln!("format argument must be a string literal");
+    eprint_nearby(path, lines, token).ok();
+    panic!();
+}
+
 fn eprint_nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<(), ()> {
     let begin  = &token[0];
     let end    = &token[token.len()-1];
