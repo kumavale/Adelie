@@ -561,7 +561,8 @@ impl<'a> Parser<'a> {
 
     fn parse_break_expr(&mut self) -> Node<'a> {
         if !self.inside_of_a_loop() {
-            e0011((self.path, &self.lines, &self.tokens[self.idx-1..self.idx]));
+            e0000((self.path, &self.lines, &self.tokens[self.idx-1..self.idx]),
+                "cannot `break` outside of a loop");
         }
         let begin = self.idx;
         if self.eat(TokenKind::Semi) {

@@ -75,7 +75,7 @@ fn gen_print_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
             let token = format.token;
             if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
                 // format argument must be a string literal
-                e0025((p.path, &p.lines, token));
+                e0000((p.path, &p.lines, token), "format argument must be a string literal");
             }
             let fmtty = gen_il(format, p);
             if fmtty != Type::String {
@@ -116,7 +116,7 @@ fn gen_println_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
             let token = format.token;
             if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
                 // format argument must be a string literal
-                e0025((p.path, &p.lines, token));
+                e0000((p.path, &p.lines, token), "format argument must be a string literal");
             }
             let fmtty = gen_il(format, p);
             if fmtty != Type::String {
@@ -141,7 +141,7 @@ fn gen_println_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
 
 fn gen_read_line_il(token: &[Token], args: Vec<Node>, p: &Program) -> Type {
     if !args.is_empty() {
-        e0026((p.path, &p.lines, token), "read_line! takes no arguments");
+        e0000((p.path, &p.lines, token), "read_line! takes no arguments");
     }
     println!("\tcall string [mscorlib]System.Console::ReadLine()");
     Type::String
