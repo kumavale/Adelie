@@ -21,7 +21,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             ty
         }
         NodeKind::Builtin { kind, args } => {
-            gen_builtin_il(kind, args, p)
+            gen_builtin_il(node.token, kind, args, p)
         }
         NodeKind::Call { name, args } => {
             if let Some(func) = p.find_fn(&name) {

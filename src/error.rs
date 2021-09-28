@@ -258,6 +258,17 @@ pub fn e0025(
     panic!();
 }
 
+/// any message
+pub fn e0026(
+    (path, lines, token): (&str, &[&str], &[Token]),
+    message: &str,
+) -> ! {
+    disp_error_code(26);
+    eprintln!("{}", message);
+    eprint_nearby(path, lines, token).ok();
+    panic!();
+}
+
 fn eprint_nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<(), ()> {
     let begin  = &token[0];
     let end    = &token[token.len()-1];
