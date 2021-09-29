@@ -52,7 +52,7 @@ fn main() {
                 .objs
                 .iter()
                 .skip(if func.is_static { 0 } else { 1 })
-                .map(|o|format!("{} {}", o.ty.to_ilstr(), o.name))
+                .map(|o|format!("{} {}", o.borrow().ty.to_ilstr(), o.borrow().name))
                 .collect::<Vec<String>>()
                 .join(", ");
             println!("\t.method public {} {} {}({}) cil managed {{",
@@ -70,6 +70,7 @@ fn main() {
                 .iter()
                 .enumerate()
                 .map(|(i, obj)| {
+                    let obj = obj.borrow();
                     if let keyword::Type::Struct(name) = &obj.ty{
                         use crate::object::FindSymbol;
                         if program.structs.find(name).is_none() {
@@ -105,7 +106,7 @@ fn main() {
                 .param_symbol_table
                 .objs
                 .iter()
-                .map(|o|format!("{} {}", o.ty.to_ilstr(), o.name))
+                .map(|o|format!("{} {}", o.borrow().ty.to_ilstr(), o.borrow().name))
                 .collect::<Vec<String>>()
                 .join(", ");
             println!(".method static {} {}({}) cil managed {{", func.rettype.to_ilstr(), func.name, args);
@@ -120,6 +121,7 @@ fn main() {
             .iter()
             .enumerate()
             .map(|(i, obj)| {
+                let obj = obj.borrow();
                 if let keyword::Type::Struct(name) = &obj.ty{
                     use crate::object::FindSymbol;
                     if program.structs.find(name).is_none() {

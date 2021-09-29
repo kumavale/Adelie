@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 use super::keyword::*;
 
@@ -7,6 +8,7 @@ pub struct Object {
     pub offset: usize,
     pub is_param: bool,
     pub ty: Type,
+    pub assigned: bool,
 }
 
 impl Object {
@@ -16,14 +18,15 @@ impl Object {
             offset,
             is_param,
             ty,
+            assigned: false,
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
-    pub objs: Vec<Rc<Object>>,
-    pub scopes: Vec<Vec<Rc<Object>>>,
+    pub objs: Vec<Rc<RefCell<Object>>>,
+    pub scopes: Vec<Vec<Rc<RefCell<Object>>>>,
 }
 
 impl SymbolTable {
@@ -42,17 +45,17 @@ impl SymbolTable {
         self.scopes.pop();
     }
 
-    pub fn push(&mut self, obj: Rc<Object>) {
+    pub fn push(&mut self, obj: Rc<RefCell<Object>>) {
         self.objs.push(Rc::clone(&obj));
         if let Some(current_scope) = self.scopes.last_mut() {
             current_scope.push(obj);
         }
     }
 
-    pub fn find_name_current_scope(&self, name: &str) -> Option<&Rc<Object>> {
+    pub fn find_name_current_scope(&self, name: &str) -> Option<&Rc<RefCell<Object>>> {
         if let Some(current_scope) = self.scopes.last() {
             for obj in current_scope {
-                if obj.name == name {
+                if obj.borrow().name == name {
                     return Some(obj);
                 }
             }
@@ -72,11 +75,11 @@ pub trait FindSymbol {
 }
 
 impl FindSymbol for SymbolTable {
-    type Item = Rc<Object>;
+    type Item = Rc<RefCell<Object>>;
 
     fn find(&self, name: &str) -> Option<&Self::Item> {
         for scope in self.scopes.iter().rev() {
-            if let Some(obj) = scope.iter().rev().find(|o|o.name == name) {
+            if let Some(obj) = scope.iter().rev().find(|o|o.borrow().name == name) {
                 return Some(obj)
             }
         }
@@ -85,7 +88,7 @@ impl FindSymbol for SymbolTable {
 
     fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
         for scope in self.scopes.iter_mut().rev() {
-            if let Some(obj) = scope.iter_mut().rev().find(|o|o.name == name) {
+            if let Some(obj) = scope.iter_mut().rev().find(|o|o.borrow().name == name) {
                 return Some(obj)
             }
         }

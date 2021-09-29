@@ -25,25 +25,23 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         }
         NodeKind::Call { name, args } => {
             if let Some(func) = p.find_fn(&name) {
-                let params = func
+                let params = &func
                     .param_symbol_table
-                    .objs
-                    .iter()
-                    .map(|o|&o.ty)
-                    .collect::<Vec<&Type>>();
-                for (arg, param_ty) in args.into_iter().zip(&params) {
+                    .objs;
+                for (arg, param) in args.into_iter().zip(params) {
                     let token = arg.token;
+                    let param_ty = &param.borrow().ty;
                     let arg_ty = gen_il(arg, p);
                     match (&arg_ty, &param_ty) {
                         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
-                        _ if &arg_ty == *param_ty => (),
+                        _ if arg_ty == *param_ty => (),
                         _ => e0012((p.path, &p.lines, token), &arg_ty, param_ty)
                     }
                 }
                 let params = params
                     .iter()
-                    .map(|p|p.to_ilstr())
+                    .map(|p|p.borrow().ty.to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
                 println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
@@ -65,26 +63,26 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                         } else {
                             e0014((p.path, &p.lines, node.token), &ident, &st);
                         };
-                        let params = func
+                        let params = &func
                             .param_symbol_table
                             .objs
                             .iter()
                             .skip(if func.is_static { 0 } else { 1 })
-                            .map(|o|&o.ty)
-                            .collect::<Vec<&Type>>();
-                        for (arg, param_ty) in args.into_iter().zip(&params) {
+                            .collect::<Vec<_>>();
+                        for (arg, param) in args.into_iter().zip(params) {
                             let token = arg.token;
                             let arg_ty = gen_il(arg, p);
+                            let param_ty = &param.borrow().ty;
                             match (&arg_ty, &param_ty) {
                                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
-                                _ if &arg_ty == *param_ty => (),
+                                _ if &arg_ty == param_ty => (),
                                 _ => e0012((p.path, &p.lines, token), &arg_ty, param_ty)
                             }
                         }
                         let params = params
                             .iter()
-                            .map(|p|p.to_ilstr())
+                            .map(|p|p.borrow().ty.to_ilstr())
                             .collect::<Vec<String>>()
                             .join(", ");
                         println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st, ident, params);
@@ -99,6 +97,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
         }
         NodeKind::Struct { obj, field } => {
+            let obj = obj.borrow();
             if let Some(st) = p.find_struct(&obj.ty.to_string()) {
                 if field.len() != st.field.len() {
                     e0017((p.path, &p.lines, node.token), &st.name);
@@ -162,6 +161,10 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             }
         }
         NodeKind::Variable { obj } => {
+            let obj = obj.borrow();
+            if !obj.assigned {
+                e0027((p.path, &p.lines, node.token), &obj.name);
+            }
             if obj.is_param {
                 println!("\tldarg {}", obj.offset);
             } else {
@@ -246,6 +249,8 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
         NodeKind::Assign { lhs, rhs } => {
             match lhs.kind {
                 NodeKind::Variable { obj } => {
+                    obj.borrow_mut().assigned = true;
+                    let obj = obj.borrow();
                     let rty = gen_il(*rhs, p);
                     match (&obj.ty, &rty) {
                         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
@@ -358,6 +363,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                 }
                 UnaryOpKind::Ref => {
                     if let NodeKind::Variable { obj } = expr.kind {
+                        let obj = obj.borrow();
                         if obj.is_param {
                             println!("\tldarga {}", obj.offset);
                         } else {
@@ -617,7 +623,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                             .objs
                             .iter()
                             .skip(if func.is_static { 0 } else { 1 })
-                            .map(|o|o.ty.to_ilstr())
+                            .map(|o|o.borrow().ty.to_ilstr())
                             .collect::<Vec<String>>()
                             .join(", ");
                         println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, args);

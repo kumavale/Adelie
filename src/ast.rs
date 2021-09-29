@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 use super::builtin::*;
@@ -69,7 +70,7 @@ pub enum NodeKind<'a> {
         args: Vec<Node<'a>>,
     },
     Struct {
-        obj: Rc<Object>,
+        obj: Rc<RefCell<Object>>,
         field: Vec<Node<'a>>,
     },
     Field {
@@ -77,7 +78,7 @@ pub enum NodeKind<'a> {
         ident: String,
     },
     Variable {
-        obj: Rc<Object>,
+        obj: Rc<RefCell<Object>>,
     },
     Block {
         stmts: Vec<Node<'a>>,
@@ -388,7 +389,8 @@ pub fn new_struct_expr_node<'a>(
         }
     }
     let unique_name = format!("{}:{}", name, seq());
-    let obj = Rc::new(Object::new(unique_name, symbol_table.len(), false, Type::Struct(name.to_string())));
+    let obj = Rc::new(RefCell::new(Object::new(unique_name, symbol_table.len(), false, Type::Struct(name.to_string()))));
+    obj.borrow_mut().assigned = true;
     symbol_table.push(Rc::clone(&obj));
     Node {
         kind: NodeKind::Struct {
@@ -430,7 +432,7 @@ pub fn new_method_call_node<'a>(
 }
 
 pub fn new_variable_node<'a>(
-    obj: &Rc<Object>,
+    obj: &Rc<RefCell<Object>>,
     token: &'a [Token],
 ) -> Node<'a> {
     Node {
@@ -447,7 +449,7 @@ pub fn new_variable_node_with_let<'a>(
     ty: Type,
     token: &'a [Token],
 ) -> Node<'a> {
-    let obj = Rc::new(Object::new(ident, symbol_table.len(), false, ty));
+    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.len(), false, ty)));
     symbol_table.push(Rc::clone(&obj));
     Node {
         kind: NodeKind::Variable {

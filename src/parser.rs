@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 use super::ast::*;
 use super::builtin::*;
@@ -469,7 +470,7 @@ impl<'a> Parser<'a> {
 
     fn parse_item_fn(&mut self) -> Function<'a> {
         let ident = self.expect_ident();
-        let obj = Rc::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void));
+        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void)));
         self.g_symbol_table.push(Rc::clone(&obj));
         self.current_fn = Some(Function::new(&ident));
 
@@ -499,7 +500,8 @@ impl<'a> Parser<'a> {
         } else {
             self.expect(TokenKind::Colon);
             let ty = self.type_no_bounds();
-            let obj = Rc::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty));
+            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty)));
+            obj.borrow_mut().assigned = true;
             self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
         }
     }

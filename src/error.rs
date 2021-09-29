@@ -251,6 +251,17 @@ pub fn e0024(
     panic!();
 }
 
+/// use of possibly-uninitialized variable: `{}`
+pub fn e0027(
+    (path, lines, token): (&str, &[&str], &[Token]),
+    ident:  &str,
+) -> ! {
+    disp_error_with_code(27);
+    eprintln!("use of possibly-uninitialized variable: `{}`", ident);
+    eprint_nearby(path, lines, token).ok();
+    panic!();
+}
+
 fn eprint_nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<(), ()> {
     let begin  = &token[0];
     let end    = &token[token.len()-1];
