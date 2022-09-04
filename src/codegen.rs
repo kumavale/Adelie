@@ -322,13 +322,18 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
                     println!("\tconv.i4");
                 }
                 Type::Bool => {
-                    if let Type::Numeric(_) = old_type {
-                        e0020((p.path, &p.lines, node.token), &Type::Bool);
+                    match old_type {
+                        Type::Bool => (),  // ok
+                        _ => e0020((p.path, &p.lines, node.token), &Type::Bool),
                     }
                     println!("\tldc.i4.0");
                     println!("\tcgt");
                 }
                 Type::Char => {
+                    match old_type {
+                        Type::Char | Type::Numeric(_) => (),  // ok
+                        _ => e0020((p.path, &p.lines, node.token), &Type::Char),
+                    }
                     println!("\tconv.u2");
                 }
                 Type::Ptr(_) => {
