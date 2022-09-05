@@ -64,7 +64,7 @@ pub enum TokenKind {
     Eof,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LiteralKind{
     Char(char),
     String(String),
@@ -81,7 +81,7 @@ impl fmt::Display for LiteralKind {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CommentKind {
     LineComment(String),
     BlockComment(String),

@@ -6,7 +6,7 @@ use super::keyword::*;
 use super::program::*;
 use super::token::*;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Builtin {
     Assert,
     AssertEq,

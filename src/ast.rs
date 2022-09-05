@@ -6,7 +6,7 @@ use super::keyword::*;
 use super::object::*;
 use super::token::*;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnaryOpKind {
     Neg,    // -
     Not,    // !
@@ -14,7 +14,7 @@ pub enum UnaryOpKind {
     Deref,  // *
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinaryOpKind {
     Add,     // +
     Sub,     // -
@@ -34,7 +34,7 @@ pub enum BinaryOpKind {
     Ge,      // >=
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ShortCircuitOpKind {
     And,  // &&
     Or,   // ||

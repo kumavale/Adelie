@@ -14,6 +14,7 @@ mod token;
 mod utils;
 
 use crate::keyword::*;
+use crate::program::Program;
 
 fn main() {
     let path = std::env::args().nth(1).unwrap();
@@ -28,12 +29,21 @@ fn main() {
     let mut parser = parser::Parser::new(&path, &input, &tokens, &mut g_symbol_table);
     let program = parser.gen_ast();
 
+    gen_init();
+    gen_structs(&program);
+    gen_impls(&program);
+    gen_functions(&program);
+}
+
+fn gen_init() {
     println!(".assembly extern mscorlib {{}}");
     println!(".assembly extern System.Diagnostics.Debug {{
         .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)
     }}");
     println!(".assembly tmp {{}}");
+}
 
+fn gen_structs(program: &Program) {
     for st in &program.structs {
         println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", st.name);
         println!("{{");
@@ -42,7 +52,9 @@ fn main() {
         }
         println!("}}");
     }
+}
 
+fn gen_impls(program: &Program) {
     for im in &program.impls {
         println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", im.name);
         println!("{{");
@@ -83,7 +95,7 @@ fn main() {
                 .join(",\n");
             println!("\t\t{})", locals);
 
-            let rettype = codegen::gen_il(func.statements.clone(), &program);
+            let rettype = codegen::gen_il(func.statements.clone(), program);
             match (&rettype, &func.rettype) {
                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                 _ => if rettype != func.rettype {
@@ -96,7 +108,9 @@ fn main() {
         }
         println!("}}");
     }
+}
 
+fn gen_functions(program: &Program) {
     for func in &program.functions {
         if func.name == "main" {
             println!(".method static void Main() cil managed {{");
@@ -134,7 +148,7 @@ fn main() {
             .join(",\n");
         println!("\t{})", locals);
 
-        let rettype = codegen::gen_il(func.statements.clone(), &program);
+        let rettype = codegen::gen_il(func.statements.clone(), program);
         match (&rettype, &func.rettype) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
             _ => if rettype != func.rettype {
