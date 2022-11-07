@@ -9,6 +9,9 @@ all: clippy build
 build:
 	cargo build
 
+check:
+	cargo check
+
 clippy:
 	cargo clippy
 
@@ -23,4 +26,4 @@ clean:
 	cargo clean
 	rm -rf tmp* $(TESTS) test/*.il test/*.exe
 
-.PHONY: build clippy test clean
+.PHONY: build check clippy test clean
