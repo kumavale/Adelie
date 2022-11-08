@@ -10,18 +10,10 @@ use std::cell::Ref;
 pub fn gen_il(node: Node, p: &Program) -> Type {
     match node.kind {
         NodeKind::Integer { ty, num } => {
-            use super::token::*;
-            debug_assert!(matches!(node.token[0].kind,
-                    TokenKind::Literal(LiteralKind::Char(_))
-                    | TokenKind::Literal(LiteralKind::Integer(_))
-                    | TokenKind::Keyword(Keyword::True)
-                    | TokenKind::Keyword(Keyword::False)));
-            gen_il_integer(num);
-            ty
+            gen_il_integer(node.token, p, ty, num)
         }
         NodeKind::String { ty, str } => {
-            gen_il_string(&str);
-            ty
+            gen_il_string(node.token, p, ty, &str)
         }
         NodeKind::Builtin { kind, args } => {
             gen_builtin_il(node.token, kind, args, p)
@@ -30,13 +22,13 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             gen_il_call(node.token, p, &name, args)
         }
         NodeKind::Method { expr, ident, args } => {
-            gen_il_method(node.token, p, expr, &ident, args)
+            gen_il_method(node.token, p, *expr, &ident, args)
         }
         NodeKind::Struct { obj, field } => {
             gen_il_struct(node.token, p, obj.borrow(), field)
         }
         NodeKind::Field { expr, ident } => {
-            gen_il_field(node.token, p, expr, &ident)
+            gen_il_field(node.token, p, *expr, &ident)
         }
         NodeKind::Variable { obj } => {
             gen_il_variable(node.token, p, obj.borrow())
@@ -45,16 +37,16 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             gen_il_block(node.token, p, stmts)
         }
         NodeKind::If { cond, then, els } => {
-            gen_il_if(node.token, p, cond, then, els)
+            gen_il_if(node.token, p, *cond, *then, els)
         }
         NodeKind::While { cond, then, brk_label_seq } => {
-            gen_il_while(node.token, p, cond, then, brk_label_seq)
+            gen_il_while(node.token, p, *cond, *then, brk_label_seq)
         }
         NodeKind::Loop { then, brk_label_seq } => {
-            gen_il_loop(node.token, p, then, brk_label_seq)
+            gen_il_loop(node.token, p, *then, brk_label_seq)
         }
         NodeKind::Assign { lhs, rhs } => {
-            gen_il_assign(node.token, p, lhs, rhs)
+            gen_il_assign(node.token, p, *lhs, *rhs)
         }
         NodeKind::Return { expr } => {
             gen_il_return(node.token, p, expr)
@@ -63,22 +55,22 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             gen_il_break(node.token, p, brk_label_seq)
         }
         NodeKind::Cast { ty: new_type, expr } => {
-            gen_il_cast(node.token, p, new_type, expr)
+            gen_il_cast(node.token, p, new_type, *expr)
         }
         NodeKind::UnaryOp { kind, expr } => {
-            gen_il_unaryop(node.token, p, kind, expr)
+            gen_il_unaryop(node.token, p, kind, *expr)
         }
         NodeKind::BinaryOp { kind, lhs, rhs } => {
-            gen_il_binaryop(node.token, p, kind, lhs, rhs)
+            gen_il_binaryop(node.token, p, kind, *lhs, *rhs)
         }
         NodeKind::ShortCircuitOp { kind, lhs, rhs } => {
-            gen_il_shortcircuitop(node.token, p, kind, lhs, rhs)
+            gen_il_shortcircuitop(node.token, p, kind, *lhs, *rhs)
         }
         NodeKind::Semi { expr } => {
-            gen_il_semi(node.token, p, expr)
+            gen_il_semi(node.token, p, *expr)
         }
         NodeKind::Path { segment, child } => {
-            gen_il_path(node.token, p, &segment, child)
+            gen_il_path(node.token, p, &segment, *child)
         }
         NodeKind::Empty => {
             gen_il_empty()
@@ -94,16 +86,24 @@ pub fn seq() -> usize {
     }
 }
 
-fn gen_il_integer(num: i128)  {
+fn gen_il_integer(current_token: &[Token], _p: &Program, ty: Type, num: i128) -> Type {
+    use super::token::*;
+    debug_assert!(matches!(current_token[0].kind,
+            TokenKind::Literal(LiteralKind::Char(_))
+            | TokenKind::Literal(LiteralKind::Integer(_))
+            | TokenKind::Keyword(Keyword::True)
+            | TokenKind::Keyword(Keyword::False)));
     println!("\tldc.i4 {}", num as i32);
+    ty
 }
 
-fn gen_il_string(str: &str)  {
+fn gen_il_string(_current_token: &[Token], _p: &Program, ty: Type, str: &str) -> Type {
     println!("\tldstr \"{}\"", str);
+    ty
 }
 
 fn gen_il_call(current_token: &[Token], p: &Program, name: &str, args: Vec<Node>) -> Type {
-    if let Some(func) = p.find_fn(&name) {
+    if let Some(func) = p.find_fn(name) {
         let params = &func
             .param_symbol_table
             .objs;
@@ -126,12 +126,12 @@ fn gen_il_call(current_token: &[Token], p: &Program, name: &str, args: Vec<Node>
         println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
         func.rettype.clone()
     } else {
-        e0013((p.path, &p.lines, current_token), &name);
+        e0013((p.path, &p.lines, current_token), name);
     }
 }
 
-fn gen_il_method(current_token: &[Token], p: &Program, expr: Box<Node>, ident: &str, args: Vec<Node>) -> Type {
-    match gen_il(*expr, p) {
+fn gen_il_method(current_token: &[Token], p: &Program, expr: Node, ident: &str, args: Vec<Node>) -> Type {
+    match gen_il(expr, p) {
         Type::Struct(st) => {
             if let Some(im) = p.find_impl(&st) {
                 let func = if let Some(func) = im
@@ -141,7 +141,7 @@ fn gen_il_method(current_token: &[Token], p: &Program, expr: Box<Node>, ident: &
                 {
                     func
                 } else {
-                    e0014((p.path, &p.lines, current_token), &ident, &st);
+                    e0014((p.path, &p.lines, current_token), ident, &st);
                 };
                 let params = &func
                     .param_symbol_table
@@ -168,7 +168,7 @@ fn gen_il_method(current_token: &[Token], p: &Program, expr: Box<Node>, ident: &
                 println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st, ident, params);
                 func.rettype.clone()
             } else {
-                e0014((p.path, &p.lines, current_token), &ident, &st);
+                e0014((p.path, &p.lines, current_token), ident, &st);
             }
         }
         _ => {
@@ -196,8 +196,8 @@ fn gen_il_struct(current_token: &[Token], p: &Program, obj: Ref<Object>, field: 
     Type::Struct(obj.ty.to_string())
 }
 
-fn gen_il_field(current_token: &[Token], p: &Program, expr: Box<Node>, ident: &str) -> Type {
-    let stname = match gen_il(*expr, p) {
+fn gen_il_field(current_token: &[Token], p: &Program, expr: Node, ident: &str) -> Type {
+    let stname = match gen_il(expr, p) {
         Type::Struct(stname) => {
             stname
         }
@@ -235,7 +235,7 @@ fn gen_il_field(current_token: &[Token], p: &Program, expr: Box<Node>, ident: &s
             }
             ty
         } else {
-            e0015((p.path, &p.lines, current_token), &stname, &ident);
+            e0015((p.path, &p.lines, current_token), &stname, ident);
         }
     } else {
         e0016((p.path, &p.lines, current_token), &stname);
@@ -261,7 +261,7 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Ty
     obj.ty.clone()
 }
 
-fn gen_il_block(current_token: &[Token], p: &Program, stmts: Vec<Node>) -> Type {
+fn gen_il_block(_current_token: &[Token], p: &Program, stmts: Vec<Node>) -> Type {
     let mut ty = Type::Void;
     for stmt in stmts {
         match stmt.kind {
@@ -277,9 +277,9 @@ fn gen_il_block(current_token: &[Token], p: &Program, stmts: Vec<Node>) -> Type 
     ty
 }
 
-fn gen_il_if(current_token: &[Token], p: &Program, cond: Box<Node>, then: Box<Node>, els: Option<Box<Node>>) -> Type {
+fn gen_il_if(current_token: &[Token], p: &Program, cond: Node, then: Node, els: Option<Box<Node>>) -> Type {
     let token = cond.token;
-    let cond_type = gen_il(*cond, p);
+    let cond_type = gen_il(cond, p);
     if cond_type != Type::Bool {
         e0012((p.path, &p.lines, token), &Type::Bool, &cond_type);
     }
@@ -287,7 +287,7 @@ fn gen_il_if(current_token: &[Token], p: &Program, cond: Box<Node>, then: Box<No
     let else_label = format!("IL_else{}", seq);
     let end_label = format!("IL_end{}", seq);
     println!("\tbrfalse {}", else_label);
-    let then_type = gen_il(*then, p);
+    let then_type = gen_il(then, p);
     println!("\tbr {}", end_label);
     println!("{}:", else_label);
     let els_type = els.map(|els| (els.token, gen_il(*els, p)));
@@ -306,38 +306,38 @@ fn gen_il_if(current_token: &[Token], p: &Program, cond: Box<Node>, then: Box<No
     }
 }
 
-fn gen_il_while(current_token: &[Token], p: &Program, cond: Box<Node>, then: Box<Node>, brk_label_seq: usize) -> Type {
+fn gen_il_while(_current_token: &[Token], p: &Program, cond: Node, then: Node, brk_label_seq: usize) -> Type {
     let begin_label = format!("IL_begin{}", seq());
     let end_label = format!("IL_break{}", brk_label_seq);
     println!("{}:", begin_label);
     let token = cond.token;
-    let cond_type = gen_il(*cond, p);
+    let cond_type = gen_il(cond, p);
     if cond_type != Type::Bool {
         e0012((p.path, &p.lines, token), &Type::Bool, &cond_type);
     }
     println!("\tbrfalse {}", end_label);
-    let then_type = gen_il(*then, p);
+    let then_type = gen_il(then, p);
     println!("\tbr {}", begin_label);
     println!("{}:", end_label);
     then_type
 }
 
-fn gen_il_loop(current_token: &[Token], p: &Program, then: Box<Node>, brk_label_seq: usize) -> Type {
+fn gen_il_loop(_current_token: &[Token], p: &Program, then: Node, brk_label_seq: usize) -> Type {
     let begin_label = format!("IL_begin{}", seq());
     let end_label = format!("IL_break{}", brk_label_seq);
     println!("{}:", begin_label);
-    let then_type = gen_il(*then, p);
+    let then_type = gen_il(then, p);
     println!("\tbr {}", begin_label);
     println!("{}:", end_label);
     then_type
 }
 
-fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Box<Node>, rhs: Box<Node>) -> Type {
+fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Node, rhs: Node) -> Type {
     match lhs.kind {
         NodeKind::Variable { obj } => {
             obj.borrow_mut().assigned = true;
             let obj = obj.borrow();
-            let rty = gen_il(*rhs, p);
+            let rty = gen_il(rhs, p);
             match (&obj.ty, &rty) {
                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                 _ if obj.ty == rty => (),
@@ -347,7 +347,7 @@ fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Box<Node>, rhs: Box<
         }
         NodeKind::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
             let lty = gen_il(*expr, p);
-            let rty = gen_il(*rhs, p);
+            let rty = gen_il(rhs, p);
             if let Type::Ptr(lty) = lty {
                 match (&*lty, &rty) {
                     (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
@@ -367,7 +367,7 @@ fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Box<Node>, rhs: Box<
             if let Type::Struct(stname) = gen_il(*expr, p) {
                 if let Some(st) = p.find_struct(&stname) {
                     if let Some(field) = st.field.iter().find(|o|o.name==ident) {
-                        let rty = gen_il(*rhs, p);
+                        let rty = gen_il(rhs, p);
                         match (&field.ty, &rty) {
                             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                             _ if field.ty == rty => (),
@@ -389,7 +389,7 @@ fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Box<Node>, rhs: Box<
     Type::Void
 }
 
-fn gen_il_return(current_token: &[Token], p: &Program, expr: Option<Box<Node>>) -> Type {
+fn gen_il_return(_current_token: &[Token], p: &Program, expr: Option<Box<Node>>) -> Type {
     let rettype = if let Some(expr) = expr {
         gen_il(*expr, p)
     } else {
@@ -399,13 +399,13 @@ fn gen_il_return(current_token: &[Token], p: &Program, expr: Option<Box<Node>>) 
     rettype
 }
 
-fn gen_il_break(current_token: &[Token], p: &Program, brk_label_seq: usize) -> Type {
+fn gen_il_break(_current_token: &[Token], _p: &Program, brk_label_seq: usize) -> Type {
     println!("\tbr IL_break{}", brk_label_seq);
     Type::Void
 }
 
-fn gen_il_cast(current_token: &[Token], p: &Program, new_type: Type, expr: Box<Node>) -> Type {
-    let old_type = gen_il(*expr, p);
+fn gen_il_cast(current_token: &[Token], p: &Program, new_type: Type, expr: Node) -> Type {
+    let old_type = gen_il(expr, p);
     match new_type {
         Type::Numeric(Numeric::I32) => {
             println!("\tconv.i4");
@@ -434,10 +434,10 @@ fn gen_il_cast(current_token: &[Token], p: &Program, new_type: Type, expr: Box<N
     new_type
 }
 
-fn gen_il_unaryop(current_token: &[Token], p: &Program, kind: UnaryOpKind, expr: Box<Node>) -> Type {
+fn gen_il_unaryop(current_token: &[Token], p: &Program, kind: UnaryOpKind, expr: Node) -> Type {
     match kind {
         UnaryOpKind::Not => {
-            let ty = gen_il(*expr, p);
+            let ty = gen_il(expr, p);
             match ty {
                 Type::Bool => {
                     println!("\tldc.i4.0");
@@ -448,7 +448,7 @@ fn gen_il_unaryop(current_token: &[Token], p: &Program, kind: UnaryOpKind, expr:
             ty
         }
         UnaryOpKind::Neg => {
-            let ty= gen_il(*expr, p);
+            let ty= gen_il(expr, p);
             if let Type::Numeric(..) = ty {
                 println!("\tneg");
             } else {
@@ -466,11 +466,11 @@ fn gen_il_unaryop(current_token: &[Token], p: &Program, kind: UnaryOpKind, expr:
                 }
                 Type::Ptr(Box::new(obj.ty.clone()))
             } else {
-                Type::Ptr(Box::new(gen_il(*expr, p)))
+                Type::Ptr(Box::new(gen_il(expr, p)))
             }
         }
         UnaryOpKind::Deref => {
-            let ty = gen_il(*expr, p);
+            let ty = gen_il(expr, p);
             if let Type::Ptr(ty) = ty {
                 match *ty {
                     Type::Ptr(_) => println!("\tldind.i"),
@@ -485,9 +485,9 @@ fn gen_il_unaryop(current_token: &[Token], p: &Program, kind: UnaryOpKind, expr:
     }
 }
 
-fn gen_il_binaryop(current_token: &[Token], p: &Program, kind: BinaryOpKind, lhs: Box<Node>, rhs: Box<Node>) -> Type {
-    let ltype = gen_il(*lhs, p);
-    let rtype = gen_il(*rhs, p);
+fn gen_il_binaryop(current_token: &[Token], p: &Program, kind: BinaryOpKind, lhs: Node, rhs: Node) -> Type {
+    let ltype = gen_il(lhs, p);
+    let rtype = gen_il(rhs, p);
     let mut is_bool = false;
     match &ltype {
         Type::Numeric(..) => match kind {
@@ -653,20 +653,20 @@ fn gen_il_binaryop(current_token: &[Token], p: &Program, kind: BinaryOpKind, lhs
     }
 }
 
-fn gen_il_shortcircuitop(current_token: &[Token], p: &Program, kind: ShortCircuitOpKind, lhs: Box<Node>, rhs: Box<Node>) -> Type {
+fn gen_il_shortcircuitop(_current_token: &[Token], p: &Program, kind: ShortCircuitOpKind, lhs: Node, rhs: Node) -> Type {
     let end_label  = format!("IL_end{}", seq());
     match kind {
         ShortCircuitOpKind::And => {
             println!("\tldc.i4.0");
             let token = lhs.token;
-            let ltype = gen_il(*lhs, p);
+            let ltype = gen_il(lhs, p);
             if ltype != Type::Bool {
                 e0012((p.path, &p.lines, token), &Type::Bool, &ltype);
             }
             println!("\tbrfalse {}", end_label);
             println!("\tpop");
             let token = rhs.token;
-            let rtype = gen_il(*rhs, p);
+            let rtype = gen_il(rhs, p);
             if rtype != Type::Bool {
                 e0012((p.path, &p.lines, token), &Type::Bool, &rtype);
             }
@@ -675,14 +675,14 @@ fn gen_il_shortcircuitop(current_token: &[Token], p: &Program, kind: ShortCircui
         ShortCircuitOpKind::Or => {
             println!("\tldc.i4.1");
             let token = lhs.token;
-            let ltype = gen_il(*lhs, p);
+            let ltype = gen_il(lhs, p);
             if ltype != Type::Bool {
                 e0012((p.path, &p.lines, token), &Type::Bool, &ltype);
             }
             println!("\tbrtrue {}", end_label);
             println!("\tpop");
             let token = rhs.token;
-            let rtype = gen_il(*rhs, p);
+            let rtype = gen_il(rhs, p);
             if rtype != Type::Bool {
                 e0012((p.path, &p.lines, token), &Type::Bool, &rtype);
             }
@@ -692,27 +692,27 @@ fn gen_il_shortcircuitop(current_token: &[Token], p: &Program, kind: ShortCircui
     Type::Bool
 }
 
-fn gen_il_semi(current_token: &[Token], p: &Program, expr: Box<Node>) -> Type {
-    let ty = gen_il(*expr, p);
+fn gen_il_semi(_current_token: &[Token], p: &Program, expr: Node) -> Type {
+    let ty = gen_il(expr, p);
     if ty != Type::Void {
         println!("\tpop");
     }
     ty
 }
 
-fn gen_il_path(current_token: &[Token], p: &Program, segment: &str, child: Box<Node>) -> Type {
+fn gen_il_path(current_token: &[Token], p: &Program, segment: &str, child: Node) -> Type {
     // TODO
     match child.kind {
-        NodeKind::Path { .. } => gen_il(*child, p),
+        NodeKind::Path { .. } => gen_il(child, p),
         NodeKind::Call { name, args } => {
-            if let Some(im) = p.find_impl(&segment) {
+            if let Some(im) = p.find_impl(segment) {
                 let func = if let Some(func) = im
                     .functions
                     .iter()
                     .find(|f|f.name==name) {
                         func
                     } else {
-                        e0014((p.path, &p.lines, current_token), &segment, &name);
+                        e0014((p.path, &p.lines, current_token), segment, &name);
                     };
                 for arg in args {
                     gen_il(arg, p);
@@ -728,11 +728,11 @@ fn gen_il_path(current_token: &[Token], p: &Program, segment: &str, child: Box<N
                 println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, args);
                 func.rettype.clone()
             } else {
-                e0014((p.path, &p.lines, current_token), &segment, &name);
+                e0014((p.path, &p.lines, current_token), segment, &name);
             }
         }
         _ => {
-            gen_il(*child, p)
+            gen_il(child, p)
         }
     }
 }
