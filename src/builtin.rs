@@ -27,17 +27,17 @@ impl fmt::Display for Builtin {
     }
 }
 
-pub fn gen_builtin_il(token: &[Token], kind: Builtin, args: Vec<Node>, p: &Program) -> Type {
+pub fn gen_il_builtin(token: &[Token], kind: Builtin, args: Vec<Node>, p: &Program) -> Type {
     match kind {
-        Builtin::Assert   => gen_assert_il(token, args, p),
-        Builtin::AssertEq => gen_assert_eq_il(token, args, p),
-        Builtin::Print    => gen_print_il(token, args, p),
-        Builtin::Println  => gen_println_il(token, args, p),
-        Builtin::ReadLine => gen_read_line_il(token, args, p),
+        Builtin::Assert   => gen_il_builtin_assert(token, args, p),
+        Builtin::AssertEq => gen_il_builtin_assert_eq(token, args, p),
+        Builtin::Print    => gen_il_builtin_print(token, args, p),
+        Builtin::Println  => gen_il_builtin_println(token, args, p),
+        Builtin::ReadLine => gen_il_builtin_read_line(token, args, p),
     }
 }
 
-fn gen_assert_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_assert(_token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
     if args.len() != 1 {
         todo!();
     }
@@ -46,7 +46,7 @@ fn gen_assert_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
     Type::Void
 }
 
-fn gen_assert_eq_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_assert_eq(_token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
     if args.len() != 2 {
         todo!();
     }
@@ -57,7 +57,7 @@ fn gen_assert_eq_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
     Type::Void
 }
 
-fn gen_print_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_print(_token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
     let argc = args.len();
     match argc {
         0 => println!("\tcall void [mscorlib]System.Console::Write()"),
@@ -98,7 +98,7 @@ fn gen_print_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
     Type::Void
 }
 
-fn gen_println_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_println(_token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
     let argc = args.len();
     match argc {
         0 => println!("\tcall void [mscorlib]System.Console::WriteLine()"),
@@ -139,7 +139,7 @@ fn gen_println_il(token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
     Type::Void
 }
 
-fn gen_read_line_il(token: &[Token], args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_read_line(token: &[Token], args: Vec<Node>, p: &Program) -> Type {
     if !args.is_empty() {
         e0000((p.path, &p.lines, token), "read_line! takes no arguments");
     }

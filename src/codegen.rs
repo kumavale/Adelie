@@ -16,7 +16,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             gen_il_string(node.token, p, ty, &str)
         }
         NodeKind::Builtin { kind, args } => {
-            gen_builtin_il(node.token, kind, args, p)
+            gen_il_builtin(node.token, kind, args, p)
         }
         NodeKind::Call { name, args } => {
             gen_il_call(node.token, p, &name, args)
