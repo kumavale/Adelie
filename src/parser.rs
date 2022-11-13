@@ -310,7 +310,7 @@ impl<'a> Parser<'a> {
             brk_label_seq: 0,
             loop_count: 0,
         }
-    } 
+    }
 
     pub fn gen_ast(&mut self) -> Program<'_> {
         self.program()
@@ -362,8 +362,8 @@ impl<'a> Parser<'a> {
         self.tokens[self.idx].kind == TokenKind::Eof
     }
 
-    fn token(&self) -> &Token {
-        &self.tokens[self.idx]
+    fn current_token(&self) -> &[Token] {
+        &self.tokens[self.idx..=self.idx]
     }
 
     fn current_fn(&self) -> &Function {
@@ -406,7 +406,7 @@ impl<'a> Parser<'a> {
     }
 
     fn errorset(&self) -> (&str, &[&'a str], &[Token]) {
-        (self.path, &self.lines, &self.tokens[self.idx..=self.idx])
+        (self.path, &self.lines, self.current_token())
     }
 
     fn program(&mut self) -> Program {
@@ -507,7 +507,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_ret_ty(&mut self) {
-        self.current_fn_mut().rettype = self.type_no_bounds(); 
+        self.current_fn_mut().rettype = self.type_no_bounds();
     }
 
     fn parse_block_expr(&mut self) -> Node<'a> {

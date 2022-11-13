@@ -58,7 +58,9 @@ pub enum TokenKind {
     Literal(LiteralKind),
     Type(Type),
     Builtin(Builtin),
-    Comment(CommentKind),
+
+    #[allow(dead_code)]
+    Comment(CommentKind),  // TODO
 
     Unknown(String),
     Eof,
@@ -83,8 +85,10 @@ impl fmt::Display for LiteralKind {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CommentKind {
-    LineComment(String),
-    BlockComment(String),
+    #[allow(dead_code)]
+    LineComment(String),  // TODO
+    #[allow(dead_code)]
+    BlockComment(String),  // TODO
 }
 
 impl fmt::Display for CommentKind {

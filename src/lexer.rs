@@ -4,7 +4,7 @@ use super::keyword::*;
 use super::builtin::*;
 
 pub struct Lexer<'a> {
-    input: &'a str,
+    _input: &'a str,
     position: usize,
     read_position: usize,
     pub ch: Option<char>,
@@ -16,7 +16,7 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
         let mut l = Lexer {
-            input,
+            _input: input,
             position: 0,
             read_position: 0,
             ch: None,
@@ -114,6 +114,7 @@ impl<'a> Lexer<'a> {
                         }
                         s.push(c);
                     }
+                    // TODO
                     //Token::new(TokenKind::Comment(s), self.col, self.line)
                     return self.next_token();
                 }
@@ -131,6 +132,7 @@ impl<'a> Lexer<'a> {
                         }
                         s.push(c);
                     }
+                    // TODO
                     //Token::new(TokenKind::Comment(s), self.col, self.line)
                     return self.next_token();
                 }
