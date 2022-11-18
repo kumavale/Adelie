@@ -9,16 +9,18 @@ pub struct Object {
     pub is_param: bool,
     pub ty: Type,
     pub assigned: bool,
+    pub mutable: bool,
 }
 
 impl Object {
-    pub fn new(name: String, offset: usize, is_param: bool, ty: Type) -> Self {
+    pub fn new(name: String, offset: usize, is_param: bool, ty: Type, mutable: bool) -> Self {
         Object {
             name,
             offset,
             is_param,
             ty,
             assigned: false,
+            mutable,
         }
     }
 }

@@ -446,7 +446,8 @@ impl<'a> Parser<'a> {
             } else {
                 self.expect(TokenKind::Colon);
                 let ty = self.type_no_bounds();
-                let obj = Object::new(ident, st.field.len(), false, ty);
+                // TODO: とりあえず`mut`キーワードなしでもmutableにしている
+                let obj = Object::new(ident, st.field.len(), false, ty, true);
                 st.field.push(obj);
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
@@ -472,7 +473,8 @@ impl<'a> Parser<'a> {
 
     fn parse_item_fn(&mut self) -> Function<'a> {
         let ident = self.expect_ident();
-        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void)));
+        // TODO: とりあえず`mut`キーワードなしでもmutableにしている
+        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void, true)));
         self.g_symbol_table.push(Rc::clone(&obj));
         self.current_fn = Some(Function::new(&ident));
 
@@ -484,7 +486,8 @@ impl<'a> Parser<'a> {
                 self.current_fn_mut().is_static = false;
                 let ident = "self".to_string();
                 let ty = Type::_Self(self.current_impl.as_ref().unwrap().name.to_string());
-                let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty)));
+                // TODO: とりあえず`mut`キーワードなしでもmutableにしている
+                let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, true)));
                 obj.borrow_mut().assigned = true;
                 self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
@@ -515,7 +518,8 @@ impl<'a> Parser<'a> {
         } else {
             self.expect(TokenKind::Colon);
             let ty = self.type_no_bounds();
-            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty)));
+            // TODO: とりあえず`mut`キーワードなしでもmutableにしている
+            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, true)));
             obj.borrow_mut().assigned = true;
             self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
         }
@@ -591,6 +595,7 @@ impl<'a> Parser<'a> {
 
     fn parse_let_stmt(&mut self) -> Node<'a> {
         let begin = self.idx;
+        let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = self.expect_ident();
         self.expect(TokenKind::Colon);
         let ty = self.type_no_bounds();
@@ -600,6 +605,7 @@ impl<'a> Parser<'a> {
             ident,
             ty,
             token,
+            is_mutable,
         );
         if self.eat(TokenKind::Assign) {
             let node = new_assign_node(
