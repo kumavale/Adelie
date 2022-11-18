@@ -23,6 +23,14 @@ impl Object {
             mutable,
         }
     }
+
+    pub fn is_assigned(&self) -> bool {
+        self.assigned
+    }
+
+    pub fn is_mutable(&self) -> bool {
+        self.mutable
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

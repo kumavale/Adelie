@@ -262,6 +262,17 @@ pub fn e0027(
     panic!();
 }
 
+/// cannot assign twice to immutable variable: `{}`
+pub fn e0028(
+    (path, lines, token): (&str, &[&str], &[Token]),
+    ident:  &str,
+) -> ! {
+    disp_error_with_code(28);
+    eprintln!("cannot assign twice to immutable variable: `{}`", ident);
+    eprint_nearby(path, lines, token).ok();
+    panic!();
+}
+
 fn eprint_nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<(), ()> {
     let begin  = &token[0];
     let end    = &token[token.len()-1];

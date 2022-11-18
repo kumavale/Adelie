@@ -335,9 +335,13 @@ fn gen_il_loop(_current_token: &[Token], p: &Program, then: Node, brk_label_seq:
 fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Node, rhs: Node) -> Type {
     match lhs.kind {
         NodeKind::Variable { obj } => {
+            let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
             let obj = obj.borrow();
             let rty = gen_il(rhs, p);
+            if !obj.is_mutable() && is_assigned {
+                e0028((p.path, &p.lines, current_token), &obj.name);
+            }
             match (&obj.ty, &rty) {
                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                 _ if obj.ty == rty => (),
