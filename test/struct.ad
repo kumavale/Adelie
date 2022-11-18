@@ -10,9 +10,10 @@ struct Point {
 impl Rectangle {
     fn new() -> Rectangle { Rectangle { 1, 2, Point { 3, 4 } } }
     fn print_ok() { println!("ok"); }
-    fn max(_: &self, a: i32, b: i32,) -> i32 { if a > b { a } else { b } }
+    fn max(&self, a: i32, b: i32,) -> i32 { if a > b { a } else { b } }
     fn min(a: i32, b: i32,) -> i32 { if a < b { a } else { b } }
-    fn area(this: &self) -> i32 { this.width * this.height }
+    fn area(&self) -> i32 { self.width * self.height }
+    fn area2(this: &Self) -> i32 { this.width * this.height }
 }
 fn main() {
     let rect: Rectangle = Rectangle { 30, 50, Point { 128, 255 } };
@@ -22,6 +23,7 @@ fn main() {
     assert_eq!(6, rect.max(3, 6));
     assert_eq!(3, Rectangle::min(3, 6));
     assert_eq!(2100, rect.area());
+    assert_eq!(2100, rect.area2());
     let rect2: Rectangle = Rectangle::new();
     assert!(rect2.width == 1 && rect2.height == 2 && rect2.point.x == 3 && rect2.point.y == 4);
 

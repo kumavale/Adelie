@@ -22,7 +22,9 @@ use super::error::*;
 // Function :
 //     `fn` IDENTIFIER `(` FunctionParameters ? `)` FunctionReturnType ? BlockExpression
 // FunctionParameters :
-//     FunctionParam ( `,` FunctionParam ) * `,` ?
+//     SelfParam ? FunctionParam ( `,` FunctionParam ) * `,` ?
+// SelfParam:
+//     `&self`
 // FunctionParam :
 //     IDENTIFIER `:` Type
 // FunctionReturnType :
@@ -384,7 +386,7 @@ impl<'a> Parser<'a> {
             ty.clone()
         } else if let Some(ident) = self.eat_ident() {
             Type::Struct(ident)
-        } else if self.eat_keyword(Keyword::SelfLower) {
+        } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
             Type::_Self(self.current_impl.as_ref().unwrap().name.to_string())
         } else {
@@ -476,6 +478,19 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenKind::LParen);
         if !self.eat(TokenKind::RParen) {
+            // TODO: 所有権の実装後に`&`なしの`self`に対応
+            if self.eat(TokenKind::And) && self.eat_keyword(Keyword::SelfLower) {
+                // (&self) -> (self: &Self)
+                self.current_fn_mut().is_static = false;
+                let ident = "self".to_string();
+                let ty = Type::_Self(self.current_impl.as_ref().unwrap().name.to_string());
+                let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty)));
+                obj.borrow_mut().assigned = true;
+                self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
+                    e0009(self.errorset());
+                }
+            }
             while !self.eat(TokenKind::RParen) {
                 self.parse_fn_params();
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
@@ -1136,6 +1151,10 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(b) if matches!(b, Keyword::True|Keyword::False) => {
                 self.idx += 1;
                 new_bool_node(*b, &self.tokens[self.idx-1..self.idx])
+            }
+            TokenKind::Keyword(Keyword::SelfLower) => {
+                self.idx += 1;
+                self.parse_ident("self")
             }
             TokenKind::Builtin(kind) => {
                 self.idx += 1;
