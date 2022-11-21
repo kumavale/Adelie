@@ -18,7 +18,7 @@ impl Rectangle {
     //fn assign_param(mut a: i32) -> i32 { a = 3; a }
 }
 fn main() {
-    let rect: Rectangle = Rectangle { 30, 50, Point { 128, 255 } };
+    let mut rect: Rectangle = Rectangle { 30, 50, Point { 128, 255 } };
     rect.width = 42;
     rect.point.x = 64;
     assert!(rect.width == 42 && rect.height == 50 && rect.point.x == 64 && rect.point.y == 255);
@@ -26,7 +26,7 @@ fn main() {
     assert_eq!(3, Rectangle::min(3, 6));
     assert_eq!(2100, rect.area());
     assert_eq!(2100, rect.area2());
-    let rect2: Rectangle = Rectangle::new();
+    let mut rect2: Rectangle = Rectangle::new();
     assert!(rect2.width == 1 && rect2.height == 2 && rect2.point.x == 3 && rect2.point.y == 4);
 
     rect2.update(5, 6);

@@ -385,10 +385,10 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             ty.clone()
         } else if let Some(ident) = self.eat_ident() {
-            Type::Struct(ident)
+            Type::Struct(ident, false)
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
-            Type::_Self(self.current_impl.as_ref().unwrap().name.to_string())
+            Type::_Self(self.current_impl.as_ref().unwrap().name.to_string(), false)
         } else {
             e0002(self.errorset());
         }
@@ -485,7 +485,7 @@ impl<'a> Parser<'a> {
                     // (&self) -> (self: &Self)
                     self.current_fn_mut().is_static = false;
                     let ident = "self".to_string();
-                    let ty = Type::_Self(self.current_impl.as_ref().unwrap().name.to_string());
+                    let ty = Type::_Self(self.current_impl.as_ref().unwrap().name.to_string(), false);
                     let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
                     obj.borrow_mut().assigned = true;
                     self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));

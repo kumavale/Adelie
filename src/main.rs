@@ -85,7 +85,7 @@ fn gen_impls(program: &Program) {
                 .enumerate()
                 .map(|(i, obj)| {
                     let obj = obj.borrow();
-                    if let keyword::Type::Struct(name) = &obj.ty{
+                    if let keyword::Type::Struct(name, _) = &obj.ty{
                         use crate::object::FindSymbol;
                         if program.structs.find(name).is_none() {
                             panic!("cannot find struct, variant or union type `{}` in this scope", name);
@@ -138,7 +138,7 @@ fn gen_functions(program: &Program) {
             .enumerate()
             .map(|(i, obj)| {
                 let obj = obj.borrow();
-                if let keyword::Type::Struct(name) = &obj.ty{
+                if let keyword::Type::Struct(name, _) = &obj.ty{
                     use crate::object::FindSymbol;
                     if program.structs.find(name).is_none() {
                         panic!("cannot find struct, variant or union type `{}` in this scope", name);
