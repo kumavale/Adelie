@@ -368,24 +368,28 @@ fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Node, rhs: Node) -> 
             }
         }
         NodeKind::Field { expr, ident } => {
-            if let Type::Struct(stname) = gen_il(*expr, p) {
-                if let Some(st) = p.find_struct(&stname) {
-                    if let Some(field) = st.field.iter().find(|o|o.name==ident) {
-                        let rty = gen_il(rhs, p);
-                        match (&field.ty, &rty) {
-                            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
-                            _ if field.ty == rty => (),
-                            _ => e0012((p.path, &p.lines, current_token), &field.ty, &rty)
+            match gen_il(*expr, p) {
+                Type::Struct(stname) |
+                Type::_Self(stname) => {
+                    if let Some(st) = p.find_struct(&stname) {
+                        if let Some(field) = st.field.iter().find(|o|o.name==ident) {
+                            let rty = gen_il(rhs, p);
+                            match (&field.ty, &rty) {
+                                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+                                _ if field.ty == rty => (),
+                                _ => e0012((p.path, &p.lines, current_token), &field.ty, &rty)
+                            }
+                            println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
+                        } else {
+                            e0015((p.path, &p.lines, current_token), &stname, &ident);
                         }
-                        println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
                     } else {
-                        e0015((p.path, &p.lines, current_token), &stname, &ident);
+                        e0016((p.path, &p.lines, current_token), &stname);
                     }
-                } else {
-                    e0016((p.path, &p.lines, current_token), &stname);
                 }
-            } else {
-                unimplemented!("primitive type");
+                _ => {
+                    unimplemented!("primitive type");
+                }
             }
         }
         _ => e0019((p.path, &p.lines, current_token))
