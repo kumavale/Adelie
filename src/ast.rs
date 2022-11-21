@@ -389,8 +389,7 @@ pub fn new_struct_expr_node<'a>(
         }
     }
     let unique_name = format!("{}:{}", name, seq());
-    // TODO: とりあえず`mut`キーワードなしでもmutableにしている
-    let obj = Rc::new(RefCell::new(Object::new(unique_name, symbol_table.len(), false, Type::Struct(name.to_string()), true)));
+    let obj = Rc::new(RefCell::new(Object::new(unique_name, symbol_table.len(), false, Type::Struct(name.to_string()), false)));
     obj.borrow_mut().assigned = true;
     symbol_table.push(Rc::clone(&obj));
     Node {

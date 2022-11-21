@@ -29,6 +29,8 @@ fn main() {
     let mut parser = parser::Parser::new(&path, &input, &tokens, &mut g_symbol_table);
     let program = parser.gen_ast();
 
+    //eprintln!("{:#?}", program);
+
     gen_init();
     gen_structs(&program);
     gen_impls(&program);
