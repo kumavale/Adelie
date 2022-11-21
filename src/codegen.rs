@@ -132,7 +132,7 @@ fn gen_il_call(current_token: &[Token], p: &Program, name: &str, args: Vec<Node>
 
 fn gen_il_method(current_token: &[Token], p: &Program, expr: Node, ident: &str, args: Vec<Node>) -> Type {
     match gen_il(expr, p) {
-        Type::Struct(st) => {
+        Type::Struct(st, _) => {
             if let Some(im) = p.find_impl(&st) {
                 let func = if let Some(func) = im
                     .functions
@@ -193,25 +193,25 @@ fn gen_il_struct(current_token: &[Token], p: &Program, obj: Ref<Object>, field: 
     } else {
         e0016((p.path, &p.lines, current_token), &obj.name);
     }
-    Type::Struct(obj.ty.to_string())
+    Type::Struct(obj.ty.to_string(), false)
 }
 
 fn gen_il_field(current_token: &[Token], p: &Program, expr: Node, ident: &str) -> Type {
-    let stname = match gen_il(expr, p) {
-        Type::Struct(stname) => {
-            stname
+    let (stname, is_mutable) = match gen_il(expr, p) {
+        Type::Struct(stname, is_mutable) => {
+            (stname, is_mutable)
         }
-        Type::_Self(stname) => {
+        Type::_Self(stname, is_mutable) => {
             //println!("\tldarg.0");
-            stname
+            (stname, is_mutable)
         }
         Type::Ptr(ty) => {
             match *ty {
-                Type::_Self(stname) => {
+                Type::_Self(stname, is_mutable) => {
                     // &self
                     // tmp
                     //println!("\tldarg.0");
-                    stname
+                    (stname, is_mutable)
                 }
                 _ => {
                     unimplemented!()
@@ -233,7 +233,11 @@ fn gen_il_field(current_token: &[Token], p: &Program, expr: Node, ident: &str) -
                     println!("\tldfld {} {}::{}", ty.to_ilstr(), stname, ident);
                 }
             }
-            ty
+            if is_mutable {
+                ty.to_mutable()
+            } else {
+                ty
+            }
         } else {
             e0015((p.path, &p.lines, current_token), &stname, ident);
         }
@@ -258,7 +262,11 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Ty
             }
         }
     }
-    obj.ty.clone()
+    if obj.is_mutable() {
+        obj.ty.clone().to_mutable()
+    } else {
+        obj.ty.clone()
+    }
 }
 
 fn gen_il_block(_current_token: &[Token], p: &Program, stmts: Vec<Node>) -> Type {
@@ -335,9 +343,13 @@ fn gen_il_loop(_current_token: &[Token], p: &Program, then: Node, brk_label_seq:
 fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Node, rhs: Node) -> Type {
     match lhs.kind {
         NodeKind::Variable { obj } => {
+            let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
             let obj = obj.borrow();
             let rty = gen_il(rhs, p);
+            if !obj.is_mutable() && is_assigned {
+                e0028((p.path, &p.lines, current_token), &obj.name);
+            }
             match (&obj.ty, &rty) {
                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                 _ if obj.ty == rty => (),
@@ -364,24 +376,31 @@ fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Node, rhs: Node) -> 
             }
         }
         NodeKind::Field { expr, ident } => {
-            if let Type::Struct(stname) = gen_il(*expr, p) {
-                if let Some(st) = p.find_struct(&stname) {
-                    if let Some(field) = st.field.iter().find(|o|o.name==ident) {
-                        let rty = gen_il(rhs, p);
-                        match (&field.ty, &rty) {
-                            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
-                            _ if field.ty == rty => (),
-                            _ => e0012((p.path, &p.lines, current_token), &field.ty, &rty)
+            match gen_il(*expr, p) {
+                Type::Struct(stname, is_mutable) |
+                Type::_Self(stname, is_mutable) => {
+                    if let Some(st) = p.find_struct(&stname) {
+                        if let Some(field) = st.field.iter().find(|o|o.name==ident) {
+                            let rty = gen_il(rhs, p);
+                            match (&field.ty, &rty) {
+                                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+                                _ if field.ty == rty => (),
+                                _ => e0012((p.path, &p.lines, current_token), &field.ty, &rty)
+                            }
+                            if !is_mutable {
+                                e0028((p.path, &p.lines, current_token), &format!("{stname}.{ident}"));
+                            }
+                            println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
+                        } else {
+                            e0015((p.path, &p.lines, current_token), &stname, &ident);
                         }
-                        println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
                     } else {
-                        e0015((p.path, &p.lines, current_token), &stname, &ident);
+                        e0016((p.path, &p.lines, current_token), &stname);
                     }
-                } else {
-                    e0016((p.path, &p.lines, current_token), &stname);
                 }
-            } else {
-                unimplemented!("primitive type");
+                _ => {
+                    unimplemented!("primitive type");
+                }
             }
         }
         _ => e0019((p.path, &p.lines, current_token))

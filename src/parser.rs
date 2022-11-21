@@ -385,10 +385,10 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             ty.clone()
         } else if let Some(ident) = self.eat_ident() {
-            Type::Struct(ident)
+            Type::Struct(ident, false)
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
-            Type::_Self(self.current_impl.as_ref().unwrap().name.to_string())
+            Type::_Self(self.current_impl.as_ref().unwrap().name.to_string(), false)
         } else {
             e0002(self.errorset());
         }
@@ -446,7 +446,7 @@ impl<'a> Parser<'a> {
             } else {
                 self.expect(TokenKind::Colon);
                 let ty = self.type_no_bounds();
-                let obj = Object::new(ident, st.field.len(), false, ty);
+                let obj = Object::new(ident, st.field.len(), false, ty, false);
                 st.field.push(obj);
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
@@ -472,23 +472,29 @@ impl<'a> Parser<'a> {
 
     fn parse_item_fn(&mut self) -> Function<'a> {
         let ident = self.expect_ident();
-        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void)));
+        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void, false)));
         self.g_symbol_table.push(Rc::clone(&obj));
         self.current_fn = Some(Function::new(&ident));
 
         self.expect(TokenKind::LParen);
         if !self.eat(TokenKind::RParen) {
             // TODO: 所有権の実装後に`&`なしの`self`に対応
-            if self.eat(TokenKind::And) && self.eat_keyword(Keyword::SelfLower) {
-                // (&self) -> (self: &Self)
-                self.current_fn_mut().is_static = false;
-                let ident = "self".to_string();
-                let ty = Type::_Self(self.current_impl.as_ref().unwrap().name.to_string());
-                let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty)));
-                obj.borrow_mut().assigned = true;
-                self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
-                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                    e0009(self.errorset());
+            if self.eat(TokenKind::And) {
+                let is_mutable = self.eat_keyword(Keyword::Mut);
+                if self.eat_keyword(Keyword::SelfLower) {
+                    // (&self) -> (self: &Self)
+                    self.current_fn_mut().is_static = false;
+                    let ident = "self".to_string();
+                    let ty = Type::_Self(self.current_impl.as_ref().unwrap().name.to_string(), false);
+                    let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
+                    obj.borrow_mut().assigned = true;
+                    self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
+                    if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
+                        e0009(self.errorset());
+                    }
+                } else {
+                    e0000((self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
+                        "variable declaration cannot be a reference");
                 }
             }
             while !self.eat(TokenKind::RParen) {
@@ -509,13 +515,18 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_fn_params(&mut self) {
+        if self.eat(TokenKind::And) {
+            e0000((self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
+                "variable declaration cannot be a reference");
+        }
+        let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = self.expect_ident();
         if self.current_fn_mut().param_symbol_table.find(&ident).is_some() {
             e0005(self.errorset(), &ident);
         } else {
             self.expect(TokenKind::Colon);
             let ty = self.type_no_bounds();
-            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty)));
+            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
             obj.borrow_mut().assigned = true;
             self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
         }
@@ -591,6 +602,7 @@ impl<'a> Parser<'a> {
 
     fn parse_let_stmt(&mut self) -> Node<'a> {
         let begin = self.idx;
+        let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = self.expect_ident();
         self.expect(TokenKind::Colon);
         let ty = self.type_no_bounds();
@@ -600,6 +612,7 @@ impl<'a> Parser<'a> {
             ident,
             ty,
             token,
+            is_mutable,
         );
         if self.eat(TokenKind::Assign) {
             let node = new_assign_node(

@@ -29,6 +29,8 @@ fn main() {
     let mut parser = parser::Parser::new(&path, &input, &tokens, &mut g_symbol_table);
     let program = parser.gen_ast();
 
+    //eprintln!("{:#?}", program);
+
     gen_init();
     gen_structs(&program);
     gen_impls(&program);
@@ -83,7 +85,7 @@ fn gen_impls(program: &Program) {
                 .enumerate()
                 .map(|(i, obj)| {
                     let obj = obj.borrow();
-                    if let keyword::Type::Struct(name) = &obj.ty{
+                    if let keyword::Type::Struct(name, _) = &obj.ty{
                         use crate::object::FindSymbol;
                         if program.structs.find(name).is_none() {
                             panic!("cannot find struct, variant or union type `{}` in this scope", name);
@@ -136,7 +138,7 @@ fn gen_functions(program: &Program) {
             .enumerate()
             .map(|(i, obj)| {
                 let obj = obj.borrow();
-                if let keyword::Type::Struct(name) = &obj.ty{
+                if let keyword::Type::Struct(name, _) = &obj.ty{
                     use crate::object::FindSymbol;
                     if program.structs.find(name).is_none() {
                         panic!("cannot find struct, variant or union type `{}` in this scope", name);
