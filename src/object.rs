@@ -31,6 +31,10 @@ impl Object {
     pub fn is_mutable(&self) -> bool {
         self.mutable
     }
+
+    pub fn is_param(&self) -> bool {
+        self.is_param
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
