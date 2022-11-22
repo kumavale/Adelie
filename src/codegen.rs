@@ -355,7 +355,11 @@ fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Node, rhs: Node) -> 
                 _ if obj.ty == rty => (),
                 _ => e0012((p.path, &p.lines, current_token), &obj.ty, &rty)
             }
-            println!("\tstloc {}", obj.offset);
+            if obj.is_param() {
+                println!("\tstarg {}", obj.offset);
+            } else {
+                println!("\tstloc {}", obj.offset);
+            }
         }
         NodeKind::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
             let lty = gen_il(*expr, p);
