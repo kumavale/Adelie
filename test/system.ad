@@ -1,0 +1,4 @@
+fn main() {
+    System::Diagnostics::Debug::Assert(true);
+    System::Console::WriteLine("ok");
+}

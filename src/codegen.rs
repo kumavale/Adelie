@@ -70,7 +70,7 @@ pub fn gen_il(node: Node, p: &Program) -> Type {
             gen_il_semi(node.token, p, *expr)
         }
         NodeKind::Path { segment, child } => {
-            gen_il_path(node.token, p, &segment, *child)
+            gen_il_path(node.token, p, &segment, vec![segment.to_string()], *child)
         }
         NodeKind::Empty => {
             gen_il_empty()
@@ -723,10 +723,13 @@ fn gen_il_semi(_current_token: &[Token], p: &Program, expr: Node) -> Type {
     ty
 }
 
-fn gen_il_path(current_token: &[Token], p: &Program, segment: &str, child: Node) -> Type {
-    // TODO
+// WIP
+fn gen_il_path(current_token: &[Token], p: &Program, segment: &str, mut full_path: Vec<String>, child: Node) -> Type {
     match child.kind {
-        NodeKind::Path { .. } => gen_il(child, p),
+        NodeKind::Path { segment, child } => {
+            full_path.push(segment.to_string());
+            gen_il_path(current_token, p, &segment, full_path, *child)
+        }
         NodeKind::Call { name, args } => {
             if let Some(im) = p.find_impl(segment) {
                 let func = if let Some(func) = im
@@ -751,7 +754,23 @@ fn gen_il_path(current_token: &[Token], p: &Program, segment: &str, child: Node)
                 println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, args);
                 func.rettype.clone()
             } else {
-                e0014((p.path, &p.lines, current_token), segment, &name);
+                // TODO: 名前空間から検索
+                // TODO: とりあえずSystem名前空間のは.Net側にて実行時に探す
+                // TODO: とりあえず戻り値はvoidのみ
+                let path = full_path
+                    .join(".");
+                let mut args_types = vec![];
+                for arg in args {
+                    args_types.push(gen_il(arg, p));
+                }
+                let args = args_types
+                    .iter()
+                    .map(|t|t.to_ilstr())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                println!("\tcall {} [{}]{}::{}({})", Type::Void, path, path, name, args);
+                Type::Void
+                //e0014((p.path, &p.lines, current_token), segment, &name);
             }
         }
         _ => {
