@@ -768,7 +768,12 @@ fn gen_il_path(current_token: &[Token], p: &Program, segment: &str, mut full_pat
                     .map(|t|t.to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
-                println!("\tcall {} [{}]{}::{}({})", Type::Void, path, path, name, args);
+                if path.ends_with("MessageBox") {
+                    println!("\tcall {} [{}]{}::{}({})", Type::Struct("[System.Windows.Forms]System.Windows.Forms.DialogResult".to_string(), false).to_ilstr(), full_path[..full_path.len()-1].join("."), path, name, args);
+                    println!("pop");
+                } else {
+                    println!("\tcall {} [{}]{}::{}({})", Type::Void.to_ilstr(), path, path, name, args);
+                }
                 Type::Void
                 //e0014((p.path, &p.lines, current_token), segment, &name);
             }

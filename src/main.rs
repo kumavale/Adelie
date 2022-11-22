@@ -42,6 +42,9 @@ fn gen_init() {
     println!(".assembly extern System.Diagnostics.Debug {{
         .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)
     }}");
+    //println!(".assembly extern System.Windows.Forms {{
+    //    .publickeytoken = (B7 7A 5C 56 19 34 E0 89)
+    //}}");
     println!(".assembly tmp {{}}");
 }
 

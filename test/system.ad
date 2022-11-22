@@ -1,4 +1,5 @@
 fn main() {
+    System::Windows::Forms::MessageBox::Show("hi");
     System::Diagnostics::Debug::Assert(true);
     System::Console::WriteLine("ok");
 }
