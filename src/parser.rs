@@ -16,6 +16,7 @@ use super::error::*;
 //
 // Item :
 //     Function
+//   | Mod
 //   | Struct
 //   | Implementation
 //
@@ -29,6 +30,9 @@ use super::error::*;
 //     IDENTIFIER `:` Type
 // FunctionReturnType :
 //     `->` Type
+//
+// Mod :
+//     `mod` IDENTIFIER ( `{` Item `}` | `;` )
 //
 // Struct :
 //     `struct` IDENTIFIER `{` StructFields ? `}`
@@ -422,6 +426,8 @@ impl<'a> Parser<'a> {
                 program.push_struct(st);
             } else if self.eat_keyword(Keyword::Impl) {
                 program.push_or_merge_impl(self.parse_item_impl());
+            } else if self.eat_keyword(Keyword::Mod) {
+                todo!();
             } else if self.eat_keyword(Keyword::Fn) {
                 let f = self.parse_item_fn();
                 if program.find_fn(&f.name).is_some() {
