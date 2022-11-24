@@ -5,6 +5,8 @@ use super::builtin::*;
 use super::keyword::*;
 use super::object::*;
 use super::token::*;
+use super::function::Function;
+use super::class::{Struct, Impl};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnaryOpKind {
@@ -534,4 +536,24 @@ impl fmt::Display for ShortCircuitOpKind {
             ShortCircuitOpKind::Or  => write!(f, "||"),
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum ItemKind<'a> {
+    /// A function declaration (`fn`).
+    ///
+    /// E.g., `fn foo(bar: usize) -> usize { .. }`.
+    Fn(Function<'a>),
+    /// A module declaration (`mod`).
+    ///
+    /// E.g., `mod foo;` or `mod foo { .. }`.
+    Mod((String, Vec<ItemKind<'a>>)),  // (ident, items)
+    /// A struct definition (`struct`).
+    ///
+    /// E.g., `struct Foo<A> { x: A }`.
+    Struct(Struct),
+    /// An implementation.
+    ///
+    /// E.g., `impl<A> Foo<A> { .. }` or `impl<A> Trait for Foo<A> { .. }`.
+    Impl(Impl<'a>),
 }
