@@ -32,4 +32,8 @@ impl<'a> NameSpace<'a> {
                 .find_map(|n| n.find_mut_recursive(name))
         }
     }
+
+    pub fn append_child(&mut self, child: Self) {
+        self.children.push(child);
+    }
 }

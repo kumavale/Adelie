@@ -73,4 +73,12 @@ impl<'a> Program<'a> {
             self.impls.push(i);
         }
     }
+
+    pub fn enter_namespace(&mut self, id: &str) {
+        self.namespace.append_child(NameSpace::new(id));
+    }
+
+    pub fn leave_namespace(&mut self) {
+        todo!()
+    }
 }
