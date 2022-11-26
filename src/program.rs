@@ -1,4 +1,6 @@
 use std::borrow::Borrow;
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::rc::Rc;
 use super::class::*;
 use super::function::*;
@@ -13,7 +15,11 @@ pub struct Program<'a> {
     pub functions: Vec<Rc<Function<'a>>>,
     pub structs: Vec<Struct>,
     pub impls: Vec<Impl<'a>>,
-    pub namespace: NameSpace<'a>,
+    //pub namespace: NameSpace<'a>,
+    pub namespace: Rc<NameSpace<'a>>,
+    //pub namespace: Rc<RefCell<NameSpace<'a>>>,
+    //pub namespace: RefCell<Rc<NameSpace<'a>>>,
+    //pub namespace: RefCell<NameSpace<'a>>,
 }
 
 impl<'a> Program<'a> {
@@ -24,7 +30,11 @@ impl<'a> Program<'a> {
             functions: vec![],
             structs: vec![],
             impls: vec![],
-            namespace: NameSpace::new("crate"),
+            //namespace: NameSpace::new("crate", None),
+            namespace: Rc::new(NameSpace::new("crate", None)),
+            //namespace: Rc::new(RefCell::new(NameSpace::new("crate", None))),
+            //namespace: RefCell::new(Rc::new(NameSpace::new("crate", None))),
+            //namespace: RefCell::new(NameSpace::new("crate", None)),
         }
     }
 
@@ -45,7 +55,7 @@ impl<'a> Program<'a> {
             panic!("the name `{}` is defined multiple times", f.name);
         } else {
             let f = Rc::new(f);
-            self.namespace.elements.push(Rc::clone(&f));
+            Rc::make_mut(&mut self.namespace).elements.push(Rc::clone(&f));
             self.functions.push(f);
         }
     }
@@ -59,23 +69,39 @@ impl<'a> Program<'a> {
     }
 
     pub fn push_or_merge_impl(&mut self, mut i: Impl<'a>) {
+        // TODO: たぶん処理が間違っている
         if let Some(dst) = self.impls.find_mut(&i.name) {
-            if let Some(ns) = self.namespace.find_mut(&i.name) {
+            if let Some(ns) = Rc::make_mut(&mut self.namespace).find_mut(&i.name) {
                 ns.elements.extend_from_slice(&i.functions);
                 dst.functions.append(&mut i.functions);
             } else {
                 unreachable!()
             }
         } else {
-            let mut ns = NameSpace::new(&i.name);
+            let mut ns = NameSpace::new(&i.name, None);
             ns.elements = i.functions.clone();
-            self.namespace.children.push(ns);
+            //self.namespace.borrow_mut().children.borrow_mut().push(Rc::new(ns));
+            //self.namespace.borrow_mut().children.borrow_mut().push(ns);
+            //self.namespace.borrow_mut().children.push(ns);
+            Rc::make_mut(&mut self.namespace).children.push(ns);
             self.impls.push(i);
         }
     }
 
     pub fn enter_namespace(&mut self, id: &str) {
-        self.namespace.append_child(NameSpace::new(id));
+        //let child = NameSpace::new(id, Some(Rc::clone(&self.namespace.borrow())));
+        //let child = NameSpace::new(id, Some(self.namespace.clone().borrow_mut()));
+        //let namespace = Rc::new(&self.namespace.borrow_mut());
+        let child = NameSpace {
+            name: id.to_string(),
+            parent: RefCell::new(Rc::downgrade(&self.namespace.borrow_mut())),
+            //children: RefCell::new(vec![]),
+            children: vec![],
+            elements: vec![],
+        };
+        //self.namespace.borrow_mut().children.borrow_mut().push(child);
+        //self.namespace.borrow_mut().children.push(child);
+        Rc::make_mut(&mut self.namespace).children.push(child);
     }
 
     pub fn leave_namespace(&mut self) {
