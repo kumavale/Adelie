@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use crate::ast::{Item, ItemKind};
+use crate::class::{Struct, Impl};
+use crate::function::Function;
 
 /// NameSpace {
 ///     name: crate,
@@ -25,7 +26,9 @@ pub struct NameSpace<'a> {
     pub name: String,
     pub parent: RefCell<Weak<NameSpace<'a>>>,
     pub children: Vec<NameSpace<'a>>,
-    pub items: Vec<Rc<dyn Item<'a>>>,
+    pub functions: Vec<Rc<Function<'a>>>,
+    pub structs:   Vec<Rc<Struct<'a>>>,
+    pub impls:     Vec<Rc<Impl<'a>>>,
 }
 
 impl<'a> NameSpace<'a> {
@@ -38,7 +41,9 @@ impl<'a> NameSpace<'a> {
                 RefCell::new(Weak::new())
             },
             children: vec![],
-            items: vec![],
+            functions: vec![],
+            structs:   vec![],
+            impls:     vec![],
         }
     }
 
@@ -59,16 +64,24 @@ impl<'a> NameSpace<'a> {
         }
     }
 
-    pub fn find_fn(&self, name: &str) -> Option<Rc<dyn Item<'a>>> {
-        self.items
+    pub fn find_fn(&self, name: &str) -> Option<Rc<Function<'a>>> {
+        self.functions
             .iter()
-            .find(|item| {
-                if let ItemKind::Fn(item_fn) = item.kind() {
-                    item_fn.name == name
-                } else {
-                    false
-                }
-            })
-            .map(|item| Rc::clone(item))
+            .find(|item| item.name == name)
+            .map(Rc::clone)
+    }
+
+    pub fn find_struct(&self, name: &str) -> Option<Rc<Struct<'a>>> {
+        self.structs
+            .iter()
+            .find(|item| item.name == name)
+            .map(Rc::clone)
+    }
+
+    pub fn find_impl(&self, name: &str) -> Option<Rc<Impl<'a>>> {
+        self.impls
+            .iter()
+            .find(|item| item.name == name)
+            .map(Rc::clone)
     }
 }

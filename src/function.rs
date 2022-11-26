@@ -25,12 +25,6 @@ impl<'a> Function<'a> {
     }
 }
 
-impl<'a> Item<'a> for Function<'a> {
-    fn kind(&self) -> &'a ItemKind<'a> {
-        &ItemKind::Fn(*self)
-    }
-}
-
 impl<'a> FindSymbol for [Function<'a>] {
     type Item = Function<'a>;
 

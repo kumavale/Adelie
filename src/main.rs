@@ -33,7 +33,7 @@ fn main() {
 
     gen_init();
     gen_structs(&program);
-    //gen_impls(&program);
+    gen_impls(&program);
     gen_functions(&program);
 }
 
@@ -49,124 +49,74 @@ fn gen_init() {
 }
 
 fn gen_structs<'a>(program: &'a Program<'a>) {
-    for st in &program.structs {
+    for st in &program.current_namespace.structs {
         println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", st.name);
         println!("{{");
         for value in &st.field {
             println!("\t.field public {} {}", value.ty.to_ilstr(), value.name);
         }
-        for im in &st.impls {
-            for func in &im.functions {
-                let args = func
-                    .param_symbol_table
-                    .objs
-                    .iter()
-                    .skip(if func.is_static { 0 } else { 1 })
-                    .map(|o|format!("{} {}", o.borrow().ty.to_ilstr(), o.borrow().name))
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                println!("\t.method public {} {} {}({}) cil managed {{",
-                    if func.is_static {"static"} else {"instance"},
-                    func.rettype.to_ilstr(),
-                    func.name,
-                    args);
-                println!("\t\t.maxstack 32");
+        println!("}}");
+    }
+}
 
-                // prepare local variables
-                println!("\t\t.locals init (");
-                let locals = func
-                    .lvar_symbol_table
-                    .objs
-                    .iter()
-                    .enumerate()
-                    .map(|(i, obj)| {
-                        let obj = obj.borrow();
-                        if let keyword::Type::Struct(name, _) = &obj.ty{
-                            use crate::object::FindSymbol;
-                            if program.structs.find(name).is_none() {
-                                panic!("cannot find struct, variant or union type `{}` in this scope", name);
-                            }
+fn gen_impls<'a>(program: &'a Program<'a>) {
+    for im in &program.current_namespace.impls {
+        println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", im.name);
+        println!("{{");
+        for func in &im.functions {
+            let args = func
+                .param_symbol_table
+                .objs
+                .iter()
+                .skip(if func.is_static { 0 } else { 1 })
+                .map(|o|format!("{} {}", o.borrow().ty.to_ilstr(), o.borrow().name))
+                .collect::<Vec<String>>()
+                .join(", ");
+            println!("\t.method public {} {} {}({}) cil managed {{",
+                if func.is_static {"static"} else {"instance"},
+                func.rettype.to_ilstr(),
+                func.name,
+                args);
+            println!("\t\t.maxstack 32");
+
+            // prepare local variables
+            println!("\t\t.locals init (");
+            let locals = func
+                .lvar_symbol_table
+                .objs
+                .iter()
+                .enumerate()
+                .map(|(i, obj)| {
+                    let obj = obj.borrow();
+                    if let keyword::Type::Struct(name, _) = &obj.ty{
+                        use crate::object::FindSymbol;
+                        if program.current_namespace.structs.find(name).is_none() {
+                            panic!("cannot find struct, variant or union type `{}` in this scope", name);
                         }
-                        format!("\t\t\t{} V_{}", obj.ty.to_ilstr(), i)
-                    })
-                    .collect::<Vec<String>>()
-                    .join(",\n");
-                println!("\t\t{})", locals);
-
-                let rettype = codegen::gen_il(func.statements.clone(), program);
-                match (&rettype, &func.rettype) {
-                    (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-                    _ => if rettype != func.rettype {
-                        panic!("{}: expected `{}`, found `{}`", func.name, func.rettype, rettype);
                     }
-                }
+                    format!("\t\t\t{} V_{}", obj.ty.to_ilstr(), i)
+                })
+                .collect::<Vec<String>>()
+                .join(",\n");
+            println!("\t\t{})", locals);
 
-                println!("\t\tret");
-                println!("\t}}");
+            let rettype = codegen::gen_il(func.statements.clone(), program);
+            match (&rettype, &func.rettype) {
+                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                _ => if rettype != func.rettype {
+                    panic!("{}: expected `{}`, found `{}`", func.name, func.rettype, rettype);
+                }
             }
+
+            println!("\t\tret");
+            println!("\t}}");
         }
         println!("}}");
     }
 }
 
-//fn gen_impls(program: &Program) {
-//    for im in &program.impls {
-//        println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", im.name);
-//        println!("{{");
-//        for func in &im.functions {
-//            let args = func
-//                .param_symbol_table
-//                .objs
-//                .iter()
-//                .skip(if func.is_static { 0 } else { 1 })
-//                .map(|o|format!("{} {}", o.borrow().ty.to_ilstr(), o.borrow().name))
-//                .collect::<Vec<String>>()
-//                .join(", ");
-//            println!("\t.method public {} {} {}({}) cil managed {{",
-//                if func.is_static {"static"} else {"instance"},
-//                func.rettype.to_ilstr(),
-//                func.name,
-//                args);
-//            println!("\t\t.maxstack 32");
-//
-//            // prepare local variables
-//            println!("\t\t.locals init (");
-//            let locals = func
-//                .lvar_symbol_table
-//                .objs
-//                .iter()
-//                .enumerate()
-//                .map(|(i, obj)| {
-//                    let obj = obj.borrow();
-//                    if let keyword::Type::Struct(name, _) = &obj.ty{
-//                        use crate::object::FindSymbol;
-//                        if program.structs.find(name).is_none() {
-//                            panic!("cannot find struct, variant or union type `{}` in this scope", name);
-//                        }
-//                    }
-//                    format!("\t\t\t{} V_{}", obj.ty.to_ilstr(), i)
-//                })
-//                .collect::<Vec<String>>()
-//                .join(",\n");
-//            println!("\t\t{})", locals);
-//
-//            let rettype = codegen::gen_il(func.statements.clone(), program);
-//            match (&rettype, &func.rettype) {
-//                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-//                _ => if rettype != func.rettype {
-//                    panic!("{}: expected `{}`, found `{}`", func.name, func.rettype, rettype);
-//                }
-//            }
-//
-//            println!("\t\tret");
-//            println!("\t}}");
-//        }
-//        println!("}}");
-//    }
-//}
-
 fn gen_functions<'a>(program: &'a Program<'a>) {
-    for func in &program.functions {
+    for func in &program.current_namespace.functions {
         if func.name == "main" {
             println!(".method static void Main() cil managed {{");
             println!("\t.entrypoint");
@@ -193,7 +143,7 @@ fn gen_functions<'a>(program: &'a Program<'a>) {
                 let obj = obj.borrow();
                 if let keyword::Type::Struct(name, _) = &obj.ty{
                     use crate::object::FindSymbol;
-                    if program.structs.find(name).is_none() {
+                    if program.current_namespace.structs.find(name).is_none() {
                         panic!("cannot find struct, variant or union type `{}` in this scope", name);
                     }
                 }

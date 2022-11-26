@@ -133,8 +133,8 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
 fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str, args: Vec<Node>) -> Type {
     match gen_il(expr, p) {
         Type::Struct(st_name, _) => {
-            if let Some(st) = p.find_struct(&st_name) {
-                let func = if let Some(func) = st
+            if let Some(st) = p.current_namespace.find_struct(&st_name) {
+                let func = if let Some(func) = p.current_namespace
                     .impls
                     // TODO: trait毎
                     .first().unwrap()
@@ -734,7 +734,8 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
             gen_il_path(current_token, p, &segment, full_path, *child)
         }
         NodeKind::Call { name, args } => {
-            if let Some(im) = p.find_struct(segment).expect(&format!("not found {}", segment)).impls.first() {
+            //if let Some(im) = p.find_struct(segment).expect(&format!("not found {}", segment)).impls.first() {
+            if let Some(im) = p.current_namespace.impls.first() {
                 let func = if let Some(func) = im
                     .functions
                     .iter()

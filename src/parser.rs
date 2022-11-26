@@ -419,32 +419,8 @@ impl<'a> Parser<'a> {
 
     fn program(&mut self) -> Program {
         let mut program = Program::new(self.path, self.input);
-        //let item = self.parse_item().unwrap();
         while let Some(item) = self.parse_item() {
-        //while !self.is_eof() {
-        //loop {
-            //match self.parse_item() {
             match item {
-                //2 Some(ItemKind::Struct(st)) => {
-                //2     if program.find_struct(&st.name).is_some() {
-                //2         e0005(self.errorset(), &st.name);
-                //2     }
-                //2     program.push_struct(st);
-                //2 }
-                //2 Some(ItemKind::Impl(impl_item)) => {
-                //2     program.push_or_merge_impl(impl_item);
-                //2 }
-                //2 Some(ItemKind::Mod(mod_item)) => {
-                //2     // program.push_mod(item);的な
-                //2     todo!()
-                //2 }
-                //2 Some(ItemKind::Fn(f)) => {
-                //2     if program.find_fn(&f.name).is_some() {
-                //2         e0005(self.errorset(), &f.name);
-                //2     }
-                //2     program.push_fn(f);
-                //2 }
-                //2 _ => break
                 ItemKind::Struct(st) => {
                     if program.find_struct(&st.name).is_some() {
                         e0005(self.errorset(), &st.name);
@@ -466,36 +442,10 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        //1 while !self.is_eof() {
-        //1     if self.eat_keyword(Keyword::Struct) {
-        //1         let st = self.parse_item_struct();
-        //1         if program.find_struct(&st.name).is_some() {
-        //1             e0005(self.errorset(), &st.name);
-        //1         }
-        //1         program.push_struct(st);
-        //1     } else if self.eat_keyword(Keyword::Impl) {
-        //1         program.push_or_merge_impl(self.parse_item_impl());
-        //1     } else if self.eat_keyword(Keyword::Mod) {
-        //1         //let mod_item = self.parse_item_mod();
-        //1         let id = self.expect_ident();
-        //1         program.enter_namespace(&id);
-        //1         self.expect(TokenKind::LBrace);
-        //1     } else if self.eat_keyword(Keyword::Fn) {
-        //1         let f = self.parse_item_fn();
-        //1         if program.exists_fn(&f.name) {
-        //1             e0005(self.errorset(), &f.name);
-        //1         }
-        //1         program.push_fn(f);
-        //1     } else if self.eat(TokenKind::RBrace) {
-        //1         program.leave_namespace();
-        //1     } else {
-        //1         e0004(self.errorset());
-        //1     }
-        //1 }
         program
     }
 
-    fn parse_item(&mut self) -> Option<ItemKind> {
+    fn parse_item(&mut self) -> Option<ItemKind<'a>> {
         if self.eat_keyword(Keyword::Struct) {
             let st = self.parse_item_struct();
             Some(ItemKind::Struct(st))
@@ -508,8 +458,6 @@ impl<'a> Parser<'a> {
         } else if self.eat_keyword(Keyword::Fn) {
             let f = self.parse_item_fn();
             Some(ItemKind::Fn(f))
-        //} else if self.check(TokenKind::RBrace) {
-        //    None
         } else if self.is_eof() {
             None
         } else {
@@ -517,54 +465,24 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_item_mod(&mut self) -> (String, Vec<ItemKind>) {
-    //fn parse_item_mod(&mut self) -> String {
+    fn parse_item_mod(&mut self) -> (String, Vec<ItemKind<'a>>) {
         let id = self.expect_ident();
         let mod_kind = if self.eat(TokenKind::Semi) {
             // TODO
             todo!("ModKind::Unloaded");
         } else {
             self.expect(TokenKind::LBrace);
-            let items = self.parse_mod();
-            //let items = (std::rc::Rc::new(self)).parse_mod();
-            //let items = Self::parse_mod(std::rc::Rc::new(RefCell::new(self)));
-            //let items = self.parse_mod();
-            //1 let mut items = vec![];
-            //1 //while !self.eat(TokenKind::RBrace) {
-            //1 //loop {
-            //1 while let Some(item) = self.parse_item() {
-            //1     items.push(item);
-            //1 }
-            //1     //match self.parse_item() {
-            //1     //    Some(item) => items.push(item),
-            //1     //    _ => break
-            //1     //}
-            //1     //if self.eat(TokenKind::RBrace) {
-            //1     //    break;
-            //1     //}
-            //1 //}
-            //1 self.expect(TokenKind::RBrace);
-            items
+            self.parse_mod()
         };
         (id, mod_kind)
     }
 
-    fn parse_mod(&mut self) -> Vec<ItemKind> {
-    //fn parse_mod(&mut self) {
-    //fn parse_mod(_self: std::rc::Rc<RefCell<&mut Self>>) -> Vec<ItemKind<'a>> {
-    //fn parse_mod(_self: std::rc::Rc<RefCell<&'a mut Self>>) {
+    fn parse_mod(&mut self) -> Vec<ItemKind<'a>> {
         let mut items = vec![];
-        //while let Some(item) = (std::rc::Rc::clone(&self)).parse_item() {
-        //while let Some(item) = _self.borrow_mut().parse_item() {
         while let Some(item) = self.parse_item() {
             items.push(item);
-            //_self.borrow_mut().tmp.push(item)
         }
-        // //_self.borrow_mut().expect(TokenKind::RBrace);
         self.expect(TokenKind::RBrace);
-        //1 while !self.eat(TokenKind::RBrace) {
-        //1     items.push(self.parse_item());
-        //1 }
         items
     }
 
