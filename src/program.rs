@@ -11,7 +11,7 @@ pub struct Program<'a> {
     pub path: &'a str,
     pub lines: Vec<&'a str>,
     pub functions: Vec<Rc<Function<'a>>>,
-    pub structs: Vec<Struct>,
+    pub structs: Vec<Struct<'a>>,
     pub impls: Vec<Impl<'a>>,
     pub namespace: Rc<NameSpace<'a>>,
 }
@@ -50,7 +50,7 @@ impl<'a> Program<'a> {
         }
     }
 
-    pub fn push_struct(&mut self, s: Struct) {
+    pub fn push_struct(&mut self, s: Struct<'a>) {
         if self.structs.find(&s.name).is_some() {
             panic!("the name `{}` is defined multiple times", s.name);
         } else {

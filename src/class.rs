@@ -3,22 +3,24 @@ use super::object::*;
 use super::function::*;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Struct {
+pub struct Struct<'a> {
     pub name: String,
     pub field: Vec<Object>,
+    pub impls: Vec<Impl<'a>>,
 }
 
-impl Struct {
+impl<'a> Struct<'a> {
     pub fn new() -> Self {
         Struct {
             name: String::new(),
             field: vec![],
+            impls: vec![],
         }
     }
 }
 
-impl FindSymbol for [Struct] {
-    type Item = Struct;
+impl<'a> FindSymbol for [Struct<'a>] {
+    type Item = Struct<'a>;
 
     fn find(&self, name: &str) -> Option<&Self::Item> {
         self.iter().find(|s|s.name == name)

@@ -472,54 +472,30 @@ impl<'a> Parser<'a> {
                 e0004(self.errorset());
             }
         }
-        //loop {
-        //    let item = self.parse_item().unwrap();
-        //    match item {
-        //        ItemKind::Struct(st) => {
-        //            if program.find_struct(&st.name).is_some() {
-        //                e0005(self.errorset(), &st.name);
-        //            }
-        //            program.push_struct(st);
-        //        }
-        //        ItemKind::Impl(impl_item) => {
-        //            program.push_or_merge_impl(impl_item);
-        //        }
-        //        ItemKind::Mod(mod_item) => {
-        //            // program.push_mod(item);的な
-        //            todo!()
-        //        }
-        //        ItemKind::Fn(f) => {
-        //            if program.find_fn(&f.name).is_some() {
-        //                e0005(self.errorset(), &f.name);
-        //            }
-        //            program.push_fn(f);
-        //        }
-        //    }
-        //}
         program
     }
 
-    fn parse_item(&mut self) -> Option<ItemKind> {
-        if self.eat_keyword(Keyword::Struct) {
-            let st = self.parse_item_struct();
-            Some(ItemKind::Struct(st))
-        } else if self.eat_keyword(Keyword::Impl) {
-            let impl_item = self.parse_item_impl();
-            Some(ItemKind::Impl(impl_item))
-        //} else if self.eat_keyword(Keyword::Mod) {
-        //    let mod_item = self.parse_item_mod();
-        //    Some(ItemKind::Mod(mod_item))
-        } else if self.eat_keyword(Keyword::Fn) {
-            let f = self.parse_item_fn();
-            Some(ItemKind::Fn(f))
-        //} else if self.check(TokenKind::RBrace) {
-        //    None
-        } else if self.is_eof() {
-            None
-        } else {
-            e0004(self.errorset());
-        }
-    }
+    // fn parse_item(&mut self) -> Option<ItemKind> {
+    //     if self.eat_keyword(Keyword::Struct) {
+    //         let st = self.parse_item_struct();
+    //         Some(ItemKind::Struct(st))
+    //     } else if self.eat_keyword(Keyword::Impl) {
+    //         let impl_item = self.parse_item_impl();
+    //         Some(ItemKind::Impl(impl_item))
+    //     //} else if self.eat_keyword(Keyword::Mod) {
+    //     //    let mod_item = self.parse_item_mod();
+    //     //    Some(ItemKind::Mod(mod_item))
+    //     } else if self.eat_keyword(Keyword::Fn) {
+    //         let f = self.parse_item_fn();
+    //         Some(ItemKind::Fn(f))
+    //     //} else if self.check(TokenKind::RBrace) {
+    //     //    None
+    //     } else if self.is_eof() {
+    //         None
+    //     } else {
+    //         e0004(self.errorset());
+    //     }
+    // }
 
     //1 fn parse_item_mod(&mut self) -> (String, Vec<ItemKind>) {
     //1 //fn parse_item_mod(&mut self) -> String {
@@ -572,7 +548,7 @@ impl<'a> Parser<'a> {
     //     items
     // }
 
-    fn parse_item_struct(&mut self) -> Struct {
+    fn parse_item_struct(&mut self) -> Struct<'a> {
         let mut st = Struct::new();
         st.name = self.expect_ident();
         self.expect(TokenKind::LBrace);
