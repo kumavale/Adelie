@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use super::function::*;
+use crate::ast::{Item, ItemKind};
 
 /// NameSpace {
 ///     name: crate,
@@ -10,22 +10,22 @@ use super::function::*;
 ///             name: module1,
 ///             parent: Some(NameSpace { name: crate, ... } ),
 ///             children: [],
-///             elements: [
+///             items: [
 ///                 fn bar();
 ///             ],
 ///         }
 ///     ],
-///     elements: [
+///     items: [
 ///         fn main();
 ///         fn foo();
 ///     ],
 /// }
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct NameSpace<'a> {
     pub name: String,
     pub parent: RefCell<Weak<NameSpace<'a>>>,
     pub children: Vec<NameSpace<'a>>,
-    pub elements: Vec<Rc<Function<'a>>>,
+    pub items: Vec<Rc<dyn Item<'a>>>,
 }
 
 impl<'a> NameSpace<'a> {
@@ -38,7 +38,7 @@ impl<'a> NameSpace<'a> {
                 RefCell::new(Weak::new())
             },
             children: vec![],
-            elements: vec![],
+            items: vec![],
         }
     }
 
@@ -57,5 +57,18 @@ impl<'a> NameSpace<'a> {
                 .iter_mut()
                 .find_map(|n| n.find_mut_recursive(name))
         }
+    }
+
+    pub fn find_fn(&self, name: &str) -> Option<Rc<dyn Item<'a>>> {
+        self.items
+            .iter()
+            .find(|item| {
+                if let ItemKind::Fn(item_fn) = item.kind() {
+                    item_fn.name == name
+                } else {
+                    false
+                }
+            })
+            .map(|item| Rc::clone(item))
     }
 }

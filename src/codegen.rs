@@ -7,7 +7,7 @@ use super::object::*;
 use super::program::*;
 use std::cell::Ref;
 
-pub fn gen_il(node: Node, p: &Program) -> Type {
+pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
     match node.kind {
         NodeKind::Integer { ty, num } => {
             gen_il_integer(node.token, p, ty, num)
@@ -102,7 +102,7 @@ fn gen_il_string(_current_token: &[Token], _p: &Program, ty: Type, str: &str) ->
     ty
 }
 
-fn gen_il_call(current_token: &[Token], p: &Program, name: &str, args: Vec<Node>) -> Type {
+fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args: Vec<Node>) -> Type {
     if let Some(func) = p.find_fn(name) {
         let params = &func
             .param_symbol_table
@@ -130,18 +130,21 @@ fn gen_il_call(current_token: &[Token], p: &Program, name: &str, args: Vec<Node>
     }
 }
 
-fn gen_il_method(current_token: &[Token], p: &Program, expr: Node, ident: &str, args: Vec<Node>) -> Type {
+fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str, args: Vec<Node>) -> Type {
     match gen_il(expr, p) {
-        Type::Struct(st, _) => {
-            if let Some(im) = p.find_impl(&st) {
-                let func = if let Some(func) = im
+        Type::Struct(st_name, _) => {
+            if let Some(st) = p.find_struct(&st_name) {
+                let func = if let Some(func) = st
+                    .impls
+                    // TODO: trait毎
+                    .first().unwrap()
                     .functions
                     .iter()
                     .find(|f|f.name==ident && !f.is_static)
                 {
                     func
                 } else {
-                    e0014((p.path, &p.lines, current_token), ident, &st);
+                    e0014((p.path, &p.lines, current_token), ident, &st_name);
                 };
                 let params = &func
                     .param_symbol_table
@@ -165,10 +168,10 @@ fn gen_il_method(current_token: &[Token], p: &Program, expr: Node, ident: &str, 
                     .map(|p|p.borrow().ty.to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
-                println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st, ident, params);
+                println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st_name, ident, params);
                 func.rettype.clone()
             } else {
-                e0014((p.path, &p.lines, current_token), ident, &st);
+                e0014((p.path, &p.lines, current_token), ident, &st_name);
             }
         }
         _ => {
@@ -177,7 +180,7 @@ fn gen_il_method(current_token: &[Token], p: &Program, expr: Node, ident: &str, 
     }
 }
 
-fn gen_il_struct(current_token: &[Token], p: &Program, obj: Ref<Object>, field: Vec<Node>) -> Type {
+fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Type {
     if let Some(st) = p.find_struct(&obj.ty.to_string()) {
         if field.len() != st.field.len() {
             e0017((p.path, &p.lines, current_token), &st.name);
@@ -196,7 +199,7 @@ fn gen_il_struct(current_token: &[Token], p: &Program, obj: Ref<Object>, field: 
     Type::Struct(obj.ty.to_string(), false)
 }
 
-fn gen_il_field(current_token: &[Token], p: &Program, expr: Node, ident: &str) -> Type {
+fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str) -> Type {
     let (stname, is_mutable) = match gen_il(expr, p) {
         Type::Struct(stname, is_mutable) => {
             (stname, is_mutable)
@@ -269,7 +272,7 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Ty
     }
 }
 
-fn gen_il_block(_current_token: &[Token], p: &Program, stmts: Vec<Node>) -> Type {
+fn gen_il_block<'a>(_current_token: &[Token], p: &'a Program<'a>, stmts: Vec<Node>) -> Type {
     let mut ty = Type::Void;
     for stmt in stmts {
         match stmt.kind {
@@ -285,7 +288,7 @@ fn gen_il_block(_current_token: &[Token], p: &Program, stmts: Vec<Node>) -> Type
     ty
 }
 
-fn gen_il_if(current_token: &[Token], p: &Program, cond: Node, then: Node, els: Option<Box<Node>>) -> Type {
+fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: Node, els: Option<Box<Node>>) -> Type {
     let token = cond.token;
     let cond_type = gen_il(cond, p);
     if cond_type != Type::Bool {
@@ -314,7 +317,7 @@ fn gen_il_if(current_token: &[Token], p: &Program, cond: Node, then: Node, els: 
     }
 }
 
-fn gen_il_while(_current_token: &[Token], p: &Program, cond: Node, then: Node, brk_label_seq: usize) -> Type {
+fn gen_il_while<'a>(_current_token: &[Token], p: &'a Program<'a>, cond: Node, then: Node, brk_label_seq: usize) -> Type {
     let begin_label = format!("IL_begin{}", seq());
     let end_label = format!("IL_break{}", brk_label_seq);
     println!("{}:", begin_label);
@@ -330,7 +333,7 @@ fn gen_il_while(_current_token: &[Token], p: &Program, cond: Node, then: Node, b
     then_type
 }
 
-fn gen_il_loop(_current_token: &[Token], p: &Program, then: Node, brk_label_seq: usize) -> Type {
+fn gen_il_loop<'a>(_current_token: &[Token], p: &'a Program<'a>, then: Node, brk_label_seq: usize) -> Type {
     let begin_label = format!("IL_begin{}", seq());
     let end_label = format!("IL_break{}", brk_label_seq);
     println!("{}:", begin_label);
@@ -340,7 +343,7 @@ fn gen_il_loop(_current_token: &[Token], p: &Program, then: Node, brk_label_seq:
     then_type
 }
 
-fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Node, rhs: Node) -> Type {
+fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs: Node) -> Type {
     match lhs.kind {
         NodeKind::Variable { obj } => {
             let is_assigned = obj.borrow().is_assigned();
@@ -412,7 +415,7 @@ fn gen_il_assign(current_token: &[Token], p: &Program, lhs: Node, rhs: Node) -> 
     Type::Void
 }
 
-fn gen_il_return(_current_token: &[Token], p: &Program, expr: Option<Box<Node>>) -> Type {
+fn gen_il_return<'a>(_current_token: &[Token], p: &'a Program<'a>, expr: Option<Box<Node>>) -> Type {
     let rettype = if let Some(expr) = expr {
         gen_il(*expr, p)
     } else {
@@ -427,7 +430,7 @@ fn gen_il_break(_current_token: &[Token], _p: &Program, brk_label_seq: usize) ->
     Type::Void
 }
 
-fn gen_il_cast(current_token: &[Token], p: &Program, new_type: Type, expr: Node) -> Type {
+fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, expr: Node) -> Type {
     let old_type = gen_il(expr, p);
     match new_type {
         Type::Numeric(Numeric::I32) => {
@@ -457,7 +460,7 @@ fn gen_il_cast(current_token: &[Token], p: &Program, new_type: Type, expr: Node)
     new_type
 }
 
-fn gen_il_unaryop(current_token: &[Token], p: &Program, kind: UnaryOpKind, expr: Node) -> Type {
+fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOpKind, expr: Node) -> Type {
     match kind {
         UnaryOpKind::Not => {
             let ty = gen_il(expr, p);
@@ -508,7 +511,7 @@ fn gen_il_unaryop(current_token: &[Token], p: &Program, kind: UnaryOpKind, expr:
     }
 }
 
-fn gen_il_binaryop(current_token: &[Token], p: &Program, kind: BinaryOpKind, lhs: Node, rhs: Node) -> Type {
+fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: BinaryOpKind, lhs: Node, rhs: Node) -> Type {
     let ltype = gen_il(lhs, p);
     let rtype = gen_il(rhs, p);
     let mut is_bool = false;
@@ -676,7 +679,7 @@ fn gen_il_binaryop(current_token: &[Token], p: &Program, kind: BinaryOpKind, lhs
     }
 }
 
-fn gen_il_shortcircuitop(_current_token: &[Token], p: &Program, kind: ShortCircuitOpKind, lhs: Node, rhs: Node) -> Type {
+fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind: ShortCircuitOpKind, lhs: Node, rhs: Node) -> Type {
     let end_label  = format!("IL_end{}", seq());
     match kind {
         ShortCircuitOpKind::And => {
@@ -715,7 +718,7 @@ fn gen_il_shortcircuitop(_current_token: &[Token], p: &Program, kind: ShortCircu
     Type::Bool
 }
 
-fn gen_il_semi(_current_token: &[Token], p: &Program, expr: Node) -> Type {
+fn gen_il_semi<'a>(_current_token: &[Token], p: &'a Program<'a>, expr: Node) -> Type {
     let ty = gen_il(expr, p);
     if ty != Type::Void {
         println!("\tpop");
@@ -724,14 +727,14 @@ fn gen_il_semi(_current_token: &[Token], p: &Program, expr: Node) -> Type {
 }
 
 // WIP
-fn gen_il_path(current_token: &[Token], p: &Program, segment: &str, mut full_path: Vec<String>, child: Node) -> Type {
+fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, mut full_path: Vec<String>, child: Node) -> Type {
     match child.kind {
         NodeKind::Path { segment, child } => {
             full_path.push(segment.to_string());
             gen_il_path(current_token, p, &segment, full_path, *child)
         }
         NodeKind::Call { name, args } => {
-            if let Some(im) = p.find_impl(segment) {
+            if let Some(im) = p.find_struct(segment).expect(&format!("not found {}", segment)).impls.first() {
                 let func = if let Some(func) = im
                     .functions
                     .iter()

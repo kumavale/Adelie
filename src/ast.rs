@@ -557,3 +557,8 @@ pub enum ItemKind<'a> {
     /// E.g., `impl<A> Foo<A> { .. }` or `impl<A> Trait for Foo<A> { .. }`.
     Impl(Impl<'a>),
 }
+
+pub trait Item<'a> {
+    //fn to_fn(self) -> Function<'a>;
+    fn kind(&self) -> &'a ItemKind<'a>;
+}
