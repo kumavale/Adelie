@@ -294,7 +294,6 @@ pub struct Parser<'a> {
     except_struct_expression: bool,
     brk_label_seq: usize,
     loop_count: usize,
-    //tmp: Vec<ItemKind<'a>>,
 }
 
 impl<'a> Parser<'a> {
@@ -316,11 +315,10 @@ impl<'a> Parser<'a> {
             except_struct_expression: false,
             brk_label_seq: 0,
             loop_count: 0,
-            //tmp: vec![],
         }
     }
 
-    pub fn gen_ast(&mut self) -> Program<'_> {
+    pub fn gen_ast(&mut self) -> Program<'a> {
         self.program()
     }
 
@@ -417,58 +415,42 @@ impl<'a> Parser<'a> {
         (self.path, &self.lines, self.current_token())
     }
 
-    fn program(&mut self) -> Program {
+    fn program(&mut self) -> Program<'a> {
         let mut program = Program::new(self.path, self.input);
         while let Some(item) = self.parse_item() {
-            match item {
-                ItemKind::Struct(st) => {
-                    if program.find_struct(&st.name).is_some() {
-                        e0005(self.errorset(), &st.name);
-                    }
-                    program.push_struct(st);
-                }
-                ItemKind::Impl(impl_item) => {
-                    program.push_or_merge_impl(impl_item);
-                }
-                ItemKind::Mod(mod_item) => {
-                    program.enter_namespace(&mod_item.0);
-                    for item in mod_item.1 {
-                        // TODO: tmp
-                        match item {
-                            ItemKind::Struct(st) => {
-                                if program.find_struct(&st.name).is_some() {
-                                    e0005(self.errorset(), &st.name);
-                                }
-                                program.push_struct(st);
-                            }
-                            ItemKind::Impl(impl_item) => {
-                                program.push_or_merge_impl(impl_item);
-                            }
-                            ItemKind::Mod(mod_item) => {
-                                program.enter_namespace(&mod_item.0);
-                                todo!();
-                                program.leave_namespace();
-                            }
-                            ItemKind::Fn(f) => {
-                                if program.find_fn(&f.name).is_some() {
-                                    e0005(self.errorset(), &f.name);
-                                }
-                                program.push_fn(f);
-                            }
-                        }
-                    }
-                    program.leave_namespace();
-                    //dbg!(&program.current_namespace);
-                }
-                ItemKind::Fn(f) => {
-                    if program.find_fn(&f.name).is_some() {
-                        e0005(self.errorset(), &f.name);
-                    }
-                    program.push_fn(f);
-                }
-            }
+            self.parse_program(&mut program, item);
         }
         program
+    }
+
+    fn parse_program(&mut self, program: &mut Program<'a>, item: ItemKind<'a>) {
+        match item {
+            ItemKind::Struct(st) => {
+                if program.current_namespace.find_struct(&st.name).is_some() {
+                    e0005(self.errorset(), &st.name);
+                }
+                //program.push_struct(st);
+                Rc::make_mut(&mut program.current_namespace).push_struct(st);
+            }
+            ItemKind::Impl(impl_item) => {
+                //program.push_or_merge_impl(impl_item);
+                Rc::make_mut(&mut program.current_namespace).push_impl(impl_item);
+            }
+            ItemKind::Mod(mod_item) => {
+                program.enter_namespace(&mod_item.0);
+                for item in mod_item.1 {
+                    self.parse_program(program, item);
+                }
+                program.leave_namespace();
+            }
+            ItemKind::Fn(f) => {
+                if program.current_namespace.find_fn(&f.name).is_some() {
+                    e0005(self.errorset(), &f.name);
+                }
+                //program.current_namespace.push_fn(f);
+                Rc::make_mut(&mut program.current_namespace).push_fn(f);
+            }
+        }
     }
 
     fn parse_item(&mut self) -> Option<ItemKind<'a>> {

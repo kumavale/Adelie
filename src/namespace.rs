@@ -61,26 +61,6 @@ impl<'a> NameSpace<'a> {
         Some(current_namespace)
     }
 
-
-    pub fn find_mut(&mut self, name: &str) -> Option<&mut Self> {
-        // TODO: 処理が間違っている気がする
-        // self.children
-        //     .iter_mut()
-        //     .find(|ns| ns.name == name)
-        todo!();
-    }
-
-    pub fn find_mut_recursive(&mut self, name: &str) -> Option<&mut Self> {
-        // if self.name == name {
-        //     Some(self)
-        // } else {
-        //     self.children
-        //         .iter_mut()
-        //         .find_map(|n| n.find_mut_recursive(name))
-        // }
-        todo!();
-    }
-
     pub fn find_fn(&self, name: &str) -> Option<Rc<Function<'a>>> {
         self.functions
             .iter()
@@ -100,5 +80,24 @@ impl<'a> NameSpace<'a> {
             .iter()
             .find(|item| item.name == name)
             .map(Rc::clone)
+    }
+
+    pub fn push_fn(&mut self, f: Function<'a>) {
+        if self.find_fn(&f.name).is_some() {
+            panic!("the name `{}` is defined multiple times", f.name);
+        }
+        self.functions.push(Rc::new(f));
+    }
+
+    pub fn push_struct(&mut self, s: Struct<'a>) {
+        // TODO: partial classとして処理するか？
+        if self.find_struct(&s.name).is_some() {
+            panic!("the name `{}` is defined multiple times", s.name);
+        }
+        self.structs.push(Rc::new(s));
+    }
+
+    pub fn push_impl(&mut self, i: Impl<'a>) {
+        self.impls.push(Rc::new(i));
     }
 }

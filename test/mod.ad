@@ -1,8 +1,14 @@
 mod name_space_1 {
     /*pub*/ fn name_space_1_function() {
-        println!("ok");
+        println!("name_space_1_function");
     }
+    // /*pub*/ mod name_space_2 {
+    //     /*pub*/ fn name_space_2_function() {
+    //         println!("name_space_2_function");
+    //     }
+    // }
 }
 fn main() {
     name_space_1::name_space_1_function();
+    //name_space_1::namespace_2::name_space_2_function();
 }
