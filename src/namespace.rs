@@ -24,21 +24,21 @@ use crate::function::Function;
 #[derive(Clone, Debug)]
 pub struct NameSpace<'a> {
     pub name: String,
-    pub parent: RefCell<Weak<NameSpace<'a>>>,
-    pub children: Vec<Rc<NameSpace<'a>>>,
+    pub parent: Weak<RefCell<NameSpace<'a>>>,
+    pub children: Vec<Rc<RefCell<NameSpace<'a>>>>,
     pub functions: Vec<Rc<Function<'a>>>,
     pub structs:   Vec<Rc<Struct<'a>>>,
     pub impls:     Vec<Rc<Impl<'a>>>,
 }
 
 impl<'a> NameSpace<'a> {
-    pub fn new(name: &str, parent: Option<Rc<NameSpace<'a>>>) -> Self {
+    pub fn new(name: &str, parent: Option<Rc<RefCell<NameSpace<'a>>>>) -> Self {
         NameSpace {
             name: name.to_string(),
             parent: if let Some(parent) = parent {
-                RefCell::new(Rc::downgrade(&parent))
+                Rc::downgrade(&parent)
             } else {
-                RefCell::new(Weak::new())
+                Weak::new()
             },
             children: vec![],
             functions: vec![],
@@ -47,18 +47,19 @@ impl<'a> NameSpace<'a> {
         }
     }
 
+    // TODO: without `unsafe`
     pub fn find(&self, path_tree: &[String]) -> Option<&Self> {
-        let mut current_namespace = self;
+        let mut current_namespace: *const NameSpace = self;
         'tree:for ns in path_tree {
-            for child in current_namespace.children.iter() {
-                if child.name == *ns {
-                    current_namespace = &**child;
+            for child in unsafe{ (*current_namespace).children.iter() } {
+                if child.borrow().name == *ns {
+                    current_namespace = child.as_ptr();
                     continue 'tree;
                 }
             }
             return None;
         }
-        Some(current_namespace)
+        unsafe { Some(&*current_namespace) }
     }
 
     pub fn find_fn(&self, name: &str) -> Option<Rc<Function<'a>>> {

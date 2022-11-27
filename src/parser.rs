@@ -426,15 +426,13 @@ impl<'a> Parser<'a> {
     fn parse_program(&mut self, program: &mut Program<'a>, item: ItemKind<'a>) {
         match item {
             ItemKind::Struct(st) => {
-                if program.current_namespace.find_struct(&st.name).is_some() {
+                if program.current_namespace.borrow().find_struct(&st.name).is_some() {
                     e0005(self.errorset(), &st.name);
                 }
-                //program.push_struct(st);
-                Rc::make_mut(&mut program.current_namespace).push_struct(st);
+                program.current_namespace.borrow_mut().push_struct(st);
             }
             ItemKind::Impl(impl_item) => {
-                //program.push_or_merge_impl(impl_item);
-                Rc::make_mut(&mut program.current_namespace).push_impl(impl_item);
+                program.current_namespace.borrow_mut().push_impl(impl_item);
             }
             ItemKind::Mod(mod_item) => {
                 program.enter_namespace(&mod_item.0);
@@ -444,11 +442,10 @@ impl<'a> Parser<'a> {
                 program.leave_namespace();
             }
             ItemKind::Fn(f) => {
-                if program.current_namespace.find_fn(&f.name).is_some() {
+                if program.current_namespace.borrow().find_fn(&f.name).is_some() {
                     e0005(self.errorset(), &f.name);
                 }
-                //program.current_namespace.push_fn(f);
-                Rc::make_mut(&mut program.current_namespace).push_fn(f);
+                program.current_namespace.borrow_mut().push_fn(f);
             }
         }
     }

@@ -1,14 +1,14 @@
 mod name_space_1 {
-    /*pub*/ fn name_space_1_function() {
-        println!("name_space_1_function");
+    /*pub*/ fn name_space_1_function() -> i32 { 1 }
+    /*pub*/ mod name_space_2 {
+        /*pub*/ fn name_space_2_function() -> i32 { 2 }
+        /*pub*/ fn name_space_2_function2() -> i32 { 3 }
     }
-    // /*pub*/ mod name_space_2 {
-    //     /*pub*/ fn name_space_2_function() {
-    //         println!("name_space_2_function");
-    //     }
-    // }
 }
 fn main() {
-    name_space_1::name_space_1_function();
-    //name_space_1::namespace_2::name_space_2_function();
+    assert_eq!(1, name_space_1::name_space_1_function());
+    assert_eq!(2, name_space_1::name_space_2::name_space_2_function());
+    assert_eq!(3, name_space_1::name_space_2::name_space_2_function2());
+
+    println!("ok");
 }

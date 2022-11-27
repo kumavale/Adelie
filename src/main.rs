@@ -36,9 +36,14 @@ fn main() {
     gen_structs(&program);
     gen_impls(&program);
 
-    gen_functions(&program, &program.current_namespace);
-    for child in &program.current_namespace.children {
-        gen_functions(&program, child);
+    // TODO: 再帰呼び出し
+    let current_namespace = program.current_namespace.borrow();
+    gen_functions(&program, &current_namespace);
+    for child in &current_namespace.children {
+        gen_functions(&program, &child.borrow());
+        for child in &child.borrow().children {
+            gen_functions(&program, &child.borrow());
+        }
     }
 }
 
@@ -54,7 +59,7 @@ fn gen_init() {
 }
 
 fn gen_structs<'a>(program: &'a Program<'a>) {
-    for st in &program.current_namespace.structs {
+    for st in &program.current_namespace.borrow().structs {
         println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", st.name);
         println!("{{");
         for value in &st.field {
@@ -65,7 +70,7 @@ fn gen_structs<'a>(program: &'a Program<'a>) {
 }
 
 fn gen_impls<'a>(program: &'a Program<'a>) {
-    for im in &program.current_namespace.impls {
+    for im in &program.current_namespace.borrow().impls {
         println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", im.name);
         println!("{{");
         for func in &im.functions {
@@ -95,7 +100,7 @@ fn gen_impls<'a>(program: &'a Program<'a>) {
                     let obj = obj.borrow();
                     if let keyword::Type::Struct(name, _) = &obj.ty{
                         use crate::object::FindSymbol;
-                        if program.current_namespace.structs.find(name).is_none() {
+                        if program.current_namespace.borrow().structs.find(name).is_none() {
                             panic!("cannot find struct, variant or union type `{}` in this scope", name);
                         }
                     }
@@ -120,7 +125,7 @@ fn gen_impls<'a>(program: &'a Program<'a>) {
     }
 }
 
-fn gen_functions<'a>(program: &'a Program<'a>, namespace: &'a NameSpace<'a>) {
+fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     for func in &namespace.functions {
         if func.name == "main" {
             println!(".method static void Main() cil managed {{");
@@ -148,7 +153,7 @@ fn gen_functions<'a>(program: &'a Program<'a>, namespace: &'a NameSpace<'a>) {
                 let obj = obj.borrow();
                 if let keyword::Type::Struct(name, _) = &obj.ty{
                     use crate::object::FindSymbol;
-                    if program.current_namespace.structs.find(&*name).is_none() {
+                    if program.current_namespace.borrow().structs.find(name).is_none() {
                         panic!("cannot find struct, variant or union type `{}` in this scope", name);
                     }
                 }
