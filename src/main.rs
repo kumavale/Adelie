@@ -15,6 +15,7 @@ mod utils;
 
 use crate::keyword::*;
 use crate::program::Program;
+use crate::namespace::NameSpace;
 
 fn main() {
     let path = std::env::args().nth(1).unwrap();
@@ -34,7 +35,11 @@ fn main() {
     gen_init();
     gen_structs(&program);
     gen_impls(&program);
-    gen_functions(&program);
+
+    gen_functions(&program, &program.current_namespace);
+    for child in &program.current_namespace.children {
+        gen_functions(&program, child);
+    }
 }
 
 fn gen_init() {
@@ -115,8 +120,8 @@ fn gen_impls<'a>(program: &'a Program<'a>) {
     }
 }
 
-fn gen_functions<'a>(program: &'a Program<'a>) {
-    for func in &program.current_namespace.functions {
+fn gen_functions<'a>(program: &'a Program<'a>, namespace: &'a NameSpace<'a>) {
+    for func in &namespace.functions {
         if func.name == "main" {
             println!(".method static void Main() cil managed {{");
             println!("\t.entrypoint");
@@ -143,7 +148,7 @@ fn gen_functions<'a>(program: &'a Program<'a>) {
                 let obj = obj.borrow();
                 if let keyword::Type::Struct(name, _) = &obj.ty{
                     use crate::object::FindSymbol;
-                    if program.current_namespace.structs.find(name).is_none() {
+                    if program.current_namespace.structs.find(&*name).is_none() {
                         panic!("cannot find struct, variant or union type `{}` in this scope", name);
                     }
                 }

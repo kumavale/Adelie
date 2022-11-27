@@ -1,6 +1,8 @@
-//mod name_space_1 {
-//    /*pub*/fn name_space_1_function() {}
-//}
+mod name_space_1 {
+    /*pub*/ fn name_space_1_function() {
+        println!("ok");
+    }
+}
 fn main() {
-    //name_space_1::name_space_1_function();
+    name_space_1::name_space_1_function();
 }

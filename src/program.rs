@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 use super::class::*;
 use super::function::*;
@@ -35,6 +36,7 @@ impl<'a> Program<'a> {
         if self.find_fn(&f.name).is_some() {
             panic!("the name `{}` is defined multiple times", f.name);
         }
+        //self.current_namespace.functions.push(Rc::new(f));
         Rc::make_mut(&mut self.current_namespace).functions.push(Rc::new(f));
     }
 
@@ -43,6 +45,7 @@ impl<'a> Program<'a> {
         if self.find_struct(&s.name).is_some() {
             panic!("the name `{}` is defined multiple times", s.name);
         }
+        //self.current_namespace.structs.push(Rc::new(s));
         Rc::make_mut(&mut self.current_namespace).structs.push(Rc::new(s));
     }
 
@@ -63,16 +66,27 @@ impl<'a> Program<'a> {
         //1 //}
 
         //self.current_namespace.borrow_mut().elements.extend_from_slice(&i.functions);
+        //self.current_namespace.impls.push(Rc::new(i));
         Rc::make_mut(&mut self.current_namespace).impls.push(Rc::new(i));
     }
 
     pub fn enter_namespace(&mut self, id: &str) {
-        let child = NameSpace::new(id, Some(Rc::clone(&self.namespace)));
-        Rc::make_mut(&mut self.namespace).children.push(child);
-        self.current_namespace = Rc::clone(&self.namespace);
+        //1 let child = Rc::new(RefCell::new(NameSpace::new(id, Some(Rc::clone(&self.current_namespace)))));
+        //1 //Rc::make_mut(&mut self.current_namespace).children.push(Rc::clone(&child));
+        //1 //self.current_namespace.children.borrow_mut().push(Rc::clone(&child));
+        //1 self.current_namespace.children.push(Rc::clone(&child));
+        //1 self.current_namespace = child;
+        let child = Rc::new(NameSpace::new(id, Some(Rc::clone(&self.current_namespace))));
+        //self.current_namespace.children.push(*Rc::clone(&child));
+        //Rc::make_mut(&mut self.current_namespace).children.push(Rc::clone(&child));
+        self.current_namespace = child;
     }
 
     pub fn leave_namespace(&mut self) {
-        todo!()
+        let child = Rc::clone(&self.current_namespace);
+        let parent = self.current_namespace.parent.borrow().clone();
+        self.current_namespace = Rc::clone(&parent.upgrade().unwrap());
+        Rc::make_mut(&mut self.current_namespace).children.push(Rc::clone(&child));
+        //dbg!(&self.current_namespace);
     }
 }

@@ -6,6 +6,7 @@ use super::token::*;
 use super::object::*;
 use super::program::*;
 use std::cell::Ref;
+use std::rc::Rc;
 
 pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
     match node.kind {
@@ -759,27 +760,36 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 func.rettype.clone()
             } else {
                 // TODO: 名前空間から検索
-                // TODO: とりあえずSystem名前空間のは.Net側にて実行時に探す
-                // TODO: とりあえず戻り値はvoidのみ
-                let path = full_path
-                    .join(".");
-                let mut args_types = vec![];
-                for arg in args {
-                    args_types.push(gen_il(arg, p));
-                }
-                let args = args_types
-                    .iter()
-                    .map(|t|t.to_ilstr())
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                if path.ends_with("MessageBox") {
-                    println!("\tcall {} [{}]{}::{}({})", Type::Struct("[System.Windows.Forms]System.Windows.Forms.DialogResult".to_string(), false).to_ilstr(), full_path[..full_path.len()-1].join("."), path, name, args);
-                    println!("pop");
+                let ns = if let Some(ns) = p.current_namespace.find(&full_path) {
+                    ns
                 } else {
-                    println!("\tcall {} [{}]{}::{}({})", Type::Void.to_ilstr(), path, path, name, args);
+                    e0014((p.path, &p.lines, current_token), segment, &name);
+                };
+                if let Some(func) = ns.find_fn(&name) {
+                    let params = &func
+                        .param_symbol_table
+                        .objs;
+                    for (arg, param) in args.into_iter().zip(params) {
+                        let token = arg.token;
+                        let param_ty = &param.borrow().ty;
+                        let arg_ty = gen_il(arg, p);
+                        match (&arg_ty, &param_ty) {
+                            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
+                            _ if arg_ty == *param_ty => (),
+                            _ => e0012((p.path, &p.lines, token), &arg_ty, param_ty)
+                        }
+                    }
+                    let params = params
+                        .iter()
+                        .map(|p|p.borrow().ty.to_ilstr())
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
+                    func.rettype.clone()
+                } else {
+                    e0013((p.path, &p.lines, current_token), &name);
                 }
-                Type::Void
-                //e0014((p.path, &p.lines, current_token), segment, &name);
             }
         }
         _ => {

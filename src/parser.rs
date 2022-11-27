@@ -431,8 +431,34 @@ impl<'a> Parser<'a> {
                     program.push_or_merge_impl(impl_item);
                 }
                 ItemKind::Mod(mod_item) => {
-                    // program.push_mod(item);的な
-                    todo!()
+                    program.enter_namespace(&mod_item.0);
+                    for item in mod_item.1 {
+                        // TODO: tmp
+                        match item {
+                            ItemKind::Struct(st) => {
+                                if program.find_struct(&st.name).is_some() {
+                                    e0005(self.errorset(), &st.name);
+                                }
+                                program.push_struct(st);
+                            }
+                            ItemKind::Impl(impl_item) => {
+                                program.push_or_merge_impl(impl_item);
+                            }
+                            ItemKind::Mod(mod_item) => {
+                                program.enter_namespace(&mod_item.0);
+                                todo!();
+                                program.leave_namespace();
+                            }
+                            ItemKind::Fn(f) => {
+                                if program.find_fn(&f.name).is_some() {
+                                    e0005(self.errorset(), &f.name);
+                                }
+                                program.push_fn(f);
+                            }
+                        }
+                    }
+                    program.leave_namespace();
+                    //dbg!(&program.current_namespace);
                 }
                 ItemKind::Fn(f) => {
                     if program.find_fn(&f.name).is_some() {
@@ -459,6 +485,8 @@ impl<'a> Parser<'a> {
             let f = self.parse_item_fn();
             Some(ItemKind::Fn(f))
         } else if self.is_eof() {
+            None
+        } else if self.check(TokenKind::RBrace) {
             None
         } else {
             e0004(self.errorset());

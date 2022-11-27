@@ -21,11 +21,11 @@ use crate::function::Function;
 ///         fn foo();
 ///     ],
 /// }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NameSpace<'a> {
     pub name: String,
     pub parent: RefCell<Weak<NameSpace<'a>>>,
-    pub children: Vec<NameSpace<'a>>,
+    pub children: Vec<Rc<NameSpace<'a>>>,
     pub functions: Vec<Rc<Function<'a>>>,
     pub structs:   Vec<Rc<Struct<'a>>>,
     pub impls:     Vec<Rc<Impl<'a>>>,
@@ -47,21 +47,38 @@ impl<'a> NameSpace<'a> {
         }
     }
 
+    pub fn find(&self, path_tree: &[String]) -> Option<&Self> {
+        let mut current_namespace = self;
+        'tree:for ns in path_tree {
+            for child in current_namespace.children.iter() {
+                if child.name == *ns {
+                    current_namespace = &**child;
+                    continue 'tree;
+                }
+            }
+            return None;
+        }
+        Some(current_namespace)
+    }
+
+
     pub fn find_mut(&mut self, name: &str) -> Option<&mut Self> {
         // TODO: 処理が間違っている気がする
-         self.children
-             .iter_mut()
-             .find(|ns| ns.name == name)
+        // self.children
+        //     .iter_mut()
+        //     .find(|ns| ns.name == name)
+        todo!();
     }
 
     pub fn find_mut_recursive(&mut self, name: &str) -> Option<&mut Self> {
-        if self.name == name {
-            Some(self)
-        } else {
-            self.children
-                .iter_mut()
-                .find_map(|n| n.find_mut_recursive(name))
-        }
+        // if self.name == name {
+        //     Some(self)
+        // } else {
+        //     self.children
+        //         .iter_mut()
+        //         .find_map(|n| n.find_mut_recursive(name))
+        // }
+        todo!();
     }
 
     pub fn find_fn(&self, name: &str) -> Option<Rc<Function<'a>>> {
