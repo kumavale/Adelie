@@ -389,7 +389,16 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             ty.clone()
         } else if let Some(ident) = self.eat_ident() {
-            Type::Struct(ident, false)
+            // TODO: namespace
+            if self.eat(TokenKind::PathSep) {
+                if let Some(ident) = self.eat_ident() {
+                    Type::Struct(ident, false)
+                } else {
+                    e0002(self.errorset());
+                }
+            } else {
+                Type::Struct(ident, false)
+            }
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
             Type::_Self(self.current_impl.as_ref().unwrap().name.to_string(), false)

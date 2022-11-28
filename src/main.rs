@@ -35,16 +35,7 @@ fn main() {
     gen_init();
     gen_structs(&program);
     gen_impls(&program);
-
-    // TODO: 再帰呼び出し
-    let current_namespace = program.current_namespace.borrow();
-    gen_functions(&program, &current_namespace);
-    for child in &current_namespace.children {
-        gen_functions(&program, &child.borrow());
-        for child in &child.borrow().children {
-            gen_functions(&program, &child.borrow());
-        }
-    }
+    gen_functions(&program, &program.current_namespace.borrow());
 }
 
 fn gen_init() {
@@ -126,6 +117,13 @@ fn gen_impls<'a>(program: &'a Program<'a>) {
 }
 
 fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
+    gen_functions_(&program, &namespace);
+    for child in &namespace.children {
+        gen_functions(&program, &child.borrow());
+    }
+}
+
+fn gen_functions_<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     for func in &namespace.functions {
         if func.name == "main" {
             println!(".method static void Main() cil managed {{");

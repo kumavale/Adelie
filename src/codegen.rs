@@ -103,7 +103,7 @@ fn gen_il_string(_current_token: &[Token], _p: &Program, ty: Type, str: &str) ->
 }
 
 fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args: Vec<Node>) -> Type {
-    if let Some(func) = p.current_namespace.borrow().find_fn(name) {
+    if let Some(func) = p.namespace.borrow().find_fn(name) {
         let params = &func
             .param_symbol_table
             .objs;
@@ -133,9 +133,9 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
 fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str, args: Vec<Node>) -> Type {
     match gen_il(expr, p) {
         Type::Struct(st_name, _) => {
-            if let Some(_st) = p.current_namespace.borrow().find_struct(&st_name) {
-                let current_namespace = p.current_namespace.borrow();
-                let func = if let Some(func) = current_namespace
+            if let Some(_st) = p.namespace.borrow().find_struct(&st_name) {
+                let namespace = p.namespace.borrow();
+                let func = if let Some(func) = namespace
                     .impls
                     // TODO: trait毎
                     .first().unwrap()
@@ -182,7 +182,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
 }
 
 fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Type {
-    if let Some(st) = p.current_namespace.borrow().find_struct(&obj.ty.to_string()) {
+    if let Some(st) = p.namespace.borrow().find_struct(&obj.ty.to_string()) {
         if field.len() != st.field.len() {
             e0017((p.path, &p.lines, current_token), &st.name);
         }
@@ -226,7 +226,7 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
             unimplemented!("primitive type");
         }
     };
-    if let Some(st) = p.current_namespace.borrow().find_struct(&stname) {
+    if let Some(st) = p.namespace.borrow().find_struct(&stname) {
         if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
             let ty = field.ty.clone();
             match ty {
@@ -387,7 +387,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             match gen_il(*expr, p) {
                 Type::Struct(stname, is_mutable) |
                 Type::_Self(stname, is_mutable) => {
-                    if let Some(st) = p.current_namespace.borrow().find_struct(&stname) {
+                    if let Some(st) = p.namespace.borrow().find_struct(&stname) {
                         if let Some(field) = st.field.iter().find(|o|o.name==ident) {
                             let rty = gen_il(rhs, p);
                             match (&field.ty, &rty) {
@@ -735,8 +735,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
             gen_il_path(current_token, p, &segment, full_path, *child)
         }
         NodeKind::Call { name, args } => {
-            //if let Some(im) = p.find_struct(segment).expect(&format!("not found {}", segment)).impls.first() {
-            if let Some(im) = p.current_namespace.borrow().impls.first() {
+            if let Some(im) = p.namespace.borrow().impls.first() {
                 let func = if let Some(func) = im
                     .functions
                     .iter()
@@ -760,8 +759,8 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 func.rettype.clone()
             } else {
                 // TODO: 名前空間から検索
-                let current_namespace = p.current_namespace.borrow();
-                let ns = if let Some(ns) = current_namespace.find(&full_path) {
+                let namespace = p.namespace.borrow();
+                let ns = if let Some(ns) = namespace.find(&full_path) {
                     ns
                 } else {
                     e0014((p.path, &p.lines, current_token), segment, &name);
