@@ -11,6 +11,7 @@ pub enum Keyword {
     Impl,
     Let,
     Loop,
+    Mod,
     Mut,
     SelfLower,
     SelfUpper,
@@ -32,6 +33,7 @@ impl fmt::Display for Keyword {
             Keyword::Impl      => write!(f, "impl"),
             Keyword::Let       => write!(f, "let"),
             Keyword::Loop      => write!(f, "loop"),
+            Keyword::Mod       => write!(f, "mod"),
             Keyword::Mut       => write!(f, "mut"),
             Keyword::SelfLower => write!(f, "self"),
             Keyword::SelfUpper => write!(f, "Self"),
@@ -49,17 +51,17 @@ pub enum Type {
     Bool,
     Char,
     String,
-    Struct(String, bool),
+    Struct(Vec<String>, String, bool),  // (path, name, is_mutable)
+    _Self(Vec<String>, String, bool),   // (path, name, is_mutable)
     Ptr(Box<Type>),
-    _Self(String, bool),
     Void,
 }
 
 impl Type {
     pub fn to_mutable(self) -> Type {
         match self {
-            Type::Struct(name, _) => Type::Struct(name, true),
-            Type::_Self(name, _) => Type::_Self(name, true),
+            Type::Struct(path, name, _) => Type::Struct(path, name, true),
+            Type::_Self(path, name, _)  => Type::_Self(path, name, true),
             t => t,
         }
     }
@@ -76,13 +78,13 @@ impl fmt::Display for Type {
         match self {
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
             Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
-            Type::Bool         => write!(f, "bool"),
-            Type::Char         => write!(f, "char"),
-            Type::String       => write!(f, "string"),
-            Type::Struct(n, _) => write!(f, "{}", n),
-            Type::Ptr(t)       => write!(f, "&{}", t),
-            Type::_Self(n, _)  => write!(f, "{}", n),
-            Type::Void         => write!(f, "void"),
+            Type::Bool            => write!(f, "bool"),
+            Type::Char            => write!(f, "char"),
+            Type::String          => write!(f, "string"),
+            Type::Struct(_, n, _) => write!(f, "{}", n),
+            Type::Ptr(t)          => write!(f, "&{}", t),
+            Type::_Self(_, n, _)  => write!(f, "{}", n),
+            Type::Void            => write!(f, "void"),
         }
     }
 }
@@ -90,14 +92,14 @@ impl fmt::Display for Type {
 impl Type {
     pub fn to_ilstr(&self) -> String {
         match self {
-            Type::Numeric(n)   => n.to_ilstr(),
-            Type::Bool         => "bool".to_string(),
-            Type::Char         => "char".to_string(),
-            Type::String       => "string".to_string(),
-            Type::Struct(n, _) => format!("valuetype {}", n),
-            Type::Ptr(t)       => format!("{}&", t.to_ilstr()),
-            Type::_Self(n, _)  => n.to_string(),
-            Type::Void         => "void".to_string(),
+            Type::Numeric(n)      => n.to_ilstr(),
+            Type::Bool            => "bool".to_string(),
+            Type::Char            => "char".to_string(),
+            Type::String          => "string".to_string(),
+            Type::Struct(_, n, _) => format!("valuetype {}", n),
+            Type::Ptr(t)          => format!("{}&", t.to_ilstr()),
+            Type::_Self(_, n, _)  => n.to_string(),
+            Type::Void            => "void".to_string(),
         }
     }
 }

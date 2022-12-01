@@ -1,0 +1,31 @@
+mod name_space_1 {
+    fn name_space_1_function() -> i32 { 1 }
+    mod name_space_2 {
+        fn name_space_2_function() -> i32 { 2 }
+        fn name_space_2_function2() -> i32 { 3 }
+        mod name_space_3 {
+            fn name_space_3_function() -> i32 { 4 }
+        }
+    }
+    struct Rectangle {
+        width: i32,
+        height: i32,
+    }
+    impl Rectangle {
+        fn new() -> Rectangle { Rectangle { 2, 3 } }
+        fn print_ok() { println!("ok"); }
+        fn area(&self) -> i32 { self.width * self.height }
+    }
+}
+fn main() {
+    assert_eq!(1, name_space_1::name_space_1_function());
+    assert_eq!(2, name_space_1::name_space_2::name_space_2_function());
+    assert_eq!(3, name_space_1::name_space_2::name_space_2_function2());
+    assert_eq!(4, name_space_1::name_space_2::name_space_3::name_space_3_function());
+
+    let rect: name_space_1::Rectangle = name_space_1::Rectangle::new();
+    assert!(rect.width == 2 && rect.height == 3);
+    assert_eq!(6, rect.area());
+
+    name_space_1::Rectangle::print_ok();
+}

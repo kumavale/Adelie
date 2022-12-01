@@ -27,7 +27,7 @@ impl fmt::Display for Builtin {
     }
 }
 
-pub fn gen_il_builtin(token: &[Token], kind: Builtin, args: Vec<Node>, p: &Program) -> Type {
+pub fn gen_il_builtin<'a>(token: &[Token], kind: Builtin, args: Vec<Node>, p: &'a Program<'a>) -> Type {
     match kind {
         Builtin::Assert   => gen_il_builtin_assert(token, args, p),
         Builtin::AssertEq => gen_il_builtin_assert_eq(token, args, p),
@@ -37,7 +37,7 @@ pub fn gen_il_builtin(token: &[Token], kind: Builtin, args: Vec<Node>, p: &Progr
     }
 }
 
-fn gen_il_builtin_assert(_token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_assert<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
     if args.len() != 1 {
         todo!();
     }
@@ -46,7 +46,7 @@ fn gen_il_builtin_assert(_token: &[Token], mut args: Vec<Node>, p: &Program) -> 
     Type::Void
 }
 
-fn gen_il_builtin_assert_eq(_token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_assert_eq<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
     if args.len() != 2 {
         todo!();
     }
@@ -57,7 +57,7 @@ fn gen_il_builtin_assert_eq(_token: &[Token], mut args: Vec<Node>, p: &Program) 
     Type::Void
 }
 
-fn gen_il_builtin_print(_token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_print<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
     let argc = args.len();
     match argc {
         0 => println!("\tcall void [mscorlib]System.Console::Write()"),
@@ -98,7 +98,7 @@ fn gen_il_builtin_print(_token: &[Token], mut args: Vec<Node>, p: &Program) -> T
     Type::Void
 }
 
-fn gen_il_builtin_println(_token: &[Token], mut args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_println<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
     let argc = args.len();
     match argc {
         0 => println!("\tcall void [mscorlib]System.Console::WriteLine()"),

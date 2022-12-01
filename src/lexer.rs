@@ -296,6 +296,7 @@ impl<'a> Lexer<'a> {
                     "impl"   => Token::new(TokenKind::Keyword(Keyword::Impl),    self.col, self.line),
                     "let"    => Token::new(TokenKind::Keyword(Keyword::Let),     self.col, self.line),
                     "loop"   => Token::new(TokenKind::Keyword(Keyword::Loop),    self.col, self.line),
+                    "mod"    => Token::new(TokenKind::Keyword(Keyword::Mod),     self.col, self.line),
                     "mut"    => Token::new(TokenKind::Keyword(Keyword::Mut),     self.col, self.line),
                     "self"   => Token::new(TokenKind::Keyword(Keyword::SelfLower), self.col, self.line),
                     "Self"   => Token::new(TokenKind::Keyword(Keyword::SelfUpper), self.col, self.line),

@@ -2,23 +2,44 @@ use std::rc::Rc;
 use super::object::*;
 use super::function::*;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Dummy();
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct Struct {
+pub struct Struct<'a> {
     pub name: String,
     pub field: Vec<Object>,
+    pub path: Vec<String>,
+    //pub impls: Vec<Impl<'a>>,  // trait毎
+    pub _dummy: &'a Dummy,
 }
 
-impl Struct {
+impl<'a> Struct<'a> {
     pub fn new() -> Self {
         Struct {
             name: String::new(),
             field: vec![],
+            path: vec![],
+            //impls: vec![],
+            _dummy: &Dummy(),
         }
     }
 }
 
-impl FindSymbol for [Struct] {
-    type Item = Struct;
+impl<'a> FindSymbol for [Struct<'a>] {
+    type Item = Struct<'a>;
+
+    fn find(&self, name: &str) -> Option<&Self::Item> {
+        self.iter().find(|s|s.name == name)
+    }
+
+    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
+        self.iter_mut().find(|s|s.name == name)
+    }
+}
+
+impl<'a> FindSymbol for Vec<Rc<Struct<'a>>> {
+    type Item = Rc<Struct<'a>>;
 
     fn find(&self, name: &str) -> Option<&Self::Item> {
         self.iter().find(|s|s.name == name)
@@ -31,6 +52,7 @@ impl FindSymbol for [Struct] {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Impl<'a> {
+    // TODO: trait
     pub name: String,
     pub functions: Vec<Rc<Function<'a>>>,
 }

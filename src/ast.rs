@@ -5,6 +5,8 @@ use super::builtin::*;
 use super::keyword::*;
 use super::object::*;
 use super::token::*;
+use super::function::Function;
+use super::class::{Struct, Impl};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnaryOpKind {
@@ -380,6 +382,7 @@ pub fn new_struct_expr_node<'a>(
     name: &str,
     field: Vec<Node<'a>>,
     token: &'a [Token],
+    current_mod: Vec<String>,
 ) -> Node<'a> {
     fn seq() -> usize {
         unsafe {
@@ -389,7 +392,12 @@ pub fn new_struct_expr_node<'a>(
         }
     }
     let unique_name = format!("{}:{}", name, seq());
-    let obj = Rc::new(RefCell::new(Object::new(unique_name, symbol_table.len(), false, Type::Struct(name.to_string(), false), false)));
+    let obj = Rc::new(RefCell::new(
+            Object::new(unique_name,
+                        symbol_table.len(),
+                        false,
+                        Type::Struct(current_mod, name.to_string(), false),
+                        false)));
     obj.borrow_mut().assigned = true;
     symbol_table.push(Rc::clone(&obj));
     Node {
@@ -534,4 +542,24 @@ impl fmt::Display for ShortCircuitOpKind {
             ShortCircuitOpKind::Or  => write!(f, "||"),
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum ItemKind<'a> {
+    /// A function declaration (`fn`).
+    ///
+    /// E.g., `fn foo(bar: usize) -> usize { .. }`.
+    Fn(Function<'a>),
+    /// A module declaration (`mod`).
+    ///
+    /// E.g., `mod foo;` or `mod foo { .. }`.
+    Mod((String, Vec<ItemKind<'a>>)),  // (ident, items)
+    /// A struct definition (`struct`).
+    ///
+    /// E.g., `struct Foo<A> { x: A }`.
+    Struct(Struct<'a>),
+    /// An implementation.
+    ///
+    /// E.g., `impl<A> Foo<A> { .. }` or `impl<A> Trait for Foo<A> { .. }`.
+    Impl(Impl<'a>),
 }

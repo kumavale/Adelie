@@ -16,6 +16,7 @@ use super::error::*;
 //
 // Item :
 //     Function
+//   | Mod
 //   | Struct
 //   | Implementation
 //
@@ -29,6 +30,9 @@ use super::error::*;
 //     IDENTIFIER `:` Type
 // FunctionReturnType :
 //     `->` Type
+//
+// Mod :
+//     `mod` IDENTIFIER ( `{` Item * `}` | `;` )
 //
 // Struct :
 //     `struct` IDENTIFIER `{` StructFields ? `}`
@@ -290,6 +294,7 @@ pub struct Parser<'a> {
     except_struct_expression: bool,
     brk_label_seq: usize,
     loop_count: usize,
+    current_mod: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -311,10 +316,11 @@ impl<'a> Parser<'a> {
             except_struct_expression: false,
             brk_label_seq: 0,
             loop_count: 0,
+            current_mod: vec![],
         }
     }
 
-    pub fn gen_ast(&mut self) -> Program<'_> {
+    pub fn gen_ast(&mut self) -> Program<'a> {
         self.program()
     }
 
@@ -385,10 +391,20 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             ty.clone()
         } else if let Some(ident) = self.eat_ident() {
-            Type::Struct(ident, false)
+            // WIP
+            if self.check(TokenKind::PathSep) {
+                let mut path = vec![ident];
+                while self.eat(TokenKind::PathSep) {
+                    path.push(self.expect_ident());
+                }
+                let ident = path.pop().unwrap().to_string();
+                Type::Struct(path, ident, false)
+            } else {
+                Type::Struct(self.current_mod.to_vec(), ident, false)
+            }
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
-            Type::_Self(self.current_impl.as_ref().unwrap().name.to_string(), false)
+            Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false)
         } else {
             e0002(self.errorset());
         }
@@ -411,31 +427,88 @@ impl<'a> Parser<'a> {
         (self.path, &self.lines, self.current_token())
     }
 
-    fn program(&mut self) -> Program {
+    fn program(&mut self) -> Program<'a> {
         let mut program = Program::new(self.path, self.input);
-        while !self.is_eof() {
-            if self.eat_keyword(Keyword::Struct) {
-                let st = self.parse_item_struct();
-                if program.find_struct(&st.name).is_some() {
-                    e0005(self.errorset(), &st.name);
-                }
-                program.push_struct(st);
-            } else if self.eat_keyword(Keyword::Impl) {
-                program.push_or_merge_impl(self.parse_item_impl());
-            } else if self.eat_keyword(Keyword::Fn) {
-                let f = self.parse_item_fn();
-                if program.find_fn(&f.name).is_some() {
-                    e0005(self.errorset(), &f.name);
-                }
-                program.push_fn(f);
-            } else {
-                e0004(self.errorset());
-            }
+        while let Some(item) = self.parse_item() {
+            self.parse_program(&mut program, item);
         }
         program
     }
 
-    fn parse_item_struct(&mut self) -> Struct {
+    fn parse_program(&mut self, program: &mut Program<'a>, item: ItemKind<'a>) {
+        match item {
+            ItemKind::Struct(mut st) => {
+                if program.current_namespace.borrow().find_struct(&st.name).is_some() {
+                    e0005(self.errorset(), &st.name);
+                }
+                st.path = program.current_namespace.borrow().full_path();
+                program.current_namespace.borrow_mut().push_struct(st);
+            }
+            ItemKind::Impl(impl_item) => {
+                program.current_namespace.borrow_mut().push_impl(impl_item);
+            }
+            ItemKind::Mod(mod_item) => {
+                program.enter_namespace(&mod_item.0);
+                for item in mod_item.1 {
+                    self.parse_program(program, item);
+                }
+                program.leave_namespace();
+            }
+            ItemKind::Fn(f) => {
+                if program.current_namespace.borrow().find_fn(&f.name).is_some() {
+                    e0005(self.errorset(), &f.name);
+                }
+                program.current_namespace.borrow_mut().push_fn(f);
+            }
+        }
+    }
+
+    fn parse_item(&mut self) -> Option<ItemKind<'a>> {
+        if self.eat_keyword(Keyword::Struct) {
+            let st = self.parse_item_struct();
+            Some(ItemKind::Struct(st))
+        } else if self.eat_keyword(Keyword::Impl) {
+            let impl_item = self.parse_item_impl();
+            Some(ItemKind::Impl(impl_item))
+        } else if self.eat_keyword(Keyword::Mod) {
+            let mod_item = self.parse_item_mod();
+            Some(ItemKind::Mod(mod_item))
+        } else if self.eat_keyword(Keyword::Fn) {
+            let f = self.parse_item_fn();
+            Some(ItemKind::Fn(f))
+        } else if self.is_eof() {
+            None
+        } else if self.check(TokenKind::RBrace) {
+            None
+        } else {
+            e0004(self.errorset());
+        }
+    }
+
+    fn parse_item_mod(&mut self) -> (String, Vec<ItemKind<'a>>) {
+        let id = self.expect_ident();
+        self.current_mod.push(id.to_string());
+        let mod_kind = if self.eat(TokenKind::Semi) {
+            // TODO
+            todo!("ModKind::Unloaded");
+        } else {
+            self.expect(TokenKind::LBrace);
+            self.parse_mod()
+        };
+        self.current_mod.pop();
+        (id, mod_kind)
+    }
+
+    fn parse_mod(&mut self) -> Vec<ItemKind<'a>> {
+        let mut items = vec![];
+        while let Some(item) = self.parse_item() {
+            items.push(item);
+        }
+        self.expect(TokenKind::RBrace);
+        items
+    }
+
+    fn parse_item_struct(&mut self) -> Struct<'a> {
         let mut st = Struct::new();
         st.name = self.expect_ident();
         self.expect(TokenKind::LBrace);
@@ -485,7 +558,7 @@ impl<'a> Parser<'a> {
                     // (&self) -> (self: &Self)
                     self.current_fn_mut().is_static = false;
                     let ident = "self".to_string();
-                    let ty = Type::_Self(self.current_impl.as_ref().unwrap().name.to_string(), false);
+                    let ty = Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false);
                     let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
                     obj.borrow_mut().assigned = true;
                     self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
@@ -1218,11 +1291,13 @@ impl<'a> Parser<'a> {
                 }
             }
             let tokens = &self.tokens[begin..self.idx];
+            let current_mod = self.current_mod.to_vec();
             new_struct_expr_node(
                 &mut self.current_fn_mut().lvar_symbol_table,
                 name,
                 field,
                 tokens,
+                current_mod,
             )
         } else {
             // local variable or parameter
