@@ -215,17 +215,17 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
         Type::Struct(path, stname, is_mutable) => {
             (path, stname, is_mutable)
         }
-        Type::_Self(stname, is_mutable) => {
+        Type::_Self(path, stname, is_mutable) => {
             //println!("\tldarg.0");
-            (vec![], stname, is_mutable)
+            (path, stname, is_mutable)
         }
         Type::Ptr(ty) => {
             match *ty {
-                Type::_Self(stname, is_mutable) => {
+                Type::_Self(path, stname, is_mutable) => {
                     // &self
                     // tmp
                     //println!("\tldarg.0");
-                    (vec![], stname, is_mutable)
+                    (path, stname, is_mutable)
                 }
                 _ => {
                     unimplemented!()
@@ -402,7 +402,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
         NodeKind::Field { expr, ident } => {
             match gen_il(*expr, p) {
                 Type::Struct(_, stname, is_mutable) |
-                Type::_Self(stname, is_mutable) => {
+                Type::_Self(_, stname, is_mutable) => {
                     if let Some(st) = p.namespace.borrow().find_struct(&stname) {
                         if let Some(field) = st.field.iter().find(|o|o.name==ident) {
                             let rty = gen_il(rhs, p);

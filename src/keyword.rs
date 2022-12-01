@@ -52,8 +52,8 @@ pub enum Type {
     Char,
     String,
     Struct(Vec<String>, String, bool),  // (path, name, is_mutable)
+    _Self(Vec<String>, String, bool),   // (path, name, is_mutable)
     Ptr(Box<Type>),
-    _Self(String, bool),
     Void,
 }
 
@@ -61,7 +61,7 @@ impl Type {
     pub fn to_mutable(self) -> Type {
         match self {
             Type::Struct(path, name, _) => Type::Struct(path, name, true),
-            Type::_Self(name, _) => Type::_Self(name, true),
+            Type::_Self(path, name, _)  => Type::_Self(path, name, true),
             t => t,
         }
     }
@@ -83,7 +83,7 @@ impl fmt::Display for Type {
             Type::String          => write!(f, "string"),
             Type::Struct(_, n, _) => write!(f, "{}", n),
             Type::Ptr(t)          => write!(f, "&{}", t),
-            Type::_Self(n, _)     => write!(f, "{}", n),
+            Type::_Self(_, n, _)  => write!(f, "{}", n),
             Type::Void            => write!(f, "void"),
         }
     }
@@ -98,7 +98,7 @@ impl Type {
             Type::String          => "string".to_string(),
             Type::Struct(_, n, _) => format!("valuetype {}", n),
             Type::Ptr(t)          => format!("{}&", t.to_ilstr()),
-            Type::_Self(n, _)     => n.to_string(),
+            Type::_Self(_, n, _)  => n.to_string(),
             Type::Void            => "void".to_string(),
         }
     }
