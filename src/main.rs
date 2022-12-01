@@ -149,11 +149,15 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
             .enumerate()
             .map(|(i, obj)| {
                 let obj = obj.borrow();
-                if let keyword::Type::Struct(_, name, _) = &obj.ty{
+                if let keyword::Type::Struct(path, name, _) = &obj.ty{
                     use crate::object::FindSymbol;
-                    if program.namespace.borrow().structs.find(name).is_none() {
+                    if let Some(ns) = program.namespace.borrow().find(&path) {
+                        if ns.structs.find(name).is_none() {
+                            panic!("cannot find struct, variant or union type `{}` in this scope", name);
+                        }
+                    } else {
                         panic!("cannot find struct, variant or union type `{}` in this scope", name);
-                    }
+                    };
                 }
                 format!("\t\t{} V_{}", obj.ty.to_ilstr(), i)
             })

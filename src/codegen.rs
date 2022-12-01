@@ -182,7 +182,6 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
 }
 
 fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Type {
-    // WIP
     let ns = p.namespace.borrow();
     let ns = if let Type::Struct(path, _, _) = &obj.ty {
         if let Some(ns) = ns.find(&path) {
@@ -208,7 +207,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
     } else {
         e0016((p.path, &p.lines, current_token), &obj.name);
     }
-    Type::Struct(vec![], obj.ty.to_string(), false)
+    obj.ty.clone()
 }
 
 fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str) -> Type {

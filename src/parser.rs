@@ -400,7 +400,7 @@ impl<'a> Parser<'a> {
                 let ident = path.pop().unwrap().to_string();
                 Type::Struct(path, ident, false)
             } else {
-                Type::Struct(vec![], ident, false)
+                Type::Struct(self.current_mod.to_vec(), ident, false)
             }
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
