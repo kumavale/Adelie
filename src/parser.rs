@@ -294,6 +294,7 @@ pub struct Parser<'a> {
     except_struct_expression: bool,
     brk_label_seq: usize,
     loop_count: usize,
+    current_mod: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -315,6 +316,7 @@ impl<'a> Parser<'a> {
             except_struct_expression: false,
             brk_label_seq: 0,
             loop_count: 0,
+            current_mod: vec![],
         }
     }
 
@@ -389,15 +391,16 @@ impl<'a> Parser<'a> {
             self.idx += 1;
             ty.clone()
         } else if let Some(ident) = self.eat_ident() {
-            // TODO: namespace
-            if self.eat(TokenKind::PathSep) {
-                if let Some(ident) = self.eat_ident() {
-                    Type::Struct(ident, false)
-                } else {
-                    e0002(self.errorset());
+            // WIP
+            if self.check(TokenKind::PathSep) {
+                let mut path = vec![ident];
+                while self.eat(TokenKind::PathSep) {
+                    path.push(self.expect_ident());
                 }
+                let ident = path.pop().unwrap().to_string();
+                Type::Struct(path, ident, false)
             } else {
-                Type::Struct(ident, false)
+                Type::Struct(vec![], ident, false)
             }
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
@@ -434,10 +437,11 @@ impl<'a> Parser<'a> {
 
     fn parse_program(&mut self, program: &mut Program<'a>, item: ItemKind<'a>) {
         match item {
-            ItemKind::Struct(st) => {
+            ItemKind::Struct(mut st) => {
                 if program.current_namespace.borrow().find_struct(&st.name).is_some() {
                     e0005(self.errorset(), &st.name);
                 }
+                st.path = program.current_namespace.borrow().full_path();
                 program.current_namespace.borrow_mut().push_struct(st);
             }
             ItemKind::Impl(impl_item) => {
@@ -483,6 +487,7 @@ impl<'a> Parser<'a> {
 
     fn parse_item_mod(&mut self) -> (String, Vec<ItemKind<'a>>) {
         let id = self.expect_ident();
+        self.current_mod.push(id.to_string());
         let mod_kind = if self.eat(TokenKind::Semi) {
             // TODO
             todo!("ModKind::Unloaded");
@@ -490,6 +495,7 @@ impl<'a> Parser<'a> {
             self.expect(TokenKind::LBrace);
             self.parse_mod()
         };
+        self.current_mod.pop();
         (id, mod_kind)
     }
 
@@ -1285,11 +1291,13 @@ impl<'a> Parser<'a> {
                 }
             }
             let tokens = &self.tokens[begin..self.idx];
+            let current_mod = self.current_mod.to_vec();
             new_struct_expr_node(
                 &mut self.current_fn_mut().lvar_symbol_table,
                 name,
                 field,
                 tokens,
+                current_mod,
             )
         } else {
             // local variable or parameter

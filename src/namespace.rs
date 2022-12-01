@@ -57,6 +57,11 @@ impl<'a> NameSpace<'a> {
                     continue 'tree;
                 }
             }
+            for st in unsafe{ (*current_namespace).structs.iter() } {
+                if st.name == *ns {
+                    continue 'tree;
+                }
+            }
             return None;
         }
         unsafe { Some(&*current_namespace) }
@@ -100,5 +105,20 @@ impl<'a> NameSpace<'a> {
 
     pub fn push_impl(&mut self, i: Impl<'a>) {
         self.impls.push(Rc::new(i));
+    }
+
+    pub fn full_path(&self) -> Vec<String> {
+        use std::collections::VecDeque;
+        let mut namespace: *const NameSpace = self;
+        let mut path = VecDeque::new();
+        path.push_front("crate".to_string());
+        unsafe {
+            path.push_front((*namespace).name.to_string());
+            while let Some(parent) = (*namespace).parent.upgrade() {
+                path.push_front(parent.borrow().name.to_string());
+                namespace = parent.as_ptr();
+            }
+        }
+        Vec::from(path)
     }
 }

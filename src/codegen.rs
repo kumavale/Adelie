@@ -132,7 +132,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
 
 fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str, args: Vec<Node>) -> Type {
     match gen_il(expr, p) {
-        Type::Struct(st_name, _) => {
+        Type::Struct(_, st_name, _) => {
             if let Some(_st) = p.namespace.borrow().find_struct(&st_name) {
                 let namespace = p.namespace.borrow();
                 let func = if let Some(func) = namespace
@@ -182,7 +182,18 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
 }
 
 fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Type {
-    if let Some(st) = p.namespace.borrow().find_struct(&obj.ty.to_string()) {
+    // WIP
+    let ns = p.namespace.borrow();
+    let ns = if let Type::Struct(path, _, _) = &obj.ty {
+        if let Some(ns) = ns.find(&path) {
+            ns
+        } else {
+            e0016((p.path, &p.lines, current_token), &obj.name);
+        }
+    } else {
+        e0016((p.path, &p.lines, current_token), &obj.name);
+    };
+    if let Some(st) = ns.find_struct(&obj.ty.to_string()) {
         if field.len() != st.field.len() {
             e0017((p.path, &p.lines, current_token), &st.name);
         }
@@ -197,12 +208,12 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
     } else {
         e0016((p.path, &p.lines, current_token), &obj.name);
     }
-    Type::Struct(obj.ty.to_string(), false)
+    Type::Struct(vec![], obj.ty.to_string(), false)
 }
 
 fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str) -> Type {
     let (stname, is_mutable) = match gen_il(expr, p) {
-        Type::Struct(stname, is_mutable) => {
+        Type::Struct(_, stname, is_mutable) => {
             (stname, is_mutable)
         }
         Type::_Self(stname, is_mutable) => {
@@ -385,7 +396,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
         }
         NodeKind::Field { expr, ident } => {
             match gen_il(*expr, p) {
-                Type::Struct(stname, is_mutable) |
+                Type::Struct(_, stname, is_mutable) |
                 Type::_Self(stname, is_mutable) => {
                     if let Some(st) = p.namespace.borrow().find_struct(&stname) {
                         if let Some(field) = st.field.iter().find(|o|o.name==ident) {
@@ -786,6 +797,28 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                         .collect::<Vec<String>>()
                         .join(", ");
                     println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
+                    func.rettype.clone()
+                } else if let Some(im) = ns.find_impl(&full_path.last().unwrap()) {
+                    let func = if let Some(func) = im
+                        .functions
+                        .iter()
+                        .find(|f|f.name==name) {
+                            func
+                        } else {
+                            e0014((p.path, &p.lines, current_token), segment, &name);
+                        };
+                    for arg in args {
+                        gen_il(arg, p);
+                    }
+                    let args = func
+                        .param_symbol_table
+                        .objs
+                        .iter()
+                        .skip(if func.is_static { 0 } else { 1 })
+                        .map(|o|o.borrow().ty.to_ilstr())
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, args);
                     func.rettype.clone()
                 } else {
                     e0013((p.path, &p.lines, current_token), &name);

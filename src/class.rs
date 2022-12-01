@@ -9,6 +9,7 @@ pub struct Dummy();
 pub struct Struct<'a> {
     pub name: String,
     pub field: Vec<Object>,
+    pub path: Vec<String>,
     //pub impls: Vec<Impl<'a>>,  // trait毎
     pub _dummy: &'a Dummy,
 }
@@ -18,6 +19,7 @@ impl<'a> Struct<'a> {
         Struct {
             name: String::new(),
             field: vec![],
+            path: vec![],
             //impls: vec![],
             _dummy: &Dummy(),
         }
