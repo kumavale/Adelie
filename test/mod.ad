@@ -25,7 +25,7 @@ fn main() {
 
     let rect: name_space_1::Rectangle = name_space_1::Rectangle::new();
     assert!(rect.width == 2 && rect.height == 3);
-    //assert_eq!(6, rect.area());
+    assert_eq!(6, rect.area());
 
     name_space_1::Rectangle::print_ok();
 }

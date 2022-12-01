@@ -132,10 +132,15 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
 
 fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str, args: Vec<Node>) -> Type {
     match gen_il(expr, p) {
-        Type::Struct(_, st_name, _) => {
-            if let Some(_st) = p.namespace.borrow().find_struct(&st_name) {
-                let namespace = p.namespace.borrow();
-                let func = if let Some(func) = namespace
+        Type::Struct(path, st_name, _) => {
+            let ns = p.namespace.borrow();
+            let ns = if let Some(ns) = ns.find(&path) {
+                ns
+            } else {
+                e0016((p.path, &p.lines, current_token), &st_name);
+            };
+            if let Some(_st) = ns.find_struct(&st_name) {
+                let func = if let Some(func) = ns
                     .impls
                     // TODO: trait毎
                     .first().unwrap()
