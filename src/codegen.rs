@@ -211,13 +211,13 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
 }
 
 fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str) -> Type {
-    let (stname, is_mutable) = match gen_il(expr, p) {
-        Type::Struct(_, stname, is_mutable) => {
-            (stname, is_mutable)
+    let (path, stname, is_mutable) = match gen_il(expr, p) {
+        Type::Struct(path, stname, is_mutable) => {
+            (path, stname, is_mutable)
         }
         Type::_Self(stname, is_mutable) => {
             //println!("\tldarg.0");
-            (stname, is_mutable)
+            (vec![], stname, is_mutable)
         }
         Type::Ptr(ty) => {
             match *ty {
@@ -225,7 +225,7 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
                     // &self
                     // tmp
                     //println!("\tldarg.0");
-                    (stname, is_mutable)
+                    (vec![], stname, is_mutable)
                 }
                 _ => {
                     unimplemented!()
@@ -236,7 +236,13 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
             unimplemented!("primitive type");
         }
     };
-    if let Some(st) = p.namespace.borrow().find_struct(&stname) {
+    let ns = p.namespace.borrow();
+    let ns = if let Some(ns) = ns.find(&path) {
+        ns
+    } else {
+        e0016((p.path, &p.lines, current_token), &stname);
+    };
+    if let Some(st) = ns.find_struct(&stname) {
         if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
             let ty = field.ty.clone();
             match ty {
