@@ -66,17 +66,6 @@ impl SymbolTable {
         }
     }
 
-    pub fn find_name_current_scope(&self, name: &str) -> Option<&Rc<RefCell<Object>>> {
-        if let Some(current_scope) = self.scopes.last() {
-            for obj in current_scope {
-                if obj.borrow().name == name {
-                    return Some(obj);
-                }
-            }
-        }
-        None
-    }
-
     pub fn len(&self) -> usize {
         self.objs.len()
     }
