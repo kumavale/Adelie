@@ -57,86 +57,12 @@ fn gen_il_builtin_assert_eq<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Pr
     Type::Void
 }
 
-fn gen_il_builtin_print<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
-    let argc = args.len();
-    match argc {
-        0 => println!("\tcall void [mscorlib]System.Console::Write()"),
-        1 => {
-            let ty = gen_il(args.drain(..1).next().unwrap(), p);
-            println!("\tcall void [mscorlib]System.Console::Write({})",
-                match ty {
-                    Type::Numeric(..) => Numeric::I32.to_ilstr(),
-                    Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
-                    _ => unimplemented!()
-                });
-        }
-        _ => {
-            let format = args.drain(..1).next().unwrap();
-            let token = format.token;
-            if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
-                // format argument must be a string literal
-                e0000((p.path, &p.lines, token), "format argument must be a string literal");
-            }
-            let fmtty = gen_il(format, p);
-            if fmtty != Type::String {
-                e0012((p.path, &p.lines, token), &Type::String, &fmtty);
-            }
-            println!("\tldc.i4 {}", argc);
-            println!("\tnewarr object");
-            args.into_iter()
-                .enumerate()
-                .for_each(|(i, arg)| {
-                    println!("\tdup");
-                    println!("\tldc.i4 {}", i);
-                    let ty = gen_il(arg, p);
-                    println!("\tbox {}", ty.to_ilstr());
-                    println!("\tstelem.ref");
-                });
-            println!("\tcall void [mscorlib]System.Console::Write(string, object[])");
-        }
-    }
-    Type::Void
+fn gen_il_builtin_print<'a>(_token: &[Token], args: Vec<Node>, p: &'a Program<'a>) -> Type {
+    format_args(_token, args, p, false)
 }
 
-fn gen_il_builtin_println<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
-    let argc = args.len();
-    match argc {
-        0 => println!("\tcall void [mscorlib]System.Console::WriteLine()"),
-        1 => {
-            let ty = gen_il(args.drain(..1).next().unwrap(), p);
-            println!("\tcall void [mscorlib]System.Console::WriteLine({})",
-                match ty {
-                    Type::Numeric(..) => Numeric::I32.to_ilstr(),
-                    Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
-                    _ => unimplemented!()
-                });
-        }
-        _ => {
-            let format = args.drain(..1).next().unwrap();
-            let token = format.token;
-            if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
-                // format argument must be a string literal
-                e0000((p.path, &p.lines, token), "format argument must be a string literal");
-            }
-            let fmtty = gen_il(format, p);
-            if fmtty != Type::String {
-                e0012((p.path, &p.lines, token), &Type::String, &fmtty);
-            }
-            println!("\tldc.i4 {}", argc);
-            println!("\tnewarr object");
-            args.into_iter()
-                .enumerate()
-                .for_each(|(i, arg)| {
-                    println!("\tdup");
-                    println!("\tldc.i4 {}", i);
-                    let ty = gen_il(arg, p);
-                    println!("\tbox {}", ty.to_ilstr());
-                    println!("\tstelem.ref");
-                });
-            println!("\tcall void [mscorlib]System.Console::WriteLine(string, object[])");
-        }
-    }
-    Type::Void
+fn gen_il_builtin_println<'a>(_token: &[Token], args: Vec<Node>, p: &'a Program<'a>) -> Type {
+    format_args(_token, args, p, true)
 }
 
 fn gen_il_builtin_read_line(token: &[Token], args: Vec<Node>, p: &Program) -> Type {
@@ -145,4 +71,46 @@ fn gen_il_builtin_read_line(token: &[Token], args: Vec<Node>, p: &Program) -> Ty
     }
     println!("\tcall string [mscorlib]System.Console::ReadLine()");
     Type::String
+}
+
+fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl: bool) -> Type {
+    let nl = if nl { "Line" } else { "" };
+    let argc = args.len();
+    match argc {
+        0 => println!("\tcall void [mscorlib]System.Console::Write{nl}()"),
+        1 => {
+            let ty = gen_il(args.drain(..1).next().unwrap(), p);
+            println!("\tcall void [mscorlib]System.Console::Write{nl}({})",
+                match ty {
+                    Type::Numeric(..) => Numeric::I32.to_ilstr(),
+                    Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
+                    _ => unimplemented!()
+                });
+        }
+        _ => {
+            let format = args.drain(..1).next().unwrap();
+            let token = format.token;
+            if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
+                // format argument must be a string literal
+                e0000((p.path, &p.lines, token), "format argument must be a string literal");
+            }
+            let fmtty = gen_il(format, p);
+            if fmtty != Type::String {
+                e0012((p.path, &p.lines, token), &Type::String, &fmtty);
+            }
+            println!("\tldc.i4 {}", argc);
+            println!("\tnewarr object");
+            args.into_iter()
+                .enumerate()
+                .for_each(|(i, arg)| {
+                    println!("\tdup");
+                    println!("\tldc.i4 {}", i);
+                    let ty = gen_il(arg, p);
+                    println!("\tbox {}", ty.to_ilstr());
+                    println!("\tstelem.ref");
+                });
+            println!("\tcall void [mscorlib]System.Console::Write{nl}(string, object[])");
+        }
+    }
+    Type::Void
 }
