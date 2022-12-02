@@ -79,10 +79,16 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl
     match argc {
         0 => println!("\tcall void [mscorlib]System.Console::Write{nl}()"),
         1 => {
-            let ty = gen_il(args.drain(..1).next().unwrap(), p);
+            let format = args.drain(..1).next().unwrap();
+            let token = format.token;
+            // check arg counts
+            if format_arg_count(&format) != argc-1 {
+                e0000((p.path, &p.lines, token), "invalid format");
+            }
+            let ty = gen_il(format_shaping(format), p);
             println!("\tcall void [mscorlib]System.Console::Write{nl}({})",
                 match ty {
-                    Type::Numeric(..) => Numeric::I32.to_ilstr(),
+                    Type::Numeric(n) => n.to_ilstr(),
                     Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
                     _ => unimplemented!()
                 });
@@ -94,10 +100,11 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl
                 // format argument must be a string literal
                 e0000((p.path, &p.lines, token), "format argument must be a string literal");
             }
-            let fmtty = gen_il(format, p);
-            if fmtty != Type::String {
-                e0012((p.path, &p.lines, token), &Type::String, &fmtty);
+            // check arg counts
+            if format_arg_count(&format) != argc-1 {
+                e0000((p.path, &p.lines, token), "invalid format");
             }
+            gen_il(format_shaping(format), p);
             println!("\tldc.i4 {}", argc);
             println!("\tnewarr object");
             args.into_iter()
@@ -113,4 +120,31 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl
         }
     }
     Type::Void
+}
+
+/// Return `{}` count
+fn format_arg_count(node: &Node) -> usize {
+    match &node.kind {
+        NodeKind::String{ ty: _, str } => str.matches("{}").count(),
+        _ => 0,
+    }
+}
+
+/// `{}` to `{n}`
+fn format_shaping(mut node: Node) -> Node {
+    match &node.kind {
+        NodeKind::String{ ty, str } => {
+            let mut arg_count = 0;
+            let mut s = str.to_string();
+            while let Some(idx) = s.find("{}") {
+                s.remove(idx);
+                s.remove(idx);
+                s.insert_str(idx, &format!("{{{arg_count}}}"));
+                arg_count += 1;
+            }
+            node.kind = NodeKind::String { ty: ty.clone(), str: s };
+            node
+        }
+        _ => node
+    }
 }
