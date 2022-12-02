@@ -115,7 +115,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                 _ if arg_ty == *param_ty => (),
-                _ => e0012((p.path, &p.lines, token), &arg_ty, param_ty)
+                _ => e0012((p.path, &p.lines, token), param_ty, &arg_ty)
             }
         }
         let params = params
@@ -166,7 +166,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                         _ if &arg_ty == param_ty => (),
-                        _ => e0012((p.path, &p.lines, token), &arg_ty, param_ty)
+                        _ => e0012((p.path, &p.lines, token), param_ty, &arg_ty)
                     }
                 }
                 let params = params
@@ -798,7 +798,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                             _ if arg_ty == *param_ty => (),
-                            _ => e0012((p.path, &p.lines, token), &arg_ty, param_ty)
+                            _ => e0012((p.path, &p.lines, token), param_ty, &arg_ty)
                         }
                     }
                     let params = params
