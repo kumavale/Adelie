@@ -48,11 +48,11 @@ fn gen_init() {
 }
 
 fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
-    gen_structs(&program, &namespace);
-    gen_impls(&program, &namespace);
-    gen_functions(&program, &namespace);
+    gen_structs(program, namespace);
+    gen_impls(program, namespace);
+    gen_functions(program, namespace);
     for child in &namespace.children {
-        gen_items(&program, &child.borrow());
+        gen_items(program, &child.borrow());
     }
 }
 
@@ -151,7 +151,7 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
                 let obj = obj.borrow();
                 if let keyword::Type::Struct(path, name, _) = &obj.ty{
                     use crate::object::FindSymbol;
-                    if let Some(ns) = program.namespace.borrow().find(&path) {
+                    if let Some(ns) = program.namespace.borrow().find(path) {
                         if ns.structs.find(name).is_none() {
                             panic!("cannot find struct, variant or union type `{}` in this scope", name);
                         }

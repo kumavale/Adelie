@@ -189,7 +189,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
 fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Type {
     let ns = p.namespace.borrow();
     let ns = if let Type::Struct(path, _, _) = &obj.ty {
-        if let Some(ns) = ns.find(&path) {
+        if let Some(ns) = ns.find(path) {
             ns
         } else {
             e0016((p.path, &p.lines, current_token), &obj.name);
@@ -259,7 +259,7 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
                 }
             }
             if is_mutable {
-                ty.to_mutable()
+                ty.into_mutable()
             } else {
                 ty
             }
@@ -288,7 +288,7 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Ty
         }
     }
     if obj.is_mutable() {
-        obj.ty.clone().to_mutable()
+        obj.ty.clone().into_mutable()
     } else {
         obj.ty.clone()
     }
@@ -808,7 +808,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                         .join(", ");
                     println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
                     func.rettype.clone()
-                } else if let Some(im) = ns.find_impl(&full_path.last().unwrap()) {
+                } else if let Some(im) = ns.find_impl(full_path.last().unwrap()) {
                     let func = if let Some(func) = im
                         .functions
                         .iter()

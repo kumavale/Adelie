@@ -58,7 +58,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn to_mutable(self) -> Type {
+    pub fn into_mutable(self) -> Type {
         match self {
             Type::Struct(path, name, _) => Type::Struct(path, name, true),
             Type::_Self(path, name, _)  => Type::_Self(path, name, true),

@@ -397,7 +397,7 @@ impl<'a> Parser<'a> {
                 while self.eat(TokenKind::PathSep) {
                     path.push(self.expect_ident());
                 }
-                let ident = path.pop().unwrap().to_string();
+                let ident = path.pop().unwrap();
                 Type::Struct(path, ident, false)
             } else {
                 Type::Struct(self.current_mod.to_vec(), ident, false)
@@ -476,9 +476,7 @@ impl<'a> Parser<'a> {
         } else if self.eat_keyword(Keyword::Fn) {
             let f = self.parse_item_fn();
             Some(ItemKind::Fn(f))
-        } else if self.is_eof() {
-            None
-        } else if self.check(TokenKind::RBrace) {
+        } else if self.is_eof() || self.check(TokenKind::RBrace) {
             None
         } else {
             e0004(self.errorset());

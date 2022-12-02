@@ -24,6 +24,7 @@ fn main() {
     assert_eq!(4, name_space_1::name_space_2::name_space_3::name_space_3_function());
 
     let rect: name_space_1::Rectangle = name_space_1::Rectangle::new();
+    let rect: name_space_1::Rectangle = name_space_1::Rectangle::new();
     assert!(rect.width == 2 && rect.height == 3);
     assert_eq!(6, rect.area());
 
