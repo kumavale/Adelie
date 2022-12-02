@@ -3,12 +3,25 @@ use super::keyword::*;
 use super::token::*;
 use super::utils::*;
 
+macro_rules! disp_error_code {
+    () => (
+        #[cfg(debug_assertions)]
+        eprintln!("{}", std::backtrace::Backtrace::force_capture().to_string().lines().take(4).into_iter().collect::<Vec<_>>().join("\n"));
+        eprint!("\x1b[31merror: \x1b[0m");
+    );
+    ($code:expr) => (
+        #[cfg(debug_assertions)]
+        eprintln!("{}", std::backtrace::Backtrace::force_capture().to_string().lines().take(4).into_iter().collect::<Vec<_>>().join("\n"));
+        eprint!("\x1b[31merror[E{:04}]: \x1b[0m", $code);
+    );
+}
+
 /// any message
 pub fn e0000(
     (path, lines, token): (&str, &[&str], &[Token]),
     message: &str,
 ) -> ! {
-    disp_error_without_code();
+    disp_error_code!();
     eprintln!("{}", message);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -16,7 +29,7 @@ pub fn e0000(
 
 /// expected ...
 pub fn e0001((path, lines, token): (&str, &[&str], &[Token]), expect: TokenKind) -> ! {
-    disp_error_with_code(1);
+    disp_error_code!(1);
     eprintln!("expected `{}`, but got `{}`", expect, token[0].kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -24,7 +37,7 @@ pub fn e0001((path, lines, token): (&str, &[&str], &[Token]), expect: TokenKind)
 
 /// expected type
 pub fn e0002((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_with_code(2);
+    disp_error_code!(2);
     eprintln!("expected type, but got `{}`", token[0].kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -32,7 +45,7 @@ pub fn e0002((path, lines, token): (&str, &[&str], &[Token])) -> ! {
 
 /// expected identifier
 pub fn e0003((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_with_code(3);
+    disp_error_code!(3);
     eprintln!("expected identifier, but got `{}`", token[0].kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -40,7 +53,7 @@ pub fn e0003((path, lines, token): (&str, &[&str], &[Token])) -> ! {
 
 /// expected item
 pub fn e0004((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_with_code(4);
+    disp_error_code!(4);
     eprintln!("expected item, but got `{}`", token[0].kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -48,7 +61,7 @@ pub fn e0004((path, lines, token): (&str, &[&str], &[Token])) -> ! {
 
 /// tha name is defined multiple times
 pub fn e0005((path, lines, token): (&str, &[&str], &[Token]), ident: &str) -> ! {
-    disp_error_with_code(5);
+    disp_error_code!(5);
     eprintln!("the name `{}` is defined multiple times", ident);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -56,7 +69,7 @@ pub fn e0005((path, lines, token): (&str, &[&str], &[Token]), ident: &str) -> ! 
 
 /// unknown start of token
 pub fn e0006((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_with_code(6);
+    disp_error_code!(6);
     eprintln!("unknown start of token `{}`", token[0].kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -64,7 +77,7 @@ pub fn e0006((path, lines, token): (&str, &[&str], &[Token])) -> ! {
 
 /// cannot find value in this scope
 pub fn e0007((path, lines, token): (&str, &[&str], &[Token]), ident: &str) -> ! {
-    disp_error_with_code(7);
+    disp_error_code!(7);
     eprintln!("cannot find value `{}` in this scope", ident);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -72,7 +85,7 @@ pub fn e0007((path, lines, token): (&str, &[&str], &[Token]), ident: &str) -> ! 
 
 /// expected `,`, or `}`
 pub fn e0008((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_with_code(8);
+    disp_error_code!(8);
     eprintln!("expected `,`, or `}}`, found `{}`", token[0].kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -80,7 +93,7 @@ pub fn e0008((path, lines, token): (&str, &[&str], &[Token])) -> ! {
 
 /// expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`
 pub fn e0009((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_with_code(9);
+    disp_error_code!(9);
     eprintln!("expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `{}`", token[0].kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -88,7 +101,7 @@ pub fn e0009((path, lines, token): (&str, &[&str], &[Token])) -> ! {
 
 /// expected one of `)`, `,`, `.`, `?`, or an operator
 pub fn e0010((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_with_code(10);
+    disp_error_code!(10);
     eprintln!("expected one of `)`, `,`, `.`, `?`, or an operator, found `{}`", token[0].kind);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -100,7 +113,7 @@ pub fn e0012(
     expect: &Type,
     actual: &Type,
 ) -> ! {
-    disp_error_with_code(12);
+    disp_error_code!(12);
     eprintln!("expect `{}`, found `{}`", expect, actual);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -111,7 +124,7 @@ pub fn e0013(
     (path, lines, token): (&str, &[&str], &[Token]),
     ident: &str,
 ) -> ! {
-    disp_error_with_code(13);
+    disp_error_code!(13);
     eprintln!("cannot find function `{}` in this scope", ident);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -123,7 +136,7 @@ pub fn e0014(
     stname: &str,
     method: &str,
 ) -> ! {
-    disp_error_with_code(14);
+    disp_error_code!(14);
     eprintln!("no method named `{}` found for struct `{}` in the current scope", method, stname);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -135,7 +148,7 @@ pub fn e0015(
     stname: &str,
     field: &str,
 ) -> ! {
-    disp_error_with_code(15);
+    disp_error_code!(15);
     eprintln!("no field `{}` on type `{}`", field, stname);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -146,7 +159,7 @@ pub fn e0016(
     (path, lines, token): (&str, &[&str], &[Token]),
     ident: &str,
 ) -> ! {
-    disp_error_with_code(16);
+    disp_error_code!(16);
     eprintln!("cannot find struct, variant or union type `{}` in this scope", ident);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -157,7 +170,7 @@ pub fn e0017(
     (path, lines, token): (&str, &[&str], &[Token]),
     stname: &str,
 ) -> ! {
-    disp_error_with_code(17);
+    disp_error_code!(17);
     eprintln!("missing fields in initializer of `{}`", stname);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -168,7 +181,7 @@ pub fn e0018(
     (path, lines, token): (&str, &[&str], &[Token]),
     then_type: &Type,
 ) -> ! {
-    disp_error_with_code(18);
+    disp_error_code!(18);
     eprintln!("`if` may be missing an `else` clause");
     eprintln!("expect `()`, found `{}`", then_type);
     eprint_nearby(path, lines, token).ok();
@@ -179,7 +192,7 @@ pub fn e0018(
 pub fn e0019(
     (path, lines, token): (&str, &[&str], &[Token]),
 ) -> ! {
-    disp_error_with_code(19);
+    disp_error_code!(19);
     eprintln!("invalid left-hand side of assignment");
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -190,7 +203,7 @@ pub fn e0020(
     (path, lines, token): (&str, &[&str], &[Token]),
     ty: &Type,
 ) -> ! {
-    disp_error_with_code(20);
+    disp_error_code!(20);
     eprintln!("cannot cast as `{}`", ty);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -201,7 +214,7 @@ pub fn e0021(
     (path, lines, token): (&str, &[&str], &[Token]),
     ty: &Type,
 ) -> ! {
-    disp_error_with_code(21);
+    disp_error_code!(21);
     eprintln!("cannot apply unary operator `-` to type `{}`", ty);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -212,7 +225,7 @@ pub fn e0022(
     (path, lines, token): (&str, &[&str], &[Token]),
     ty: &Type,
 ) -> ! {
-    disp_error_with_code(22);
+    disp_error_code!(22);
     eprintln!("type `{}` cannot be dereferenced", ty);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -225,7 +238,7 @@ pub fn e0023(
     lty: &Type,
     rty: &Type,
 ) -> ! {
-    disp_error_with_code(23);
+    disp_error_code!(23);
     match kind {
         BinaryOpKind::Add => eprintln!("cannot add `{}` to `{}`", lty, rty),
         BinaryOpKind::Sub => eprintln!("cannot subtract `{}` from `{}`", lty, rty),
@@ -245,7 +258,7 @@ pub fn e0024(
     lty: &Type,
     rty: &Type,
 ) -> ! {
-    disp_error_with_code(24);
+    disp_error_code!(24);
     eprintln!("no implementation for `{}` {} `{}`", lty, kind, rty);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -256,7 +269,7 @@ pub fn e0027(
     (path, lines, token): (&str, &[&str], &[Token]),
     ident:  &str,
 ) -> ! {
-    disp_error_with_code(27);
+    disp_error_code!(27);
     eprintln!("use of possibly-uninitialized variable: `{}`", ident);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -267,7 +280,7 @@ pub fn e0028(
     (path, lines, token): (&str, &[&str], &[Token]),
     ident:  &str,
 ) -> ! {
-    disp_error_with_code(28);
+    disp_error_code!(28);
     eprintln!("cannot assign twice to immutable variable: `{}`", ident);
     eprint_nearby(path, lines, token).ok();
     panic!();
@@ -317,12 +330,4 @@ fn eprint_nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<(), ()> 
     }
 
     Ok(())
-}
-
-fn disp_error_with_code(code: usize) {
-    eprint!("\x1b[31merror[E{:04}]: \x1b[0m", code);
-}
-
-fn disp_error_without_code() {
-    eprint!("\x1b[31merror: \x1b[0m");
 }
