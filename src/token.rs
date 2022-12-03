@@ -1,6 +1,6 @@
+use crate::builtin::*;
+use crate::keyword::{Keyword, Type};
 use std::fmt;
-use super::keyword::*;
-use super::builtin::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {

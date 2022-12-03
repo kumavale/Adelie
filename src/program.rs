@@ -1,6 +1,6 @@
+use crate::namespace::NameSpace;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use super::namespace::*;
 
 #[derive(Clone)]
 pub struct Program<'a> {

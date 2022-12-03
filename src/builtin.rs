@@ -1,10 +1,10 @@
+use crate::ast::*;
+use crate::codegen::*;
+use crate::error::*;
+use crate::keyword::Type;
+use crate::program::Program;
+use crate::token::{LiteralKind, Token, TokenKind};
 use std::fmt;
-use super::ast::*;
-use super::codegen::*;
-use super::error::*;
-use super::keyword::*;
-use super::program::*;
-use super::token::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Builtin {

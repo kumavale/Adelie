@@ -1,7 +1,7 @@
+use crate::builtin::*;
+use crate::keyword::{Keyword, Numeric, Type};
+use crate::token::{LiteralKind, Token, TokenKind};
 use std::cmp::Ordering;
-use super::token::*;
-use super::keyword::*;
-use super::builtin::*;
 
 pub struct Lexer<'a> {
     _input: &'a str,

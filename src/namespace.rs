@@ -1,7 +1,7 @@
-use std::cell::RefCell;
-use std::rc::{Rc, Weak};
 use crate::class::{Struct, Impl};
 use crate::function::Function;
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 
 /// NameSpace {
 ///     name: crate,

@@ -1,6 +1,6 @@
+use crate::function::Function;
+use crate::object::{Object, FindSymbol};
 use std::rc::Rc;
-use super::object::*;
-use super::function::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Dummy();

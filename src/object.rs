@@ -1,6 +1,6 @@
+use crate::keyword::Type;
 use std::cell::RefCell;
 use std::rc::Rc;
-use super::keyword::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Object {

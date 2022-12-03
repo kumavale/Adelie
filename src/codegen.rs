@@ -1,10 +1,10 @@
-use super::ast::*;
-use super::builtin::*;
-use super::error::*;
-use super::keyword::*;
-use super::token::*;
-use super::object::*;
-use super::program::*;
+use crate::ast::*;
+use crate::builtin::*;
+use crate::error::*;
+use crate::keyword::{Type, Numeric, Keyword};
+use crate::object::Object;
+use crate::program::Program;
+use crate::token::Token;
 use std::cell::Ref;
 
 pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {

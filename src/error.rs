@@ -1,7 +1,7 @@
-use super::ast::*;
-use super::keyword::*;
-use super::token::*;
-use super::utils::*;
+use crate::ast::*;
+use crate::keyword::Type;
+use crate::token::{Token, TokenKind};
+use crate::utils::*;
 
 macro_rules! disp_error_code {
     () => (

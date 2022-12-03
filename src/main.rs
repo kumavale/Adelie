@@ -13,9 +13,9 @@ mod program;
 mod token;
 mod utils;
 
-use crate::keyword::*;
-use crate::program::Program;
+use crate::keyword::{Type, Numeric};
 use crate::namespace::NameSpace;
+use crate::program::Program;
 
 fn main() {
     let path = std::env::args().nth(1).unwrap();

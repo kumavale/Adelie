@@ -1,14 +1,14 @@
+use crate::ast::*;
+use crate::builtin::*;
+use crate::class::{Struct, Impl};
+use crate::error::*;
+use crate::function::Function;
+use crate::keyword::{Type, Keyword};
+use crate::object::{Object, FindSymbol, SymbolTable};
+use crate::program::Program;
+use crate::token::{Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
 use std::rc::Rc;
-use super::ast::*;
-use super::builtin::*;
-use super::token::*;
-use super::keyword::*;
-use super::object::*;
-use super::function::*;
-use super::program::*;
-use super::class::*;
-use super::error::*;
 
 // Grammar
 //

@@ -1,6 +1,6 @@
-use super::ast::*;
-use super::object::*;
-use super::keyword::*;
+use crate::ast::*;
+use crate::keyword::Type;
+use crate::object::{FindSymbol, SymbolTable};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function<'a> {

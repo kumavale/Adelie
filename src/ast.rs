@@ -1,12 +1,12 @@
+use crate::builtin::*;
+use crate::class::{Struct, Impl};
+use crate::function::Function;
+use crate::keyword::{Keyword, Numeric, Type};
+use crate::object::{Object, SymbolTable};
+use crate::token::Token;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
-use super::builtin::*;
-use super::keyword::*;
-use super::object::*;
-use super::token::*;
-use super::function::Function;
-use super::class::{Struct, Impl};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UnaryOpKind {
