@@ -107,6 +107,9 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
         let params = &func
             .param_symbol_table
             .objs;
+        if params.len() != args.len() {
+            e0029((p.path, &p.lines, current_token), params.len(), args.len());
+        }
         for (arg, param) in args.into_iter().zip(params) {
             let token = arg.token;
             let param_ty = &param.borrow().ty;
@@ -158,6 +161,9 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                     .iter()
                     .skip(if func.is_static { 0 } else { 1 })
                     .collect::<Vec<_>>();
+                if params.len() != args.len() {
+                    e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                }
                 for (arg, param) in args.into_iter().zip(params) {
                     let token = arg.token;
                     let arg_ty = gen_il(arg, p);
@@ -765,18 +771,22 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     } else {
                         e0014((p.path, &p.lines, current_token), segment, &name);
                     };
+                let params = &func
+                    .param_symbol_table
+                    .objs;
+                if params.len() != args.len() {
+                    e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                }
                 for arg in args {
                     gen_il(arg, p);
                 }
-                let args = func
-                    .param_symbol_table
-                    .objs
+                let params = params
                     .iter()
                     .skip(if func.is_static { 0 } else { 1 })
                     .map(|o|o.borrow().ty.to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
-                println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, args);
+                println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
                 func.rettype.clone()
             } else {
                 // TODO: 名前空間から検索
@@ -790,6 +800,9 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     let params = &func
                         .param_symbol_table
                         .objs;
+                    if params.len() != args.len() {
+                        e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                    }
                     for (arg, param) in args.into_iter().zip(params) {
                         let token = arg.token;
                         let param_ty = &param.borrow().ty;
@@ -817,18 +830,22 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                         } else {
                             e0014((p.path, &p.lines, current_token), segment, &name);
                         };
+                    let params = &func
+                        .param_symbol_table
+                        .objs;
+                    if params.len() != args.len() {
+                        e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                    }
                     for arg in args {
                         gen_il(arg, p);
                     }
-                    let args = func
-                        .param_symbol_table
-                        .objs
+                    let params = params
                         .iter()
                         .skip(if func.is_static { 0 } else { 1 })
                         .map(|o|o.borrow().ty.to_ilstr())
                         .collect::<Vec<String>>()
                         .join(", ");
-                    println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, args);
+                    println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
                     func.rettype.clone()
                 } else {
                     e0013((p.path, &p.lines, current_token), &name);
