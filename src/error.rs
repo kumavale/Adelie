@@ -286,6 +286,18 @@ pub fn e0028(
     panic!();
 }
 
+/// this function takes {} argument[s] but {} argument[s] were supplied
+pub fn e0029(
+    (path, lines, token): (&str, &[&str], &[Token]),
+    expect: usize,
+    actual: usize,
+) -> ! {
+    disp_error_code!(29);
+    eprintln!("this function takes {expect} argument but {actual} argument were supplied");
+    eprint_nearby(path, lines, token).ok();
+    panic!();
+}
+
 fn eprint_nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<(), ()> {
     let begin  = &token[0];
     let end    = &token[token.len()-1];
