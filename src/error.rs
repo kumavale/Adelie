@@ -114,12 +114,14 @@ pub fn e0002(
     errors.borrow_mut().push(aderr);
 }
 
-/// expected identifier
-pub fn e0003((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_code!(3);
-    eprintln!("expected identifier, but got `{}`", token[0].kind);
-    nearby(path, lines, token).ok();
-    panic!();
+/// expected identifier, but got `{}`
+pub fn e0003(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]),
+){
+    let message = format!("expected identifier, but got `{}`", token[0].kind);
+    let aderr = AdError::new(Some(3), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// expected item

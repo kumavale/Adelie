@@ -366,7 +366,8 @@ impl<'a> Parser<'a> {
         if let Some(ident) = self.eat_ident() {
             ident
         } else {
-            e0003(self.errorset());
+            e0003(Rc::clone(&self.errors), self.errorset());
+            "".to_string()
         }
     }
 
@@ -602,6 +603,10 @@ impl<'a> Parser<'a> {
         }
         let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = self.expect_ident();
+        if ident.is_empty() {
+            self.bump();
+            return;
+        }
         if self.current_fn_mut().param_symbol_table.find(&ident).is_some() {
             e0005(self.errorset(), &ident);
         } else {
