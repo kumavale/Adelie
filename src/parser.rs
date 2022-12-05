@@ -357,7 +357,8 @@ impl<'a> Parser<'a> {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
         } else {
-            e0001(self.errorset(), kind);
+            e0001(Rc::clone(&self.errors), self.errorset(), kind);
+            self.idx += 1;
         }
     }
 
@@ -665,6 +666,7 @@ impl<'a> Parser<'a> {
         if !self.inside_of_a_loop() {
             e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]),
                 "cannot `break` outside of a loop");
+            return new_empty_node();
         }
         let begin = self.idx;
         if self.eat(TokenKind::Semi) {

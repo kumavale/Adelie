@@ -93,12 +93,14 @@ pub fn e0000(
     errors.borrow_mut().push(aderr);
 }
 
-/// expected ...
-pub fn e0001((path, lines, token): (&str, &[&str], &[Token]), expect: TokenKind) -> ! {
-    disp_error_code!(1);
-    eprintln!("expected `{}`, but got `{}`", expect, token[0].kind);
-    nearby(path, lines, token).ok();
-    panic!();
+/// expected `{}`, but got `{}`
+pub fn e0001(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]), expect: TokenKind
+){
+    let message = format!("expected `{}`, but got `{}`", expect, token[0].kind);
+    let aderr = AdError::new(Some(1), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// expected type
