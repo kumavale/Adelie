@@ -22,7 +22,7 @@ impl AdError {
             stack_trace: std::backtrace::Backtrace::force_capture()
                 .to_string()
                 .lines()
-                .take(6)
+                .take(8)
                 .skip(4)
                 .into_iter()
                 .collect::<Vec<_>>()
@@ -176,12 +176,14 @@ pub fn e0008(
     errors.borrow_mut().push(aderr);
 }
 
-/// expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`
-pub fn e0009((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_code!(9);
-    eprintln!("expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `{}`", token[0].kind);
-    nearby(path, lines, token).ok();
-    panic!();
+/// expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `{}`
+pub fn e0009(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]),
+){
+    let message = format!("expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`, found `{}`", token[0].kind);
+    let aderr = AdError::new(Some(9), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// expected one of `)`, `,`, `.`, `?`, or an operator

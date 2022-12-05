@@ -6,7 +6,7 @@ use crate::function::Function;
 use crate::keyword::{Type, Keyword};
 use crate::object::{Object, FindSymbol, SymbolTable};
 use crate::program::Program;
-use crate::token::{Token, TokenKind, LiteralKind};
+use crate::token::{DelimiterKind, Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -356,7 +356,7 @@ impl<'a> Parser<'a> {
     fn expect(&mut self, kind: TokenKind) {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
-        } else {
+        } else if !self.is_eof() {
             e0001(Rc::clone(&self.errors), self.errorset(), kind);
             self.idx += 1;
         }
@@ -375,18 +375,22 @@ impl<'a> Parser<'a> {
         self.idx += 1;
     }
 
-    fn close_brace(&mut self, start_brace: Token) {
+    fn close_delimiter(&mut self, delim: DelimiterKind, start_brace: Token) {
         let mut brace_count = 1;
+        let (ldelim, rdelim) = match delim {
+            DelimiterKind::Paren => (TokenKind::LParen, TokenKind::RParen),
+            DelimiterKind::Brace => (TokenKind::LBrace, TokenKind::RBrace),
+        };
         while !self.is_eof() {
-            match self.tokens[self.idx].kind {
-                TokenKind::RBrace => {
+            match &self.tokens[self.idx].kind {
+                d if *d == rdelim => {
                     brace_count -= 1;
                     if brace_count == 0 {
                         self.idx += 1;
                         return;
                     }
                 }
-                TokenKind::LBrace => brace_count += 1,
+                d if *d == ldelim => brace_count += 1,
                 _ => (),  // Do nothing
             }
             self.idx += 1;
@@ -545,11 +549,11 @@ impl<'a> Parser<'a> {
         let mut st = Struct::new();
         st.name = self.expect_ident();
         self.expect(TokenKind::LBrace);
-        let start_brace = self.tokens[self.idx-1].clone();
+        let start_brace = self.idx-1;
         while !self.eat(TokenKind::RBrace) {
             let ident = self.expect_ident();
             if ident.is_empty() {
-                self.close_brace(start_brace);
+                self.close_delimiter(DelimiterKind::Brace, self.tokens[start_brace].clone());
                 break;
             }
             if st.field.iter().any(|o|o.name==ident) {
@@ -588,6 +592,7 @@ impl<'a> Parser<'a> {
         self.current_fn = Some(Function::new(&ident));
 
         self.expect(TokenKind::LParen);
+        let start_brace = self.idx-1;
         if !self.eat(TokenKind::RParen) {
             // TODO: 所有権の実装後に`&`なしの`self`に対応
             if self.eat(TokenKind::And) {
@@ -601,7 +606,7 @@ impl<'a> Parser<'a> {
                     obj.borrow_mut().assigned = true;
                     self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
                     if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                        e0009(self.errorset());
+                        e0009(Rc::clone(&self.errors), self.errorset());
                     }
                 } else {
                     e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
@@ -611,7 +616,9 @@ impl<'a> Parser<'a> {
             while !self.eat(TokenKind::RParen) {
                 self.parse_fn_params();
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                    e0009(self.errorset());
+                    e0009(Rc::clone(&self.errors), self.errorset());
+                    self.close_delimiter(DelimiterKind::Paren, self.tokens[start_brace].clone());
+                    break;
                 }
             }
         }
@@ -663,6 +670,11 @@ impl<'a> Parser<'a> {
         }
         let mut stmts = vec![];
         while !self.eat(TokenKind::RBrace) {
+            if self.is_eof() {
+                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin-1..begin]),
+                    "this file contains an unclosed delimiter");
+                break;
+            }
             stmts.push(self.parse_stmt());
         }
         self.except_struct_expression = except_struct_expression;
@@ -1335,9 +1347,12 @@ impl<'a> Parser<'a> {
             let begin = self.idx-2;
             let mut field = vec![];
             while !self.eat(TokenKind::RBrace) {
+                let start_brace = self.idx-1;
                 field.push(self.parse_expr());
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
-                    e0009(self.errorset());
+                    e0009(Rc::clone(&self.errors), self.errorset());
+                    self.close_delimiter(DelimiterKind::Brace, self.tokens[start_brace].clone());
+                    break;
                 }
             }
             let tokens = &self.tokens[begin..self.idx];
