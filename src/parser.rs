@@ -489,7 +489,8 @@ impl<'a> Parser<'a> {
         } else if self.is_eof() || self.check(TokenKind::RBrace) {
             None
         } else {
-            e0004(self.errorset());
+            e0004(Rc::clone(&self.errors), self.errorset());
+            None
         }
     }
 

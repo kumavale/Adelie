@@ -124,12 +124,14 @@ pub fn e0003(
     errors.borrow_mut().push(aderr);
 }
 
-/// expected item
-pub fn e0004((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_code!(4);
-    eprintln!("expected item, but got `{}`", token[0].kind);
-    nearby(path, lines, token).ok();
-    panic!();
+/// expected item, but got `{}`
+pub fn e0004(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]),
+){
+    let message = format!("expected item, but got `{}`", token[0].kind);
+    let aderr = AdError::new(Some(4), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// tha name is defined multiple times
