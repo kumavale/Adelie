@@ -96,19 +96,22 @@ pub fn e0000(
 /// expected `{}`, but got `{}`
 pub fn e0001(
     errors: Rc<RefCell<Errors>>,
-    (path, lines, token): (&str, &[&str], &[Token]), expect: TokenKind
+    (path, lines, token): (&str, &[&str], &[Token]),
+    expect: TokenKind,
 ){
     let message = format!("expected `{}`, but got `{}`", expect, token[0].kind);
     let aderr = AdError::new(Some(1), message, nearby(path, lines, token).unwrap_or_default());
     errors.borrow_mut().push(aderr);
 }
 
-/// expected type
-pub fn e0002((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_code!(2);
-    eprintln!("expected type, but got `{}`", token[0].kind);
-    nearby(path, lines, token).ok();
-    panic!();
+/// expected type, but got `{}`
+pub fn e0002(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]),
+){
+    let message = format!("expected type, but got `{}`", token[0].kind);
+    let aderr = AdError::new(Some(2), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// expected identifier

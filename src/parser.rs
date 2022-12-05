@@ -370,6 +370,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn bump(&mut self) {
+        self.idx += 1;
+    }
+
     fn is_eof(&self) -> bool {
         self.tokens[self.idx].kind == TokenKind::Eof
     }
@@ -386,14 +390,14 @@ impl<'a> Parser<'a> {
         self.current_fn.as_mut().unwrap()
     }
 
-    fn type_no_bounds(&mut self) -> Type {
+    fn type_no_bounds(&mut self) -> Option<Type> {
         if self.eat(TokenKind::And) {
-            Type::Ptr(Box::new(self.type_no_bounds()))
+            Some(Type::Ptr(Box::new(self.type_no_bounds()?)))
         } else if self.eat(TokenKind::AndAnd) {
-            Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()))))
+            Some(Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()?)))))
         } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
-            ty.clone()
+            Some(ty.clone())
         } else if let Some(ident) = self.eat_ident() {
             // WIP
             if self.check(TokenKind::PathSep) {
@@ -402,15 +406,16 @@ impl<'a> Parser<'a> {
                     path.push(self.expect_ident());
                 }
                 let ident = path.pop().unwrap();
-                Type::Struct(path, ident, false)
+                Some(Type::Struct(path, ident, false))
             } else {
-                Type::Struct(self.current_mod.to_vec(), ident, false)
+                Some(Type::Struct(self.current_mod.to_vec(), ident, false))
             }
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
-            Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false)
+            Some(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false))
         } else {
-            e0002(self.errorset());
+            e0002(Rc::clone(&self.errors), self.errorset());
+            None
         }
 
     }
@@ -520,9 +525,10 @@ impl<'a> Parser<'a> {
                 e0005(self.errorset(), &ident);
             } else {
                 self.expect(TokenKind::Colon);
-                let ty = self.type_no_bounds();
-                let obj = Object::new(ident, st.field.len(), false, ty, false);
-                st.field.push(obj);
+                if let Some(ty) = self.type_no_bounds() {
+                    let obj = Object::new(ident, st.field.len(), false, ty, false);
+                    st.field.push(obj);
+                }
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
                 e0008(self.errorset());
@@ -600,15 +606,18 @@ impl<'a> Parser<'a> {
             e0005(self.errorset(), &ident);
         } else {
             self.expect(TokenKind::Colon);
-            let ty = self.type_no_bounds();
-            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
-            obj.borrow_mut().assigned = true;
-            self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
+            if let Some(ty) = self.type_no_bounds() {
+                let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
+                obj.borrow_mut().assigned = true;
+                self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
+            }
         }
     }
 
     fn parse_ret_ty(&mut self) {
-        self.current_fn_mut().rettype = self.type_no_bounds();
+        if let Some(ty) = self.type_no_bounds() {
+            self.current_fn_mut().rettype = ty;
+        }
     }
 
     fn parse_block_expr(&mut self) -> Node<'a> {
@@ -681,7 +690,7 @@ impl<'a> Parser<'a> {
         let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = self.expect_ident();
         self.expect(TokenKind::Colon);
-        let ty = self.type_no_bounds();
+        let ty = self.type_no_bounds().unwrap_or(Type::Void);
         let token = &self.tokens[begin..self.idx];
         let node = new_variable_node_with_let(
             &mut self.current_fn_mut().lvar_symbol_table,
@@ -1141,8 +1150,11 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.eat_keyword(Keyword::As) {
-                let ty = self.type_no_bounds();
-                node = new_cast_node(ty, node, &self.tokens[begin..self.idx]);
+                if let Some(ty) = self.type_no_bounds() {
+                    node = new_cast_node(ty, node, &self.tokens[begin..self.idx]);
+                } else {
+                    self.bump();
+                }
             } else {
                 return node;
             }
