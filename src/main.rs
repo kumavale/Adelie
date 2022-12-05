@@ -35,16 +35,16 @@ fn main() {
     let program = parser.gen_ast();
 
     if !program.errors.borrow().is_empty() {
-        let err_count = program.errors.borrow().err_count();
-        program.errors.borrow().display();
-        eprintln!("\x1b[31merror\x1b[0m: could not compile due to {} previous errors", err_count);
-        std::process::exit(1);
+        disp_errors(&program);
     }
-    //eprintln!("{:?}", program.errors);
     //eprintln!("{:#?}", program);
 
     gen_init();
     gen_items(&program, &program.namespace.borrow());
+
+    if !program.errors.borrow().is_empty() {
+        disp_errors(&program);
+    }
 }
 
 fn gen_init() {
@@ -187,4 +187,11 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
         println!("\tret");
         println!("}}");
     }
+}
+
+fn disp_errors(program: &Program) {
+    let err_count = program.errors.borrow().err_count();
+    program.errors.borrow().display();
+    eprintln!("\x1b[31merror\x1b[0m: could not compile due to {} previous errors", err_count);
+    std::process::exit(1);
 }

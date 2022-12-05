@@ -5,6 +5,7 @@ use crate::keyword::{Type, Numeric, Keyword};
 use crate::object::Object;
 use crate::program::Program;
 use crate::token::Token;
+use std::rc::Rc;
 use std::cell::Ref;
 
 pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
@@ -118,7 +119,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                 _ if arg_ty == *param_ty => (),
-                _ => e0012((p.path, &p.lines, token), param_ty, &arg_ty)
+                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty)
             }
         }
         let params = params
@@ -172,7 +173,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                         _ if &arg_ty == param_ty => (),
-                        _ => e0012((p.path, &p.lines, token), param_ty, &arg_ty)
+                        _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty)
                     }
                 }
                 let params = params
@@ -320,7 +321,7 @@ fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: 
     let token = cond.token;
     let cond_type = gen_il(cond, p);
     if cond_type != Type::Bool {
-        e0012((p.path, &p.lines, token), &Type::Bool, &cond_type);
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type);
     }
     let seq = seq();
     let else_label = format!("IL_else{}", seq);
@@ -336,7 +337,10 @@ fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: 
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => els_type.1,
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => then_type,
             _ if then_type == els_type.1 => then_type,
-            _ => e0012((p.path, &p.lines, current_token), &then_type, &els_type.1)
+            _ => {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &then_type, &els_type.1);
+                then_type
+            }
         }
     } else if then_type != Type::Void {
         e0018((p.path, &p.lines, current_token), &then_type);
@@ -352,7 +356,7 @@ fn gen_il_while<'a>(_current_token: &[Token], p: &'a Program<'a>, cond: Node, th
     let token = cond.token;
     let cond_type = gen_il(cond, p);
     if cond_type != Type::Bool {
-        e0012((p.path, &p.lines, token), &Type::Bool, &cond_type);
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type);
     }
     println!("\tbrfalse {}", end_label);
     let then_type = gen_il(then, p);
@@ -384,7 +388,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             match (&obj.ty, &rty) {
                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                 _ if obj.ty == rty => (),
-                _ => e0012((p.path, &p.lines, current_token), &obj.ty, &rty)
+                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty, &rty)
             }
             if obj.is_param() {
                 println!("\tstarg {}", obj.offset);
@@ -399,7 +403,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 match (&*lty, &rty) {
                     (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                     _ if *lty == rty => (),
-                    _ => e0012((p.path, &p.lines, current_token), &lty, &rty)
+                    _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty, &rty)
                 }
                 match *lty {
                     Type::Ptr(_) => println!("\tstind.i"),
@@ -420,7 +424,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                             match (&field.ty, &rty) {
                                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                                 _ if field.ty == rty => (),
-                                _ => e0012((p.path, &p.lines, current_token), &field.ty, &rty)
+                                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.ty, &rty)
                             }
                             if !is_mutable {
                                 e0028((p.path, &p.lines, current_token), &format!("{stname}.{ident}"));
@@ -703,7 +707,14 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 ltype
             }
         }
-        _ => e0012((p.path, &p.lines, current_token), &ltype, &rtype)
+        _ => {
+            if is_bool {
+                Type::Bool
+            } else {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ltype, &rtype);
+                ltype
+            }
+        }
     }
 }
 
@@ -715,14 +726,14 @@ fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind:
             let token = lhs.token;
             let ltype = gen_il(lhs, p);
             if ltype != Type::Bool {
-                e0012((p.path, &p.lines, token), &Type::Bool, &ltype);
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype);
             }
             println!("\tbrfalse {}", end_label);
             println!("\tpop");
             let token = rhs.token;
             let rtype = gen_il(rhs, p);
             if rtype != Type::Bool {
-                e0012((p.path, &p.lines, token), &Type::Bool, &rtype);
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &rtype);
             }
             println!("{}:", end_label);
         }
@@ -731,14 +742,14 @@ fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind:
             let token = lhs.token;
             let ltype = gen_il(lhs, p);
             if ltype != Type::Bool {
-                e0012((p.path, &p.lines, token), &Type::Bool, &ltype);
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype);
             }
             println!("\tbrtrue {}", end_label);
             println!("\tpop");
             let token = rhs.token;
             let rtype = gen_il(rhs, p);
             if rtype != Type::Bool {
-                e0012((p.path, &p.lines, token), &Type::Bool, &rtype);
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &rtype);
             }
             println!("{}:", end_label);
         }
@@ -811,7 +822,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                             _ if arg_ty == *param_ty => (),
-                            _ => e0012((p.path, &p.lines, token), param_ty, &arg_ty)
+                            _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty)
                         }
                     }
                     let params = params

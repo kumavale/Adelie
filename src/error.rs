@@ -198,14 +198,14 @@ pub fn e0010(
 
 /// expect `{type}`, found `{type}`
 pub fn e0012(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     expect: &Type,
     actual: &Type,
-) -> ! {
-    disp_error_code!(12);
-    eprintln!("expect `{}`, found `{}`", expect, actual);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("expect `{}`, found `{}`", expect, actual);
+    let aderr = AdError::new(Some(12), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// cannot find function `{}` in this scope
