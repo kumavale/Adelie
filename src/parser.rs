@@ -375,6 +375,26 @@ impl<'a> Parser<'a> {
         self.idx += 1;
     }
 
+    fn close_brace(&mut self, start_brace: Token) {
+        let mut brace_count = 1;
+        while !self.is_eof() {
+            match self.tokens[self.idx].kind {
+                TokenKind::RBrace => {
+                    brace_count -= 1;
+                    if brace_count == 0 {
+                        self.idx += 1;
+                        return;
+                    }
+                }
+                TokenKind::LBrace => brace_count += 1,
+                _ => (),  // Do nothing
+            }
+            self.idx += 1;
+        }
+        e0000(Rc::clone(&self.errors), (self.path, &self.lines, &[start_brace]),
+            "this file contains an unclosed delimiter");
+    }
+
     fn is_eof(&self) -> bool {
         self.tokens[self.idx].kind == TokenKind::Eof
     }
@@ -525,8 +545,13 @@ impl<'a> Parser<'a> {
         let mut st = Struct::new();
         st.name = self.expect_ident();
         self.expect(TokenKind::LBrace);
+        let start_brace = self.tokens[self.idx-1].clone();
         while !self.eat(TokenKind::RBrace) {
             let ident = self.expect_ident();
+            if ident.is_empty() {
+                self.close_brace(start_brace);
+                break;
+            }
             if st.field.iter().any(|o|o.name==ident) {
                 e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
             }
@@ -536,7 +561,7 @@ impl<'a> Parser<'a> {
                 st.field.push(obj);
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
-                e0008(self.errorset());
+                e0008(Rc::clone(&self.errors), self.errorset());
             }
         }
         st

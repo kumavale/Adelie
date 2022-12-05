@@ -166,12 +166,14 @@ pub fn e0007(
     errors.borrow_mut().push(aderr);
 }
 
-/// expected `,`, or `}`
-pub fn e0008((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_code!(8);
-    eprintln!("expected `,`, or `}}`, found `{}`", token[0].kind);
-    nearby(path, lines, token).ok();
-    panic!();
+/// expected `,`, or `}}`, found `{}`
+pub fn e0008(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]),
+){
+    let message = format!("expected `,`, or `}}`, found `{}`", token[0].kind);
+    let aderr = AdError::new(Some(8), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// expected one of `!`, `(`, `)`, `+`, `,`, `::`, or `<`
