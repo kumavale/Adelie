@@ -449,7 +449,9 @@ impl<'a> Parser<'a> {
         match item {
             ItemKind::Struct(mut st) => {
                 if program.current_namespace.borrow().find_struct(&st.name).is_some() {
-                    e0005(self.errorset(), &st.name);
+                    // TODO: struct 構造体名までのトークンが欲しい
+                    //                                     ↓
+                    e0005(Rc::clone(&self.errors), self.errorset(), &st.name);
                 }
                 st.path = program.current_namespace.borrow().full_path();
                 program.current_namespace.borrow_mut().push_struct(st);
@@ -466,7 +468,9 @@ impl<'a> Parser<'a> {
             }
             ItemKind::Fn(f) => {
                 if program.current_namespace.borrow().find_fn(&f.name).is_some() {
-                    e0005(self.errorset(), &f.name);
+                    // TODO: fn 関数名 ()までのトークンが欲しい
+                    //                                     ↓
+                    e0005(Rc::clone(&self.errors), self.errorset(), &f.name);
                 }
                 program.current_namespace.borrow_mut().push_fn(f);
             }
@@ -524,13 +528,12 @@ impl<'a> Parser<'a> {
         while !self.eat(TokenKind::RBrace) {
             let ident = self.expect_ident();
             if st.field.iter().any(|o|o.name==ident) {
-                e0005(self.errorset(), &ident);
-            } else {
-                self.expect(TokenKind::Colon);
-                if let Some(ty) = self.type_no_bounds() {
-                    let obj = Object::new(ident, st.field.len(), false, ty, false);
-                    st.field.push(obj);
-                }
+                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            }
+            self.expect(TokenKind::Colon);
+            if let Some(ty) = self.type_no_bounds() {
+                let obj = Object::new(ident, st.field.len(), false, ty, false);
+                st.field.push(obj);
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
                 e0008(self.errorset());
@@ -609,14 +612,13 @@ impl<'a> Parser<'a> {
             return;
         }
         if self.current_fn_mut().param_symbol_table.find(&ident).is_some() {
-            e0005(self.errorset(), &ident);
-        } else {
-            self.expect(TokenKind::Colon);
-            if let Some(ty) = self.type_no_bounds() {
-                let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
-                obj.borrow_mut().assigned = true;
-                self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
-            }
+            e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+        }
+        self.expect(TokenKind::Colon);
+        if let Some(ty) = self.type_no_bounds() {
+            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
+            obj.borrow_mut().assigned = true;
+            self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
         }
     }
 

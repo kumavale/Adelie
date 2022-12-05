@@ -135,11 +135,14 @@ pub fn e0004(
 }
 
 /// tha name is defined multiple times
-pub fn e0005((path, lines, token): (&str, &[&str], &[Token]), ident: &str) -> ! {
-    disp_error_code!(5);
-    eprintln!("the name `{}` is defined multiple times", ident);
-    nearby(path, lines, token).ok();
-    panic!();
+pub fn e0005(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]),
+    ident: &str,
+){
+    let message = format!("the name `{}` is defined multiple times", ident);
+    let aderr = AdError::new(Some(5), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// unknown start of token

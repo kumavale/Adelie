@@ -89,17 +89,10 @@ impl<'a> NameSpace<'a> {
     }
 
     pub fn push_fn(&mut self, f: Function<'a>) {
-        if self.find_fn(&f.name).is_some() {
-            panic!("the name `{}` is defined multiple times", f.name);
-        }
         self.functions.push(Rc::new(f));
     }
 
     pub fn push_struct(&mut self, s: Struct<'a>) {
-        // TODO: partial classとして処理するか？
-        if self.find_struct(&s.name).is_some() {
-            panic!("the name `{}` is defined multiple times", s.name);
-        }
         self.structs.push(Rc::new(s));
     }
 
