@@ -186,12 +186,14 @@ pub fn e0009(
     errors.borrow_mut().push(aderr);
 }
 
-/// expected one of `)`, `,`, `.`, `?`, or an operator
-pub fn e0010((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_code!(10);
-    eprintln!("expected one of `)`, `,`, `.`, `?`, or an operator, found `{}`", token[0].kind);
-    nearby(path, lines, token).ok();
-    panic!();
+/// expected one of `)`, `,`, `.`, `?`, or an operator, found `{}`
+pub fn e0010(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]),
+){
+    let message = format!("expected one of `)`, `,`, `.`, `?`, or an operator, found `{}`", token[0].kind);
+    let aderr = AdError::new(Some(10), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// expect `{type}`, found `{type}`

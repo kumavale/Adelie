@@ -665,18 +665,15 @@ impl<'a> Parser<'a> {
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
         let begin = self.idx;
-        if self.eat(TokenKind::RBrace) {
-            return new_empty_node()
-        }
-        let mut stmts = vec![];
-        while !self.eat(TokenKind::RBrace) {
-            if self.is_eof() {
-                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin-1..begin]),
-                    "this file contains an unclosed delimiter");
-                break;
-            }
+        let mut stmts = if self.check(TokenKind::RBrace) {
+            vec![new_empty_node()]
+        } else {
+            vec![]
+        };
+        while !self.check(TokenKind::RBrace) && !self.is_eof() {
             stmts.push(self.parse_stmt());
         }
+        self.close_delimiter(DelimiterKind::Brace, self.tokens[begin-1].clone());
         self.except_struct_expression = except_struct_expression;
         self.current_fn_mut().lvar_symbol_table.leave_scope();
         new_block_node(stmts, &self.tokens[begin..self.idx])
@@ -1246,11 +1243,14 @@ impl<'a> Parser<'a> {
                 let ident = self.expect_ident();
                 if self.eat(TokenKind::LParen) {
                     // method
+                    let start_paren = self.idx - 1;
                     let mut args = vec![];
-                    while !self.eat(TokenKind::RParen) {
+                    while !self.eat(TokenKind::RParen) && !self.is_eof() {
                         args.push(self.parse_expr());
                         if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                            e0010(self.errorset());
+                            e0010(Rc::clone(&self.errors), self.errorset());
+                            self.close_delimiter(DelimiterKind::Paren, self.tokens[start_paren].clone());
+                            break;
                         }
                     }
                     node = new_method_call_node(
@@ -1338,7 +1338,9 @@ impl<'a> Parser<'a> {
             while !self.eat(TokenKind::RParen) {
                 args.push(self.parse_expr());
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                    e0010(self.errorset());
+                    e0010(Rc::clone(&self.errors), self.errorset());
+                    self.close_delimiter(DelimiterKind::Paren, self.tokens[begin+1].clone());
+                    break;
                 }
             }
             new_function_call_node(name, args, &self.tokens[begin..self.idx])
@@ -1385,7 +1387,7 @@ impl<'a> Parser<'a> {
         while !self.eat(TokenKind::RParen) {
             args.push(self.parse_expr());
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                e0010(self.errorset());
+                e0010(Rc::clone(&self.errors), self.errorset());
             }
         }
         new_builtin_call_node(*kind, args, &self.tokens[begin..self.idx])
