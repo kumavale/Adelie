@@ -295,6 +295,7 @@ pub struct Parser<'a> {
     brk_label_seq: usize,
     loop_count: usize,
     current_mod: Vec<String>,
+    errors: Rc<RefCell<Errors>>,
 }
 
 impl<'a> Parser<'a> {
@@ -303,6 +304,7 @@ impl<'a> Parser<'a> {
         input: &'a str,
         tokens: &'a [Token],
         g_symbol_table: &'a mut SymbolTable,
+        errors: Rc<RefCell<Errors>>,
     ) -> Self {
         Parser {
             path,
@@ -317,6 +319,7 @@ impl<'a> Parser<'a> {
             brk_label_seq: 0,
             loop_count: 0,
             current_mod: vec![],
+            errors,
         }
     }
 
@@ -428,7 +431,7 @@ impl<'a> Parser<'a> {
     }
 
     fn program(&mut self) -> Program<'a> {
-        let mut program = Program::new(self.path, self.input);
+        let mut program = Program::new(self.path, self.input, Rc::clone(&self.errors));
         while let Some(item) = self.parse_item() {
             self.parse_program(&mut program, item);
         }
@@ -564,7 +567,7 @@ impl<'a> Parser<'a> {
                         e0009(self.errorset());
                     }
                 } else {
-                    e0000((self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
+                    e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
                         "variable declaration cannot be a reference");
                 }
             }
@@ -587,7 +590,7 @@ impl<'a> Parser<'a> {
 
     fn parse_fn_params(&mut self) {
         if self.eat(TokenKind::And) {
-            e0000((self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
+            e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
                 "variable declaration cannot be a reference");
         }
         let is_mutable = self.eat_keyword(Keyword::Mut);
@@ -660,7 +663,7 @@ impl<'a> Parser<'a> {
 
     fn parse_break_expr(&mut self) -> Node<'a> {
         if !self.inside_of_a_loop() {
-            e0000((self.path, &self.lines, &self.tokens[self.idx-1..self.idx]),
+            e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]),
                 "cannot `break` outside of a loop");
         }
         let begin = self.idx;

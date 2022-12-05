@@ -13,9 +13,12 @@ mod program;
 mod token;
 mod utils;
 
+use crate::error::Errors;
 use crate::keyword::{Type, Numeric};
 use crate::namespace::NameSpace;
 use crate::program::Program;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 fn main() {
     let path = std::env::args().nth(1).unwrap();
@@ -26,10 +29,18 @@ fn main() {
     //eprintln!("{:?}", tokens.iter().map(|t|t.kind.clone()).collect::<Vec<token::TokenKind>>());
     //eprintln!("{:?}", tokens);
 
+    let errors = Rc::new(RefCell::new(Errors::new()));
     let mut g_symbol_table = object::SymbolTable::new();
-    let mut parser = parser::Parser::new(&path, &input, &tokens, &mut g_symbol_table);
+    let mut parser = parser::Parser::new(&path, &input, &tokens, &mut g_symbol_table, errors);
     let program = parser.gen_ast();
 
+    if !program.errors.borrow().is_empty() {
+        let err_count = program.errors.borrow().err_count();
+        program.errors.borrow().display();
+        eprintln!("\x1b[31merror\x1b[0m: could not compile due to {} previous errors", err_count);
+        std::process::exit(1);
+    }
+    //eprintln!("{:?}", program.errors);
     //eprintln!("{:#?}", program);
 
     gen_init();
