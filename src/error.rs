@@ -145,12 +145,14 @@ pub fn e0005(
     errors.borrow_mut().push(aderr);
 }
 
-/// unknown start of token
-pub fn e0006((path, lines, token): (&str, &[&str], &[Token])) -> ! {
-    disp_error_code!(6);
-    eprintln!("unknown start of token `{}`", token[0].kind);
-    nearby(path, lines, token).ok();
-    panic!();
+/// unknown start of token `{}`
+pub fn e0006(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]),
+){
+    let message = format!("unknown start of token `{}`", token[0].kind);
+    let aderr = AdError::new(Some(6), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// cannot find value in this scope

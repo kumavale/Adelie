@@ -1270,7 +1270,9 @@ impl<'a> Parser<'a> {
                 self.parse_builtin(kind)
             }
             _ => {
-                e0006(self.errorset());
+                e0006(Rc::clone(&self.errors), self.errorset());
+                self.idx += 1;
+                new_empty_node()
             }
         }
     }
