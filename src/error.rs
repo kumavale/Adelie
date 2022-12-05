@@ -155,12 +155,15 @@ pub fn e0006(
     errors.borrow_mut().push(aderr);
 }
 
-/// cannot find value in this scope
-pub fn e0007((path, lines, token): (&str, &[&str], &[Token]), ident: &str) -> ! {
-    disp_error_code!(7);
-    eprintln!("cannot find value `{}` in this scope", ident);
-    nearby(path, lines, token).ok();
-    panic!();
+/// cannot find value `{}` in this scope
+pub fn e0007(
+    errors: Rc<RefCell<Errors>>,
+    (path, lines, token): (&str, &[&str], &[Token]),
+    ident: &str,
+){
+    let message = format!("cannot find value `{}` in this scope", ident);
+    let aderr = AdError::new(Some(7), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// expected `,`, or `}`

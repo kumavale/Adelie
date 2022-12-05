@@ -1331,7 +1331,8 @@ impl<'a> Parser<'a> {
             } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
                 new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
             } else {
-                e0007(self.errorset(), name);
+                e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
+                new_empty_node()
             }
         }
     }
