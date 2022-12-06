@@ -275,7 +275,8 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
                 ty
             }
         } else {
-            e0015((p.path, &p.lines, current_token), &stname, ident);
+            e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &stname);
+            Type::Void
         }
     } else {
         e0016((p.path, &p.lines, current_token), &stname);
@@ -435,7 +436,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                             }
                             println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
                         } else {
-                            e0015((p.path, &p.lines, current_token), &stname, &ident);
+                            e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, &stname);
                         }
                     } else {
                         e0016((p.path, &p.lines, current_token), &stname);

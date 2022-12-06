@@ -233,14 +233,14 @@ pub fn e0014(
 
 /// no field `{}` on type `{}`
 pub fn e0015(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
-    stname: &str,
     field: &str,
-) -> ! {
-    disp_error_code!(15);
-    eprintln!("no field `{}` on type `{}`", field, stname);
-    nearby(path, lines, token).ok();
-    panic!();
+    stname: &str,
+){
+    let message = format!("no field `{}` on type `{}`", field, stname);
+    let aderr = AdError::new(Some(15), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// cannot find struct, variant or union type `{}` in this scope
