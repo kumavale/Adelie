@@ -267,14 +267,15 @@ pub fn e0017(
 
 /// `if` may be missing an `else` clause
 pub fn e0018(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     then_type: &Type,
-) -> ! {
-    disp_error_code!(18);
-    eprintln!("`if` may be missing an `else` clause");
-    eprintln!("expect `()`, found `{}`", then_type);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let mut message = "`if` may be missing an `else` clause\n".to_string();
+    // ↓TODO: message details
+    message += &format!("              expect `()`, found `{}`", then_type);
+    let aderr = AdError::new(Some(18), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// invalid left-hand side of assignment

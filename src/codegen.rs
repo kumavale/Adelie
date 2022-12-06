@@ -358,7 +358,8 @@ fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: 
             }
         }
     } else if then_type != Type::Void {
-        e0018((p.path, &p.lines, current_token), &then_type);
+        e0018(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &then_type);
+        Type::Void
     } else {
         then_type
     }
