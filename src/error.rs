@@ -290,13 +290,13 @@ pub fn e0019(
 
 /// cannot cast as `{}`
 pub fn e0020(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     ty: &Type,
-) -> ! {
-    disp_error_code!(20);
-    eprintln!("cannot cast as `{}`", ty);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("cannot cast as `{}`", ty);
+    let aderr = AdError::new(Some(20), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// cannot apply unary operator `-` to type `{}`

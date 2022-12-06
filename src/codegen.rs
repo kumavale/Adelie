@@ -481,14 +481,18 @@ fn gen_il_break(_current_token: &[Token], _p: &Program, brk_label_seq: usize) ->
 
 fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, expr: Node) -> Type {
     let old_type = gen_il(expr, p);
-    match new_type {
+    match &new_type {
         Type::Numeric(Numeric::I32) => {
+            match old_type {
+                Type::Numeric(..) | Type::Bool | Type::Char => (),  // ok
+                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Numeric(Numeric::I32)),
+            }
             println!("\tconv.i4");
         }
         Type::Bool => {
             match old_type {
                 Type::Bool => (),  // ok
-                _ => e0020((p.path, &p.lines, current_token), &Type::Bool),
+                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Bool),
             }
             println!("\tldc.i4.0");
             println!("\tcgt");
@@ -496,7 +500,7 @@ fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, 
         Type::Char => {
             match old_type {
                 Type::Char | Type::Numeric(_) => (),  // ok
-                _ => e0020((p.path, &p.lines, current_token), &Type::Char),
+                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Char),
             }
             println!("\tconv.u2");
         }
@@ -504,7 +508,7 @@ fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, 
             todo!("cast to ref type");
         }
         Type::Void => unreachable!(),
-        t => e0020((p.path, &p.lines, current_token), &t)
+        t => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), t)
     }
     new_type
 }

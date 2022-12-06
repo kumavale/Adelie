@@ -12,6 +12,9 @@ fn main() {
     //assert_eq!(true, 1 as bool);
     //assert_eq!(true, 'a' as bool);
     //assert_eq!(true, true as char);
+    //assert_eq!(true, true as string);
+    //assert_eq!(true, "a" as i32);
+    //assert_eq!(true, print!() as i32);
 
     println!("ok");
 }
