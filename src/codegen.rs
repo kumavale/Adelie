@@ -216,7 +216,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
     };
     if let Some(st) = ns.find_struct(&obj.ty.to_string()) {
         if field.len() != st.field.len() {
-            e0017((p.path, &p.lines, current_token), &st.name);
+            e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &st.name);
         }
         println!("\tldloca {}", obj.offset);
         println!("\tinitobj {}", obj.ty);

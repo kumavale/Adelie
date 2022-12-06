@@ -256,13 +256,13 @@ pub fn e0016(
 
 /// missing fields in initializer of `{}`
 pub fn e0017(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     stname: &str,
-) -> ! {
-    disp_error_code!(17);
-    eprintln!("missing fields in initializer of `{}`", stname);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("missing fields in initializer of `{}`", stname);
+    let aderr = AdError::new(Some(17), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// `if` may be missing an `else` clause
