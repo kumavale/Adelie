@@ -367,13 +367,13 @@ pub fn e0027(
 
 /// cannot assign twice to immutable variable: `{}`
 pub fn e0028(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     ident:  &str,
-) -> ! {
-    disp_error_code!(28);
-    eprintln!("cannot assign twice to immutable variable: `{}`", ident);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("cannot assign twice to immutable variable: `{}`", ident);
+    let aderr = AdError::new(Some(28), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// this function takes {} argument[s] but {} argument[s] were supplied

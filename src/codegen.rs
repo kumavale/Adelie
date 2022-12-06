@@ -399,7 +399,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             obj.borrow_mut().assigned = true;
             let obj = obj.borrow();
             if !obj.is_mutable() && is_assigned {
-                e0028((p.path, &p.lines, current_token), &obj.name);
+                e0028(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
             }
             match (&obj.ty, &rty) {
                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
@@ -443,7 +443,8 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.ty, &rty)
                             }
                             if !is_mutable {
-                                e0028((p.path, &p.lines, current_token), &format!("{stname}.{ident}"));
+                                let message = format!("cannot assign to `{stname}.{ident}`, as `{stname}` is not declared as mutable");
+                                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
                             println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
                         } else {

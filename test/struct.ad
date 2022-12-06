@@ -35,6 +35,7 @@ fn main() {
 
     // should compile error
     // let r: Rectangle; r.width;
+    // let p: Point=Point{1,2}; p.x=1;
 
     Rectangle::print_ok();
 }
