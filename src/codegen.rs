@@ -531,7 +531,7 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
             if let Type::Numeric(..) = ty {
                 println!("\tneg");
             } else {
-                e0021((p.path, &p.lines, current_token), &ty);
+                e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
             }
             ty
         }

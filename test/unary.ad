@@ -1,0 +1,16 @@
+fn main() {
+    assert_eq!(-1, -1);
+    assert_eq!( 1, --1);
+    assert_eq!(-1, ---1);
+
+    assert_eq!(-1, { let a:i32=1; -a });
+    assert_eq!(-1, -(1 as i32));
+
+    // should compile error
+    //assert_eq!(-1, -'a');
+    //assert_eq!(-1, -"a");
+    //assert_eq!(-1, -true);
+    //assert_eq!(-1, -print!());
+
+    println!("ok");
+}

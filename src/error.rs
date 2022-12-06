@@ -301,13 +301,13 @@ pub fn e0020(
 
 /// cannot apply unary operator `-` to type `{}`
 pub fn e0021(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     ty: &Type,
-) -> ! {
-    disp_error_code!(21);
-    eprintln!("cannot apply unary operator `-` to type `{}`", ty);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("cannot apply unary operator `-` to type `{}`", ty);
+    let aderr = AdError::new(Some(21), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// type `{}` cannot be dereferenced
