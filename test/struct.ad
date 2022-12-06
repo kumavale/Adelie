@@ -36,6 +36,8 @@ fn main() {
     // should compile error
     // let r: Rectangle; r.width;
     // let p: Point=Point{1,2}; p.x=1;
+    // rect.max(); rect.max(1); rect.max(1, 2, 3);
+    // Rectangle::min(); Rectangle::min(1); Rectangle::min(1, 2, 3);
 
     Rectangle::print_ok();
 }

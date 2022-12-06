@@ -110,7 +110,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
             .param_symbol_table
             .objs;
         if params.len() != args.len() {
-            e0029((p.path, &p.lines, current_token), params.len(), args.len());
+            e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
         }
         for (arg, param) in args.into_iter().zip(params) {
             let token = arg.token;
@@ -168,7 +168,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                     .skip(if func.is_static { 0 } else { 1 })
                     .collect::<Vec<_>>();
                 if params.len() != args.len() {
-                    e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(params) {
                     let token = arg.token;
@@ -820,7 +820,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     .param_symbol_table
                     .objs;
                 if params.len() != args.len() {
-                    e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(params) {
                     let token = arg.token;
@@ -854,7 +854,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     .param_symbol_table
                     .objs;
                 if params.len() != args.len() {
-                    e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for arg in args {
                     gen_il(arg, p);

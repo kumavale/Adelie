@@ -66,15 +66,6 @@ impl Errors {
     }
 }
 
-macro_rules! disp_error_code {
-    ($msg:expr) => (
-        format!("\x1b[31merror: \x1b[0m{}", $msg)
-    );
-    ($code:expr, $msg:expr) => (
-        format!("\x1b[31merror[E{:04}]: \x1b[0m{}", $code, $msg)
-    );
-}
-
 fn message_with_error_code(code: Option<usize>, msg: &str) -> String {
     if let Some(code) = code {
         format!("\x1b[31merror[E{:04}]\x1b[0m: {}", code, msg)
@@ -378,14 +369,14 @@ pub fn e0028(
 
 /// this function takes {} argument[s] but {} argument[s] were supplied
 pub fn e0029(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     expect: usize,
     actual: usize,
-) -> ! {
-    disp_error_code!(29);
-    eprintln!("this function takes {expect} argument but {actual} argument were supplied");
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("this function takes {expect} argument but {actual} argument were supplied");
+    let aderr = AdError::new(Some(29), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 fn nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<String, ()> {
