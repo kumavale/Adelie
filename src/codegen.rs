@@ -568,7 +568,8 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
 fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: BinaryOpKind, lhs: Node, rhs: Node) -> Type {
     let ltype = gen_il(lhs, p);
     let rtype = gen_il(rhs, p);
-    let mut is_bool = false;
+    let mut is_bool    = false;
+    let mut is_invalid = false;
     match &ltype {
         Type::Numeric(..) => match kind {
             BinaryOpKind::Add    => println!("\tadd"),
@@ -615,14 +616,13 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
         }
         Type::Char | Type::Bool => match kind {
             BinaryOpKind::Add |
-                BinaryOpKind::Sub |
-                BinaryOpKind::Mul |
-                BinaryOpKind::Div |
-                BinaryOpKind::Rem => {
-                    e0023((p.path, &p.lines, current_token),
-                    kind, &ltype, &rtype);
-                }
-
+            BinaryOpKind::Sub |
+            BinaryOpKind::Mul |
+            BinaryOpKind::Div |
+            BinaryOpKind::Rem => {
+                e0023(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                is_invalid = true;
+            }
             BinaryOpKind::Eq => {
                 println!("\tceq");
                 is_bool = true;
@@ -660,13 +660,12 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 println!("\tcall string System.String::Concat(string, string)");
             }
             BinaryOpKind::Sub |
-                BinaryOpKind::Mul |
-                BinaryOpKind::Div |
-                BinaryOpKind::Rem => {
-                    e0023((p.path, &p.lines, current_token),
-                    kind, &ltype, &rtype);
-                }
-
+            BinaryOpKind::Mul |
+            BinaryOpKind::Div |
+            BinaryOpKind::Rem => {
+                e0023(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                is_invalid = true;
+            }
             BinaryOpKind::Eq => {
                 println!("\tcall bool System.String::op_Equality(string, string)");
                 is_bool = true;
@@ -732,6 +731,9 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
         _ => {
             if is_bool {
                 Type::Bool
+            } else if is_invalid {
+                // TODO: これ以上評価したくないので、無効なTypeを返す
+                ltype
             } else {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ltype, &rtype);
                 ltype

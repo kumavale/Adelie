@@ -323,22 +323,22 @@ pub fn e0022(
 
 /// cannot [+-*/%] `{}` to `{}`
 pub fn e0023(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     kind: BinaryOpKind,
     lty: &Type,
     rty: &Type,
-) -> ! {
-    disp_error_code!(23);
-    match kind {
-        BinaryOpKind::Add => eprintln!("cannot add `{}` to `{}`", lty, rty),
-        BinaryOpKind::Sub => eprintln!("cannot subtract `{}` from `{}`", lty, rty),
-        BinaryOpKind::Mul => eprintln!("cannot multiply `{}` by `{}`", lty, rty),
-        BinaryOpKind::Div => eprintln!("cannot divide `{}` by `{}`", lty, rty),
-        BinaryOpKind::Rem => eprintln!("cannot mod `{}` by `{}`", lty, rty),
+){
+    let message = match kind {
+        BinaryOpKind::Add => format!("cannot add `{}` to `{}`",        rty, lty),
+        BinaryOpKind::Sub => format!("cannot subtract `{}` from `{}`", rty, lty),
+        BinaryOpKind::Mul => format!("cannot multiply `{}` by `{}`",   lty, rty),
+        BinaryOpKind::Div => format!("cannot divide `{}` by `{}`",     lty, rty),
+        BinaryOpKind::Rem => format!("cannot mod `{}` by `{}`",        lty, rty),
         _ => unreachable!(),
-    }
-    nearby(path, lines, token).ok();
-    panic!();
+    };
+    let aderr = AdError::new(Some(23), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// no implementation for `{}` {op} `{}`
