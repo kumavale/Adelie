@@ -155,7 +155,8 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                 {
                     func
                 } else {
-                    e0014((p.path, &p.lines, current_token), ident, &st_name);
+                    e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &st_name);
+                    return Type::Void;
                 };
                 let params = &func
                     .param_symbol_table
@@ -185,7 +186,9 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                 println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st_name, ident, params);
                 func.rettype.clone()
             } else {
-                e0014((p.path, &p.lines, current_token), ident, &st_name);
+                // unreachable?
+                e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &st_name);
+                Type::Void
             }
         }
         _ => {
@@ -774,14 +777,48 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
             gen_il_path(current_token, p, &segment, full_path, *child)
         }
         NodeKind::Call { name, args } => {
-            if let Some(im) = p.namespace.borrow().impls.first() {
+            let namespace = p.namespace.borrow();
+            let ns = if let Some(ns) = namespace.find(&full_path) {
+                ns
+            } else {
+                let message = format!("failed to resolve: use of undeclared crate or module `{}`", full_path.join("::"));
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                return Type::Void;
+            };
+            if let Some(func) = ns.find_fn(&name) {
+                let params = &func
+                    .param_symbol_table
+                    .objs;
+                if params.len() != args.len() {
+                    e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                }
+                for (arg, param) in args.into_iter().zip(params) {
+                    let token = arg.token;
+                    let param_ty = &param.borrow().ty;
+                    let arg_ty = gen_il(arg, p);
+                    match (&arg_ty, &param_ty) {
+                        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
+                        _ if arg_ty == *param_ty => (),
+                        _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty)
+                    }
+                }
+                let params = params
+                    .iter()
+                    .map(|p|p.borrow().ty.to_ilstr())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
+                func.rettype.clone()
+            } else if let Some(im) = ns.find_impl(full_path.last().unwrap()) {
                 let func = if let Some(func) = im
                     .functions
                     .iter()
                     .find(|f|f.name==name) {
                         func
                     } else {
-                        e0014((p.path, &p.lines, current_token), segment, &name);
+                        e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &name, &im.name);
+                        return Type::Void;
                     };
                 let params = &func
                     .param_symbol_table
@@ -801,68 +838,8 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
                 func.rettype.clone()
             } else {
-                // TODO: 名前空間から検索
-                let namespace = p.namespace.borrow();
-                let ns = if let Some(ns) = namespace.find(&full_path) {
-                    ns
-                } else {
-                    e0014((p.path, &p.lines, current_token), segment, &name);
-                };
-                if let Some(func) = ns.find_fn(&name) {
-                    let params = &func
-                        .param_symbol_table
-                        .objs;
-                    if params.len() != args.len() {
-                        e0029((p.path, &p.lines, current_token), params.len(), args.len());
-                    }
-                    for (arg, param) in args.into_iter().zip(params) {
-                        let token = arg.token;
-                        let param_ty = &param.borrow().ty;
-                        let arg_ty = gen_il(arg, p);
-                        match (&arg_ty, &param_ty) {
-                            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-                            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
-                            _ if arg_ty == *param_ty => (),
-                            _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty)
-                        }
-                    }
-                    let params = params
-                        .iter()
-                        .map(|p|p.borrow().ty.to_ilstr())
-                        .collect::<Vec<String>>()
-                        .join(", ");
-                    println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
-                    func.rettype.clone()
-                } else if let Some(im) = ns.find_impl(full_path.last().unwrap()) {
-                    let func = if let Some(func) = im
-                        .functions
-                        .iter()
-                        .find(|f|f.name==name) {
-                            func
-                        } else {
-                            e0014((p.path, &p.lines, current_token), segment, &name);
-                        };
-                    let params = &func
-                        .param_symbol_table
-                        .objs;
-                    if params.len() != args.len() {
-                        e0029((p.path, &p.lines, current_token), params.len(), args.len());
-                    }
-                    for arg in args {
-                        gen_il(arg, p);
-                    }
-                    let params = params
-                        .iter()
-                        .skip(if func.is_static { 0 } else { 1 })
-                        .map(|o|o.borrow().ty.to_ilstr())
-                        .collect::<Vec<String>>()
-                        .join(", ");
-                    println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
-                    func.rettype.clone()
-                } else {
-                    e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &name);
-                    Type::Void
-                }
+                e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &name);
+                Type::Void
             }
         }
         _ => {

@@ -1394,7 +1394,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_simple_path(&mut self, segment: &str) -> Node<'a> {
-        let begin = self.idx;
+        let begin = self.idx-2;
         let ident = self.expect_ident();
         if self.eat(TokenKind::PathSep) {
             new_path_node(

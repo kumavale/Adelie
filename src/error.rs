@@ -221,14 +221,14 @@ pub fn e0013(
 
 /// no method named `{}` found for struct `{}` in the current scope
 pub fn e0014(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
-    stname: &str,
     method: &str,
-) -> ! {
-    disp_error_code!(14);
-    eprintln!("no method named `{}` found for struct `{}` in the current scope", method, stname);
-    nearby(path, lines, token).ok();
-    panic!();
+    stname: &str,
+){
+    let message = format!("no method named `{}` found for struct `{}` in the current scope", method, stname);
+    let aderr = AdError::new(Some(14), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// no field `{}` on type `{}`
