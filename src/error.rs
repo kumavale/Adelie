@@ -356,13 +356,13 @@ pub fn e0024(
 
 /// use of possibly-uninitialized variable: `{}`
 pub fn e0027(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     ident:  &str,
-) -> ! {
-    disp_error_code!(27);
-    eprintln!("use of possibly-uninitialized variable: `{}`", ident);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("use of possibly-uninitialized variable: `{}`", ident);
+    let aderr = AdError::new(Some(27), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// cannot assign twice to immutable variable: `{}`

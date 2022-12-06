@@ -295,7 +295,7 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
 
 fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Type {
     if !obj.assigned {
-        e0027((p.path, &p.lines, current_token), &obj.name);
+        e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
     }
     if obj.is_param {
         println!("\tldarg {}", obj.offset);
@@ -394,10 +394,10 @@ fn gen_il_loop<'a>(_current_token: &[Token], p: &'a Program<'a>, then: Node, brk
 fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs: Node) -> Type {
     match lhs.kind {
         NodeKind::Variable { obj } => {
+            let rty = gen_il(rhs, p);
             let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
             let obj = obj.borrow();
-            let rty = gen_il(rhs, p);
             if !obj.is_mutable() && is_assigned {
                 e0028((p.path, &p.lines, current_token), &obj.name);
             }

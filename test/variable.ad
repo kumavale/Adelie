@@ -16,5 +16,8 @@ fn main() {
 
     assert_eq!(2, { let a:i32=1; let a:i32=2; a });
 
+    // should compile error
+    //let a: i32; a += 1;
+
     println!("ok");
 }

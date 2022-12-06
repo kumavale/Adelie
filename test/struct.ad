@@ -33,5 +33,8 @@ fn main() {
     assert!(rect2.width == 5 && rect2.height == 6);
     assert_eq!(3, Rectangle::assign_param(2));
 
+    // should compile error
+    // let r: Rectangle; r.width;
+
     Rectangle::print_ok();
 }
