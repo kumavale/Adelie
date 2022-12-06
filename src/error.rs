@@ -312,13 +312,13 @@ pub fn e0021(
 
 /// type `{}` cannot be dereferenced
 pub fn e0022(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     ty: &Type,
-) -> ! {
-    disp_error_code!(22);
-    eprintln!("type `{}` cannot be dereferenced", ty);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("type `{}` cannot be dereferenced", ty);
+    let aderr = AdError::new(Some(22), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// cannot [+-*/%] `{}` to `{}`
