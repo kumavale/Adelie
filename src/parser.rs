@@ -464,18 +464,16 @@ impl<'a> Parser<'a> {
     fn program(&mut self) -> Program<'a> {
         let mut program = Program::new(self.path, self.input, Rc::clone(&self.errors));
         while let Some(item) = self.parse_item() {
-            self.parse_program(&mut program, item);
+            self.parse_program(&mut program, item.0, item.1);
         }
         program
     }
 
-    fn parse_program(&mut self, program: &mut Program<'a>, item: ItemKind<'a>) {
+    fn parse_program(&mut self, program: &mut Program<'a>, begin: usize, item: ItemKind<'a>) {
         match item {
             ItemKind::Struct(mut st) => {
                 if program.current_namespace.borrow().find_struct(&st.name).is_some() {
-                    // TODO: struct 構造体名までのトークンが欲しい
-                    //                                     ↓
-                    e0005(Rc::clone(&self.errors), self.errorset(), &st.name);
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &st.name);
                 }
                 st.path = program.current_namespace.borrow().full_path();
                 program.current_namespace.borrow_mut().push_struct(st);
@@ -486,34 +484,33 @@ impl<'a> Parser<'a> {
             ItemKind::Mod(mod_item) => {
                 program.enter_namespace(&mod_item.0);
                 for item in mod_item.1 {
-                    self.parse_program(program, item);
+                    self.parse_program(program, item.0, item.1);
                 }
                 program.leave_namespace();
             }
             ItemKind::Fn(f) => {
                 if program.current_namespace.borrow().find_fn(&f.name).is_some() {
-                    // TODO: fn 関数名 ()までのトークンが欲しい
-                    //                                     ↓
-                    e0005(Rc::clone(&self.errors), self.errorset(), &f.name);
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &f.name);
                 }
                 program.current_namespace.borrow_mut().push_fn(f);
             }
         }
     }
 
-    fn parse_item(&mut self) -> Option<ItemKind<'a>> {
+    fn parse_item(&mut self) -> Option<(usize, ItemKind<'a>)> {
+        let begin = self.idx;
         if self.eat_keyword(Keyword::Struct) {
             let st = self.parse_item_struct();
-            Some(ItemKind::Struct(st))
+            Some((begin, ItemKind::Struct(st)))
         } else if self.eat_keyword(Keyword::Impl) {
             let impl_item = self.parse_item_impl();
-            Some(ItemKind::Impl(impl_item))
+            Some((begin, ItemKind::Impl(impl_item)))
         } else if self.eat_keyword(Keyword::Mod) {
             let mod_item = self.parse_item_mod();
-            Some(ItemKind::Mod(mod_item))
+            Some((begin, ItemKind::Mod(mod_item)))
         } else if self.eat_keyword(Keyword::Fn) {
             let f = self.parse_item_fn();
-            Some(ItemKind::Fn(f))
+            Some((begin, ItemKind::Fn(f)))
         } else if self.is_eof() || self.check(TokenKind::RBrace) {
             None
         } else {
@@ -522,7 +519,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_item_mod(&mut self) -> (String, Vec<ItemKind<'a>>) {
+    fn parse_item_mod(&mut self) -> (String, Vec<(usize, ItemKind<'a>)>) {
         let id = self.expect_ident();
         self.current_mod.push(id.to_string());
         let mod_kind = if self.eat(TokenKind::Semi) {
@@ -536,7 +533,7 @@ impl<'a> Parser<'a> {
         (id, mod_kind)
     }
 
-    fn parse_mod(&mut self) -> Vec<ItemKind<'a>> {
+    fn parse_mod(&mut self) -> Vec<(usize, ItemKind<'a>)> {
         let mut items = vec![];
         while let Some(item) = self.parse_item() {
             items.push(item);

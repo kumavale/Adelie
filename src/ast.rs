@@ -553,7 +553,7 @@ pub enum ItemKind<'a> {
     /// A module declaration (`mod`).
     ///
     /// E.g., `mod foo;` or `mod foo { .. }`.
-    Mod((String, Vec<ItemKind<'a>>)),  // (ident, items)
+    Mod((String, Vec<(usize, ItemKind<'a>)>)),  // (ident, items)
     /// A struct definition (`struct`).
     ///
     /// E.g., `struct Foo<A> { x: A }`.
