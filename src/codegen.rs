@@ -459,7 +459,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 }
             }
         }
-        _ => e0019((p.path, &p.lines, current_token))
+        _ => e0019(Rc::clone(&p.errors), (p.path, &p.lines, current_token))
     }
     Type::Void
 }

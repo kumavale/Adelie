@@ -280,12 +280,12 @@ pub fn e0018(
 
 /// invalid left-hand side of assignment
 pub fn e0019(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
-) -> ! {
-    disp_error_code!(19);
-    eprintln!("invalid left-hand side of assignment");
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = "invalid left-hand side of assignment".to_string();
+    let aderr = AdError::new(Some(19), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// cannot cast as `{}`
