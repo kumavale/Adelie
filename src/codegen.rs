@@ -130,7 +130,8 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
         println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
         func.rettype.clone()
     } else {
-        e0013((p.path, &p.lines, current_token), name);
+        e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
+        Type::Void
     }
 }
 
@@ -859,7 +860,8 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
                     func.rettype.clone()
                 } else {
-                    e0013((p.path, &p.lines, current_token), &name);
+                    e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &name);
+                    Type::Void
                 }
             }
         }

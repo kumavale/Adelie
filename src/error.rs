@@ -210,13 +210,13 @@ pub fn e0012(
 
 /// cannot find function `{}` in this scope
 pub fn e0013(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     ident: &str,
-) -> ! {
-    disp_error_code!(13);
-    eprintln!("cannot find function `{}` in this scope", ident);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("cannot find function `{}` in this scope", ident);
+    let aderr = AdError::new(Some(13), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// no method named `{}` found for struct `{}` in the current scope
