@@ -343,15 +343,15 @@ pub fn e0023(
 
 /// no implementation for `{}` {op} `{}`
 pub fn e0024(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     kind: BinaryOpKind,
     lty: &Type,
     rty: &Type,
-) -> ! {
-    disp_error_code!(24);
-    eprintln!("no implementation for `{}` {} `{}`", lty, kind, rty);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("no implementation for `{}` {} `{}`", lty, kind, rty);
+    let aderr = AdError::new(Some(24), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// use of possibly-uninitialized variable: `{}`

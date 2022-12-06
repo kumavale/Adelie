@@ -653,7 +653,10 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 println!("\tceq");
                 is_bool = true;
             }
-            _ => e0024((p.path, &p.lines, current_token), kind, &ltype, &rtype)
+            _ => {
+                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                is_invalid = true;
+            }
         }
         Type::String => match kind {
             BinaryOpKind::Add => {
@@ -702,9 +705,15 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 println!("\tceq");
                 is_bool = true;
             }
-            _ => e0024((p.path, &p.lines, current_token), kind, &ltype, &rtype)
+            _ => {
+                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                is_invalid = true;
+            }
         }
-        _ => e0024((p.path, &p.lines, current_token), kind, &ltype, &rtype)
+        _ => {
+            e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+            is_invalid = true;
+        }
     }
     match (&ltype, &rtype) {
         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => {
