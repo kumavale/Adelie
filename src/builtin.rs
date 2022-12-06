@@ -5,6 +5,7 @@ use crate::keyword::Type;
 use crate::program::Program;
 use crate::token::{LiteralKind, Token, TokenKind};
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Builtin {
@@ -65,9 +66,9 @@ fn gen_il_builtin_println<'a>(_token: &[Token], args: Vec<Node>, p: &'a Program<
     format_args(_token, args, p, true)
 }
 
-fn gen_il_builtin_read_line(token: &[Token], args: Vec<Node>, p: &Program) -> Type {
+fn gen_il_builtin_read_line<'a>(token: &[Token], args: Vec<Node>, p: &'a Program) -> Type {
     if !args.is_empty() {
-        e0000((p.path, &p.lines, token), "read_line! takes no arguments");
+        e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "read_line! takes no arguments");
     }
     println!("\tcall string [mscorlib]System.Console::ReadLine()");
     Type::String
@@ -83,7 +84,7 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl
             let token = format.token;
             // check arg counts
             if format_arg_count(&format) != argc-1 {
-                e0000((p.path, &p.lines, token), "invalid format");
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
             let ty = gen_il(format_shaping(format), p);
             println!("\tcall void [mscorlib]System.Console::Write{nl}({})",
@@ -98,11 +99,11 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl
             let token = format.token;
             if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
                 // format argument must be a string literal
-                e0000((p.path, &p.lines, token), "format argument must be a string literal");
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "format argument must be a string literal");
             }
             // check arg counts
             if format_arg_count(&format) != argc-1 {
-                e0000((p.path, &p.lines, token), "invalid format");
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
             gen_il(format_shaping(format), p);
             println!("\tldc.i4 {}", argc);

@@ -5,6 +5,8 @@ use crate::keyword::{Type, Numeric, Keyword};
 use crate::object::Object;
 use crate::program::Program;
 use crate::token::Token;
+use crate::utils::remove_seq;
+use std::rc::Rc;
 use std::cell::Ref;
 
 pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
@@ -108,7 +110,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
             .param_symbol_table
             .objs;
         if params.len() != args.len() {
-            e0029((p.path, &p.lines, current_token), params.len(), args.len());
+            e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
         }
         for (arg, param) in args.into_iter().zip(params) {
             let token = arg.token;
@@ -118,7 +120,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                 _ if arg_ty == *param_ty => (),
-                _ => e0012((p.path, &p.lines, token), param_ty, &arg_ty)
+                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty)
             }
         }
         let params = params
@@ -129,7 +131,8 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
         println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
         func.rettype.clone()
     } else {
-        e0013((p.path, &p.lines, current_token), name);
+        e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
+        Type::Void
     }
 }
 
@@ -140,7 +143,9 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
             let ns = if let Some(ns) = ns.find(&path) {
                 ns
             } else {
-                e0016((p.path, &p.lines, current_token), &st_name);
+                let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                return Type::Void;
             };
             if let Some(_st) = ns.find_struct(&st_name) {
                 let func = if let Some(func) = ns
@@ -153,7 +158,8 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                 {
                     func
                 } else {
-                    e0014((p.path, &p.lines, current_token), ident, &st_name);
+                    e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &st_name);
+                    return Type::Void;
                 };
                 let params = &func
                     .param_symbol_table
@@ -162,7 +168,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                     .skip(if func.is_static { 0 } else { 1 })
                     .collect::<Vec<_>>();
                 if params.len() != args.len() {
-                    e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(params) {
                     let token = arg.token;
@@ -172,7 +178,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                         _ if &arg_ty == param_ty => (),
-                        _ => e0012((p.path, &p.lines, token), param_ty, &arg_ty)
+                        _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty)
                     }
                 }
                 let params = params
@@ -183,7 +189,9 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                 println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st_name, ident, params);
                 func.rettype.clone()
             } else {
-                e0014((p.path, &p.lines, current_token), ident, &st_name);
+                // unreachable?
+                e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &st_name);
+                Type::Void
             }
         }
         _ => {
@@ -198,14 +206,17 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         if let Some(ns) = ns.find(path) {
             ns
         } else {
-            e0016((p.path, &p.lines, current_token), &obj.name);
+            let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
+            e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+            return Type::Void;
         }
     } else {
-        e0016((p.path, &p.lines, current_token), &obj.name);
+        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.name));
+        return Type::Void;
     };
     if let Some(st) = ns.find_struct(&obj.ty.to_string()) {
         if field.len() != st.field.len() {
-            e0017((p.path, &p.lines, current_token), &st.name);
+            e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &st.name);
         }
         println!("\tldloca {}", obj.offset);
         println!("\tinitobj {}", obj.ty);
@@ -216,7 +227,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         }
         println!("\tldloc {}", obj.offset);
     } else {
-        e0016((p.path, &p.lines, current_token), &obj.name);
+        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.name));
     }
     obj.ty.clone()
 }
@@ -251,7 +262,9 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
     let ns = if let Some(ns) = ns.find(&path) {
         ns
     } else {
-        e0016((p.path, &p.lines, current_token), &stname);
+        let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
+        e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+        return Type::Void;
     };
     if let Some(st) = ns.find_struct(&stname) {
         if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
@@ -270,16 +283,19 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
                 ty
             }
         } else {
-            e0015((p.path, &p.lines, current_token), &stname, ident);
+            e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &stname);
+            Type::Void
         }
     } else {
-        e0016((p.path, &p.lines, current_token), &stname);
+        // unreachable?
+        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &stname);
+        Type::Void
     }
 }
 
 fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Type {
     if !obj.assigned {
-        e0027((p.path, &p.lines, current_token), &obj.name);
+        e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
     }
     if obj.is_param {
         println!("\tldarg {}", obj.offset);
@@ -320,7 +336,7 @@ fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: 
     let token = cond.token;
     let cond_type = gen_il(cond, p);
     if cond_type != Type::Bool {
-        e0012((p.path, &p.lines, token), &Type::Bool, &cond_type);
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type);
     }
     let seq = seq();
     let else_label = format!("IL_else{}", seq);
@@ -336,10 +352,14 @@ fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: 
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => els_type.1,
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => then_type,
             _ if then_type == els_type.1 => then_type,
-            _ => e0012((p.path, &p.lines, current_token), &then_type, &els_type.1)
+            _ => {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &then_type, &els_type.1);
+                then_type
+            }
         }
     } else if then_type != Type::Void {
-        e0018((p.path, &p.lines, current_token), &then_type);
+        e0018(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &then_type);
+        Type::Void
     } else {
         then_type
     }
@@ -352,7 +372,7 @@ fn gen_il_while<'a>(_current_token: &[Token], p: &'a Program<'a>, cond: Node, th
     let token = cond.token;
     let cond_type = gen_il(cond, p);
     if cond_type != Type::Bool {
-        e0012((p.path, &p.lines, token), &Type::Bool, &cond_type);
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type);
     }
     println!("\tbrfalse {}", end_label);
     let then_type = gen_il(then, p);
@@ -374,17 +394,17 @@ fn gen_il_loop<'a>(_current_token: &[Token], p: &'a Program<'a>, then: Node, brk
 fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs: Node) -> Type {
     match lhs.kind {
         NodeKind::Variable { obj } => {
+            let rty = gen_il(rhs, p);
             let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
             let obj = obj.borrow();
-            let rty = gen_il(rhs, p);
             if !obj.is_mutable() && is_assigned {
-                e0028((p.path, &p.lines, current_token), &obj.name);
+                e0028(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
             }
             match (&obj.ty, &rty) {
                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                 _ if obj.ty == rty => (),
-                _ => e0012((p.path, &p.lines, current_token), &obj.ty, &rty)
+                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty, &rty)
             }
             if obj.is_param() {
                 println!("\tstarg {}", obj.offset);
@@ -399,7 +419,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 match (&*lty, &rty) {
                     (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                     _ if *lty == rty => (),
-                    _ => e0012((p.path, &p.lines, current_token), &lty, &rty)
+                    _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty, &rty)
                 }
                 match *lty {
                     Type::Ptr(_) => println!("\tstind.i"),
@@ -407,7 +427,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                     _ => unimplemented!(),
                 }
             } else {
-                e0022((p.path, &p.lines, current_token), &lty);
+                e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty);
             }
         }
         NodeKind::Field { expr, ident } => {
@@ -420,17 +440,19 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                             match (&field.ty, &rty) {
                                 (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
                                 _ if field.ty == rty => (),
-                                _ => e0012((p.path, &p.lines, current_token), &field.ty, &rty)
+                                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.ty, &rty)
                             }
                             if !is_mutable {
-                                e0028((p.path, &p.lines, current_token), &format!("{stname}.{ident}"));
+                                let message = format!("cannot assign to `{stname}.{ident}`, as `{stname}` is not declared as mutable");
+                                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
                             println!("\tstfld {} {}::{}", field.ty.to_ilstr(), stname, ident);
                         } else {
-                            e0015((p.path, &p.lines, current_token), &stname, &ident);
+                            e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, &stname);
                         }
                     } else {
-                        e0016((p.path, &p.lines, current_token), &stname);
+                        // unreachable?
+                        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &stname);
                     }
                 }
                 _ => {
@@ -438,7 +460,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 }
             }
         }
-        _ => e0019((p.path, &p.lines, current_token))
+        _ => e0019(Rc::clone(&p.errors), (p.path, &p.lines, current_token))
     }
     Type::Void
 }
@@ -460,14 +482,18 @@ fn gen_il_break(_current_token: &[Token], _p: &Program, brk_label_seq: usize) ->
 
 fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, expr: Node) -> Type {
     let old_type = gen_il(expr, p);
-    match new_type {
+    match &new_type {
         Type::Numeric(Numeric::I32) => {
+            match old_type {
+                Type::Numeric(..) | Type::Bool | Type::Char => (),  // ok
+                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Numeric(Numeric::I32)),
+            }
             println!("\tconv.i4");
         }
         Type::Bool => {
             match old_type {
                 Type::Bool => (),  // ok
-                _ => e0020((p.path, &p.lines, current_token), &Type::Bool),
+                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Bool),
             }
             println!("\tldc.i4.0");
             println!("\tcgt");
@@ -475,7 +501,7 @@ fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, 
         Type::Char => {
             match old_type {
                 Type::Char | Type::Numeric(_) => (),  // ok
-                _ => e0020((p.path, &p.lines, current_token), &Type::Char),
+                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Char),
             }
             println!("\tconv.u2");
         }
@@ -483,7 +509,7 @@ fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, 
             todo!("cast to ref type");
         }
         Type::Void => unreachable!(),
-        t => e0020((p.path, &p.lines, current_token), &t)
+        t => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), t)
     }
     new_type
 }
@@ -506,7 +532,7 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
             if let Type::Numeric(..) = ty {
                 println!("\tneg");
             } else {
-                e0021((p.path, &p.lines, current_token), &ty);
+                e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
             }
             ty
         }
@@ -533,7 +559,8 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                 }
                 *ty
             } else {
-                e0022((p.path, &p.lines, current_token), &ty);
+                e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
+                Type::Void
             }
         }
     }
@@ -542,7 +569,8 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
 fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: BinaryOpKind, lhs: Node, rhs: Node) -> Type {
     let ltype = gen_il(lhs, p);
     let rtype = gen_il(rhs, p);
-    let mut is_bool = false;
+    let mut is_bool    = false;
+    let mut is_invalid = false;
     match &ltype {
         Type::Numeric(..) => match kind {
             BinaryOpKind::Add    => println!("\tadd"),
@@ -589,14 +617,13 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
         }
         Type::Char | Type::Bool => match kind {
             BinaryOpKind::Add |
-                BinaryOpKind::Sub |
-                BinaryOpKind::Mul |
-                BinaryOpKind::Div |
-                BinaryOpKind::Rem => {
-                    e0023((p.path, &p.lines, current_token),
-                    kind, &ltype, &rtype);
-                }
-
+            BinaryOpKind::Sub |
+            BinaryOpKind::Mul |
+            BinaryOpKind::Div |
+            BinaryOpKind::Rem => {
+                e0023(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                is_invalid = true;
+            }
             BinaryOpKind::Eq => {
                 println!("\tceq");
                 is_bool = true;
@@ -627,20 +654,22 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 println!("\tceq");
                 is_bool = true;
             }
-            _ => e0024((p.path, &p.lines, current_token), kind, &ltype, &rtype)
+            _ => {
+                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                is_invalid = true;
+            }
         }
         Type::String => match kind {
             BinaryOpKind::Add => {
                 println!("\tcall string System.String::Concat(string, string)");
             }
             BinaryOpKind::Sub |
-                BinaryOpKind::Mul |
-                BinaryOpKind::Div |
-                BinaryOpKind::Rem => {
-                    e0023((p.path, &p.lines, current_token),
-                    kind, &ltype, &rtype);
-                }
-
+            BinaryOpKind::Mul |
+            BinaryOpKind::Div |
+            BinaryOpKind::Rem => {
+                e0023(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                is_invalid = true;
+            }
             BinaryOpKind::Eq => {
                 println!("\tcall bool System.String::op_Equality(string, string)");
                 is_bool = true;
@@ -677,9 +706,15 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 println!("\tceq");
                 is_bool = true;
             }
-            _ => e0024((p.path, &p.lines, current_token), kind, &ltype, &rtype)
+            _ => {
+                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                is_invalid = true;
+            }
         }
-        _ => e0024((p.path, &p.lines, current_token), kind, &ltype, &rtype)
+        _ => {
+            e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+            is_invalid = true;
+        }
     }
     match (&ltype, &rtype) {
         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => {
@@ -703,7 +738,17 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 ltype
             }
         }
-        _ => e0012((p.path, &p.lines, current_token), &ltype, &rtype)
+        _ => {
+            if is_bool {
+                Type::Bool
+            } else if is_invalid {
+                // TODO: これ以上評価したくないので、無効なTypeを返す
+                ltype
+            } else {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ltype, &rtype);
+                ltype
+            }
+        }
     }
 }
 
@@ -715,14 +760,14 @@ fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind:
             let token = lhs.token;
             let ltype = gen_il(lhs, p);
             if ltype != Type::Bool {
-                e0012((p.path, &p.lines, token), &Type::Bool, &ltype);
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype);
             }
             println!("\tbrfalse {}", end_label);
             println!("\tpop");
             let token = rhs.token;
             let rtype = gen_il(rhs, p);
             if rtype != Type::Bool {
-                e0012((p.path, &p.lines, token), &Type::Bool, &rtype);
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &rtype);
             }
             println!("{}:", end_label);
         }
@@ -731,14 +776,14 @@ fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind:
             let token = lhs.token;
             let ltype = gen_il(lhs, p);
             if ltype != Type::Bool {
-                e0012((p.path, &p.lines, token), &Type::Bool, &ltype);
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype);
             }
             println!("\tbrtrue {}", end_label);
             println!("\tpop");
             let token = rhs.token;
             let rtype = gen_il(rhs, p);
             if rtype != Type::Bool {
-                e0012((p.path, &p.lines, token), &Type::Bool, &rtype);
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &rtype);
             }
             println!("{}:", end_label);
         }
@@ -762,20 +807,54 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
             gen_il_path(current_token, p, &segment, full_path, *child)
         }
         NodeKind::Call { name, args } => {
-            if let Some(im) = p.namespace.borrow().impls.first() {
+            let namespace = p.namespace.borrow();
+            let ns = if let Some(ns) = namespace.find(&full_path) {
+                ns
+            } else {
+                let message = format!("failed to resolve: use of undeclared crate or module `{}`", full_path.join("::"));
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                return Type::Void;
+            };
+            if let Some(func) = ns.find_fn(&name) {
+                let params = &func
+                    .param_symbol_table
+                    .objs;
+                if params.len() != args.len() {
+                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
+                }
+                for (arg, param) in args.into_iter().zip(params) {
+                    let token = arg.token;
+                    let param_ty = &param.borrow().ty;
+                    let arg_ty = gen_il(arg, p);
+                    match (&arg_ty, &param_ty) {
+                        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
+                        _ if arg_ty == *param_ty => (),
+                        _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty)
+                    }
+                }
+                let params = params
+                    .iter()
+                    .map(|p|p.borrow().ty.to_ilstr())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
+                func.rettype.clone()
+            } else if let Some(im) = ns.find_impl(full_path.last().unwrap()) {
                 let func = if let Some(func) = im
                     .functions
                     .iter()
                     .find(|f|f.name==name) {
                         func
                     } else {
-                        e0014((p.path, &p.lines, current_token), segment, &name);
+                        e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &name, &im.name);
+                        return Type::Void;
                     };
                 let params = &func
                     .param_symbol_table
                     .objs;
                 if params.len() != args.len() {
-                    e0029((p.path, &p.lines, current_token), params.len(), args.len());
+                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for arg in args {
                     gen_il(arg, p);
@@ -789,67 +868,8 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
                 func.rettype.clone()
             } else {
-                // TODO: 名前空間から検索
-                let namespace = p.namespace.borrow();
-                let ns = if let Some(ns) = namespace.find(&full_path) {
-                    ns
-                } else {
-                    e0014((p.path, &p.lines, current_token), segment, &name);
-                };
-                if let Some(func) = ns.find_fn(&name) {
-                    let params = &func
-                        .param_symbol_table
-                        .objs;
-                    if params.len() != args.len() {
-                        e0029((p.path, &p.lines, current_token), params.len(), args.len());
-                    }
-                    for (arg, param) in args.into_iter().zip(params) {
-                        let token = arg.token;
-                        let param_ty = &param.borrow().ty;
-                        let arg_ty = gen_il(arg, p);
-                        match (&arg_ty, &param_ty) {
-                            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-                            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
-                            _ if arg_ty == *param_ty => (),
-                            _ => e0012((p.path, &p.lines, token), param_ty, &arg_ty)
-                        }
-                    }
-                    let params = params
-                        .iter()
-                        .map(|p|p.borrow().ty.to_ilstr())
-                        .collect::<Vec<String>>()
-                        .join(", ");
-                    println!("\tcall {} {}({})", func.rettype.to_ilstr(), name, params);
-                    func.rettype.clone()
-                } else if let Some(im) = ns.find_impl(full_path.last().unwrap()) {
-                    let func = if let Some(func) = im
-                        .functions
-                        .iter()
-                        .find(|f|f.name==name) {
-                            func
-                        } else {
-                            e0014((p.path, &p.lines, current_token), segment, &name);
-                        };
-                    let params = &func
-                        .param_symbol_table
-                        .objs;
-                    if params.len() != args.len() {
-                        e0029((p.path, &p.lines, current_token), params.len(), args.len());
-                    }
-                    for arg in args {
-                        gen_il(arg, p);
-                    }
-                    let params = params
-                        .iter()
-                        .skip(if func.is_static { 0 } else { 1 })
-                        .map(|o|o.borrow().ty.to_ilstr())
-                        .collect::<Vec<String>>()
-                        .join(", ");
-                    println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
-                    func.rettype.clone()
-                } else {
-                    e0013((p.path, &p.lines, current_token), &name);
-                }
+                e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &name);
+                Type::Void
             }
         }
         _ => {

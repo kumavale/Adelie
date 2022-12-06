@@ -16,3 +16,7 @@ pub trait Digits {
 }
 
 impl Digits for usize {}
+
+pub fn remove_seq(name: &str) -> String {
+    name.split(':').next().unwrap().to_string()
+}

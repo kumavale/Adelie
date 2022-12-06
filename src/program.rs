@@ -1,3 +1,4 @@
+use crate::error::Errors;
 use crate::namespace::NameSpace;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -9,16 +10,18 @@ pub struct Program<'a> {
     pub lines: Vec<&'a str>,
     pub namespace: Rc<RefCell<NameSpace<'a>>>,
     pub current_namespace: Rc<RefCell<NameSpace<'a>>>,
+    pub errors: Rc<RefCell<Errors>>,
 }
 
 impl<'a> Program<'a> {
-    pub fn new(path: &'a str, input: &'a str) -> Self {
+    pub fn new(path: &'a str, input: &'a str, errors: Rc<RefCell<Errors>>) -> Self {
         let namespace = Rc::new(RefCell::new(NameSpace::new("crate", None)));
         Program {
             path,
             lines: input.lines().collect(),
             namespace: Rc::clone(&namespace),
             current_namespace: namespace,
+            errors,
         }
     }
 

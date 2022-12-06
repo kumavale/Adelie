@@ -6,7 +6,7 @@ use crate::function::Function;
 use crate::keyword::{Type, Keyword};
 use crate::object::{Object, FindSymbol, SymbolTable};
 use crate::program::Program;
-use crate::token::{Token, TokenKind, LiteralKind};
+use crate::token::{DelimiterKind, Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -295,6 +295,7 @@ pub struct Parser<'a> {
     brk_label_seq: usize,
     loop_count: usize,
     current_mod: Vec<String>,
+    errors: Rc<RefCell<Errors>>,
 }
 
 impl<'a> Parser<'a> {
@@ -303,6 +304,7 @@ impl<'a> Parser<'a> {
         input: &'a str,
         tokens: &'a [Token],
         g_symbol_table: &'a mut SymbolTable,
+        errors: Rc<RefCell<Errors>>,
     ) -> Self {
         Parser {
             path,
@@ -317,6 +319,7 @@ impl<'a> Parser<'a> {
             brk_label_seq: 0,
             loop_count: 0,
             current_mod: vec![],
+            errors,
         }
     }
 
@@ -353,8 +356,9 @@ impl<'a> Parser<'a> {
     fn expect(&mut self, kind: TokenKind) {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
-        } else {
-            e0001(self.errorset(), kind);
+        } else if !self.is_eof() {
+            e0001(Rc::clone(&self.errors), self.errorset(), kind);
+            self.idx += 1;
         }
     }
 
@@ -362,8 +366,37 @@ impl<'a> Parser<'a> {
         if let Some(ident) = self.eat_ident() {
             ident
         } else {
-            e0003(self.errorset());
+            e0003(Rc::clone(&self.errors), self.errorset());
+            "".to_string()
         }
+    }
+
+    fn bump(&mut self) {
+        self.idx += 1;
+    }
+
+    fn close_delimiter(&mut self, delim: DelimiterKind, start_brace: Token) {
+        let mut brace_count = 1;
+        let (ldelim, rdelim) = match delim {
+            DelimiterKind::Paren => (TokenKind::LParen, TokenKind::RParen),
+            DelimiterKind::Brace => (TokenKind::LBrace, TokenKind::RBrace),
+        };
+        while !self.is_eof() {
+            match &self.tokens[self.idx].kind {
+                d if *d == rdelim => {
+                    brace_count -= 1;
+                    if brace_count == 0 {
+                        self.idx += 1;
+                        return;
+                    }
+                }
+                d if *d == ldelim => brace_count += 1,
+                _ => (),  // Do nothing
+            }
+            self.idx += 1;
+        }
+        e0000(Rc::clone(&self.errors), (self.path, &self.lines, &[start_brace]),
+            "this file contains an unclosed delimiter");
     }
 
     fn is_eof(&self) -> bool {
@@ -382,14 +415,14 @@ impl<'a> Parser<'a> {
         self.current_fn.as_mut().unwrap()
     }
 
-    fn type_no_bounds(&mut self) -> Type {
+    fn type_no_bounds(&mut self) -> Option<Type> {
         if self.eat(TokenKind::And) {
-            Type::Ptr(Box::new(self.type_no_bounds()))
+            Some(Type::Ptr(Box::new(self.type_no_bounds()?)))
         } else if self.eat(TokenKind::AndAnd) {
-            Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()))))
+            Some(Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()?)))))
         } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
-            ty.clone()
+            Some(ty.clone())
         } else if let Some(ident) = self.eat_ident() {
             // WIP
             if self.check(TokenKind::PathSep) {
@@ -398,15 +431,16 @@ impl<'a> Parser<'a> {
                     path.push(self.expect_ident());
                 }
                 let ident = path.pop().unwrap();
-                Type::Struct(path, ident, false)
+                Some(Type::Struct(path, ident, false))
             } else {
-                Type::Struct(self.current_mod.to_vec(), ident, false)
+                Some(Type::Struct(self.current_mod.to_vec(), ident, false))
             }
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
-            Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false)
+            Some(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false))
         } else {
-            e0002(self.errorset());
+            e0002(Rc::clone(&self.errors), self.errorset());
+            None
         }
 
     }
@@ -428,18 +462,18 @@ impl<'a> Parser<'a> {
     }
 
     fn program(&mut self) -> Program<'a> {
-        let mut program = Program::new(self.path, self.input);
+        let mut program = Program::new(self.path, self.input, Rc::clone(&self.errors));
         while let Some(item) = self.parse_item() {
-            self.parse_program(&mut program, item);
+            self.parse_program(&mut program, item.0, item.1);
         }
         program
     }
 
-    fn parse_program(&mut self, program: &mut Program<'a>, item: ItemKind<'a>) {
+    fn parse_program(&mut self, program: &mut Program<'a>, begin: usize, item: ItemKind<'a>) {
         match item {
             ItemKind::Struct(mut st) => {
                 if program.current_namespace.borrow().find_struct(&st.name).is_some() {
-                    e0005(self.errorset(), &st.name);
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &st.name);
                 }
                 st.path = program.current_namespace.borrow().full_path();
                 program.current_namespace.borrow_mut().push_struct(st);
@@ -450,40 +484,42 @@ impl<'a> Parser<'a> {
             ItemKind::Mod(mod_item) => {
                 program.enter_namespace(&mod_item.0);
                 for item in mod_item.1 {
-                    self.parse_program(program, item);
+                    self.parse_program(program, item.0, item.1);
                 }
                 program.leave_namespace();
             }
             ItemKind::Fn(f) => {
                 if program.current_namespace.borrow().find_fn(&f.name).is_some() {
-                    e0005(self.errorset(), &f.name);
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &f.name);
                 }
                 program.current_namespace.borrow_mut().push_fn(f);
             }
         }
     }
 
-    fn parse_item(&mut self) -> Option<ItemKind<'a>> {
+    fn parse_item(&mut self) -> Option<(usize, ItemKind<'a>)> {
+        let begin = self.idx;
         if self.eat_keyword(Keyword::Struct) {
             let st = self.parse_item_struct();
-            Some(ItemKind::Struct(st))
+            Some((begin, ItemKind::Struct(st)))
         } else if self.eat_keyword(Keyword::Impl) {
             let impl_item = self.parse_item_impl();
-            Some(ItemKind::Impl(impl_item))
+            Some((begin, ItemKind::Impl(impl_item)))
         } else if self.eat_keyword(Keyword::Mod) {
             let mod_item = self.parse_item_mod();
-            Some(ItemKind::Mod(mod_item))
+            Some((begin, ItemKind::Mod(mod_item)))
         } else if self.eat_keyword(Keyword::Fn) {
             let f = self.parse_item_fn();
-            Some(ItemKind::Fn(f))
+            Some((begin, ItemKind::Fn(f)))
         } else if self.is_eof() || self.check(TokenKind::RBrace) {
             None
         } else {
-            e0004(self.errorset());
+            e0004(Rc::clone(&self.errors), self.errorset());
+            None
         }
     }
 
-    fn parse_item_mod(&mut self) -> (String, Vec<ItemKind<'a>>) {
+    fn parse_item_mod(&mut self) -> (String, Vec<(usize, ItemKind<'a>)>) {
         let id = self.expect_ident();
         self.current_mod.push(id.to_string());
         let mod_kind = if self.eat(TokenKind::Semi) {
@@ -497,7 +533,7 @@ impl<'a> Parser<'a> {
         (id, mod_kind)
     }
 
-    fn parse_mod(&mut self) -> Vec<ItemKind<'a>> {
+    fn parse_mod(&mut self) -> Vec<(usize, ItemKind<'a>)> {
         let mut items = vec![];
         while let Some(item) = self.parse_item() {
             items.push(item);
@@ -510,18 +546,23 @@ impl<'a> Parser<'a> {
         let mut st = Struct::new();
         st.name = self.expect_ident();
         self.expect(TokenKind::LBrace);
+        let start_brace = self.idx-1;
         while !self.eat(TokenKind::RBrace) {
             let ident = self.expect_ident();
+            if ident.is_empty() {
+                self.close_delimiter(DelimiterKind::Brace, self.tokens[start_brace].clone());
+                break;
+            }
             if st.field.iter().any(|o|o.name==ident) {
-                e0005(self.errorset(), &ident);
-            } else {
-                self.expect(TokenKind::Colon);
-                let ty = self.type_no_bounds();
+                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            }
+            self.expect(TokenKind::Colon);
+            if let Some(ty) = self.type_no_bounds() {
                 let obj = Object::new(ident, st.field.len(), false, ty, false);
                 st.field.push(obj);
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
-                e0008(self.errorset());
+                e0008(Rc::clone(&self.errors), self.errorset());
             }
         }
         st
@@ -548,6 +589,7 @@ impl<'a> Parser<'a> {
         self.current_fn = Some(Function::new(&ident));
 
         self.expect(TokenKind::LParen);
+        let start_brace = self.idx-1;
         if !self.eat(TokenKind::RParen) {
             // TODO: 所有権の実装後に`&`なしの`self`に対応
             if self.eat(TokenKind::And) {
@@ -561,17 +603,19 @@ impl<'a> Parser<'a> {
                     obj.borrow_mut().assigned = true;
                     self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
                     if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                        e0009(self.errorset());
+                        e0009(Rc::clone(&self.errors), self.errorset());
                     }
                 } else {
-                    e0000((self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
+                    e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
                         "variable declaration cannot be a reference");
                 }
             }
             while !self.eat(TokenKind::RParen) {
                 self.parse_fn_params();
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                    e0009(self.errorset());
+                    e0009(Rc::clone(&self.errors), self.errorset());
+                    self.close_delimiter(DelimiterKind::Paren, self.tokens[start_brace].clone());
+                    break;
                 }
             }
         }
@@ -587,16 +631,20 @@ impl<'a> Parser<'a> {
 
     fn parse_fn_params(&mut self) {
         if self.eat(TokenKind::And) {
-            e0000((self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
+            e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
                 "variable declaration cannot be a reference");
         }
         let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = self.expect_ident();
+        if ident.is_empty() {
+            self.bump();
+            return;
+        }
         if self.current_fn_mut().param_symbol_table.find(&ident).is_some() {
-            e0005(self.errorset(), &ident);
-        } else {
-            self.expect(TokenKind::Colon);
-            let ty = self.type_no_bounds();
+            e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+        }
+        self.expect(TokenKind::Colon);
+        if let Some(ty) = self.type_no_bounds() {
             let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
             obj.borrow_mut().assigned = true;
             self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
@@ -604,7 +652,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_ret_ty(&mut self) {
-        self.current_fn_mut().rettype = self.type_no_bounds();
+        if let Some(ty) = self.type_no_bounds() {
+            self.current_fn_mut().rettype = ty;
+        }
     }
 
     fn parse_block_expr(&mut self) -> Node<'a> {
@@ -612,13 +662,15 @@ impl<'a> Parser<'a> {
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
         let begin = self.idx;
-        if self.eat(TokenKind::RBrace) {
-            return new_empty_node()
-        }
-        let mut stmts = vec![];
-        while !self.eat(TokenKind::RBrace) {
+        let mut stmts = if self.check(TokenKind::RBrace) {
+            vec![new_empty_node()]
+        } else {
+            vec![]
+        };
+        while !self.check(TokenKind::RBrace) && !self.is_eof() {
             stmts.push(self.parse_stmt());
         }
+        self.close_delimiter(DelimiterKind::Brace, self.tokens[begin-1].clone());
         self.except_struct_expression = except_struct_expression;
         self.current_fn_mut().lvar_symbol_table.leave_scope();
         new_block_node(stmts, &self.tokens[begin..self.idx])
@@ -660,8 +712,9 @@ impl<'a> Parser<'a> {
 
     fn parse_break_expr(&mut self) -> Node<'a> {
         if !self.inside_of_a_loop() {
-            e0000((self.path, &self.lines, &self.tokens[self.idx-1..self.idx]),
+            e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]),
                 "cannot `break` outside of a loop");
+            return new_empty_node();
         }
         let begin = self.idx;
         if self.eat(TokenKind::Semi) {
@@ -676,7 +729,7 @@ impl<'a> Parser<'a> {
         let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = self.expect_ident();
         self.expect(TokenKind::Colon);
-        let ty = self.type_no_bounds();
+        let ty = self.type_no_bounds().unwrap_or(Type::Void);
         let token = &self.tokens[begin..self.idx];
         let node = new_variable_node_with_let(
             &mut self.current_fn_mut().lvar_symbol_table,
@@ -1136,8 +1189,11 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.eat_keyword(Keyword::As) {
-                let ty = self.type_no_bounds();
-                node = new_cast_node(ty, node, &self.tokens[begin..self.idx]);
+                if let Some(ty) = self.type_no_bounds() {
+                    node = new_cast_node(ty, node, &self.tokens[begin..self.idx]);
+                } else {
+                    self.bump();
+                }
             } else {
                 return node;
             }
@@ -1184,11 +1240,14 @@ impl<'a> Parser<'a> {
                 let ident = self.expect_ident();
                 if self.eat(TokenKind::LParen) {
                     // method
+                    let start_paren = self.idx - 1;
                     let mut args = vec![];
-                    while !self.eat(TokenKind::RParen) {
+                    while !self.eat(TokenKind::RParen) && !self.is_eof() {
                         args.push(self.parse_expr());
                         if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                            e0010(self.errorset());
+                            e0010(Rc::clone(&self.errors), self.errorset());
+                            self.close_delimiter(DelimiterKind::Paren, self.tokens[start_paren].clone());
+                            break;
                         }
                     }
                     node = new_method_call_node(
@@ -1245,7 +1304,9 @@ impl<'a> Parser<'a> {
                 self.parse_builtin(kind)
             }
             _ => {
-                e0006(self.errorset());
+                e0006(Rc::clone(&self.errors), self.errorset());
+                self.idx += 1;
+                new_empty_node()
             }
         }
     }
@@ -1274,7 +1335,9 @@ impl<'a> Parser<'a> {
             while !self.eat(TokenKind::RParen) {
                 args.push(self.parse_expr());
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                    e0010(self.errorset());
+                    e0010(Rc::clone(&self.errors), self.errorset());
+                    self.close_delimiter(DelimiterKind::Paren, self.tokens[begin+1].clone());
+                    break;
                 }
             }
             new_function_call_node(name, args, &self.tokens[begin..self.idx])
@@ -1283,9 +1346,12 @@ impl<'a> Parser<'a> {
             let begin = self.idx-2;
             let mut field = vec![];
             while !self.eat(TokenKind::RBrace) {
+                let start_brace = self.idx-1;
                 field.push(self.parse_expr());
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
-                    e0009(self.errorset());
+                    e0009(Rc::clone(&self.errors), self.errorset());
+                    self.close_delimiter(DelimiterKind::Brace, self.tokens[start_brace].clone());
+                    break;
                 }
             }
             let tokens = &self.tokens[begin..self.idx];
@@ -1304,7 +1370,8 @@ impl<'a> Parser<'a> {
             } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
                 new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
             } else {
-                e0007(self.errorset(), name);
+                e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
+                new_empty_node()
             }
         }
     }
@@ -1317,14 +1384,14 @@ impl<'a> Parser<'a> {
         while !self.eat(TokenKind::RParen) {
             args.push(self.parse_expr());
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
-                e0010(self.errorset());
+                e0010(Rc::clone(&self.errors), self.errorset());
             }
         }
         new_builtin_call_node(*kind, args, &self.tokens[begin..self.idx])
     }
 
     fn parse_simple_path(&mut self, segment: &str) -> Node<'a> {
-        let begin = self.idx;
+        let begin = self.idx-2;
         let ident = self.expect_ident();
         if self.eat(TokenKind::PathSep) {
             new_path_node(

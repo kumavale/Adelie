@@ -13,9 +13,12 @@ mod program;
 mod token;
 mod utils;
 
+use crate::error::Errors;
 use crate::keyword::{Type, Numeric};
 use crate::namespace::NameSpace;
 use crate::program::Program;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 fn main() {
     let path = std::env::args().nth(1).unwrap();
@@ -26,14 +29,22 @@ fn main() {
     //eprintln!("{:?}", tokens.iter().map(|t|t.kind.clone()).collect::<Vec<token::TokenKind>>());
     //eprintln!("{:?}", tokens);
 
+    let errors = Rc::new(RefCell::new(Errors::new()));
     let mut g_symbol_table = object::SymbolTable::new();
-    let mut parser = parser::Parser::new(&path, &input, &tokens, &mut g_symbol_table);
+    let mut parser = parser::Parser::new(&path, &input, &tokens, &mut g_symbol_table, errors);
     let program = parser.gen_ast();
 
+    if !program.errors.borrow().is_empty() {
+        disp_errors(&program);
+    }
     //eprintln!("{:#?}", program);
 
     gen_init();
     gen_items(&program, &program.namespace.borrow());
+
+    if !program.errors.borrow().is_empty() {
+        disp_errors(&program);
+    }
 }
 
 fn gen_init() {
@@ -147,20 +158,7 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
             .objs
             .iter()
             .enumerate()
-            .map(|(i, obj)| {
-                let obj = obj.borrow();
-                if let keyword::Type::Struct(path, name, _) = &obj.ty{
-                    use crate::object::FindSymbol;
-                    if let Some(ns) = program.namespace.borrow().find(path) {
-                        if ns.structs.find(name).is_none() {
-                            panic!("cannot find struct, variant or union type `{}` in this scope", name);
-                        }
-                    } else {
-                        panic!("cannot find struct, variant or union type `{}` in this scope", name);
-                    };
-                }
-                format!("\t\t{} V_{}", obj.ty.to_ilstr(), i)
-            })
+            .map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.to_ilstr(), i))
             .collect::<Vec<String>>()
             .join(",\n");
         println!("\t{})", locals);
@@ -176,4 +174,11 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
         println!("\tret");
         println!("}}");
     }
+}
+
+fn disp_errors(program: &Program) {
+    let err_count = program.errors.borrow().err_count();
+    program.errors.borrow().display();
+    eprintln!("\x1b[31merror\x1b[0m: could not compile due to {} previous errors", err_count);
+    std::process::exit(1);
 }
