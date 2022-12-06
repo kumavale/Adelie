@@ -158,20 +158,7 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
             .objs
             .iter()
             .enumerate()
-            .map(|(i, obj)| {
-                let obj = obj.borrow();
-                if let keyword::Type::Struct(path, name, _) = &obj.ty{
-                    use crate::object::FindSymbol;
-                    if let Some(ns) = program.namespace.borrow().find(path) {
-                        if ns.structs.find(name).is_none() {
-                            panic!("cannot find struct, variant or union type `{}` in this scope", name);
-                        }
-                    } else {
-                        panic!("cannot find struct, variant or union type `{}` in this scope", name);
-                    };
-                }
-                format!("\t\t{} V_{}", obj.ty.to_ilstr(), i)
-            })
+            .map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.to_ilstr(), i))
             .collect::<Vec<String>>()
             .join(",\n");
         println!("\t{})", locals);

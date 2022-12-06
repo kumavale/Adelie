@@ -245,13 +245,13 @@ pub fn e0015(
 
 /// cannot find struct, variant or union type `{}` in this scope
 pub fn e0016(
+    errors: Rc<RefCell<Errors>>,
     (path, lines, token): (&str, &[&str], &[Token]),
     ident: &str,
-) -> ! {
-    disp_error_code!(16);
-    eprintln!("cannot find struct, variant or union type `{}` in this scope", ident);
-    nearby(path, lines, token).ok();
-    panic!();
+){
+    let message = format!("cannot find struct, variant or union type `{}` in this scope", ident);
+    let aderr = AdError::new(Some(16), message, nearby(path, lines, token).unwrap_or_default());
+    errors.borrow_mut().push(aderr);
 }
 
 /// missing fields in initializer of `{}`

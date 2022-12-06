@@ -5,6 +5,7 @@ use crate::keyword::{Type, Numeric, Keyword};
 use crate::object::Object;
 use crate::program::Program;
 use crate::token::Token;
+use crate::utils::remove_seq;
 use std::rc::Rc;
 use std::cell::Ref;
 
@@ -142,7 +143,9 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
             let ns = if let Some(ns) = ns.find(&path) {
                 ns
             } else {
-                e0016((p.path, &p.lines, current_token), &st_name);
+                let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                return Type::Void;
             };
             if let Some(_st) = ns.find_struct(&st_name) {
                 let func = if let Some(func) = ns
@@ -203,10 +206,13 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         if let Some(ns) = ns.find(path) {
             ns
         } else {
-            e0016((p.path, &p.lines, current_token), &obj.name);
+            let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
+            e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+            return Type::Void;
         }
     } else {
-        e0016((p.path, &p.lines, current_token), &obj.name);
+        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.name));
+        return Type::Void;
     };
     if let Some(st) = ns.find_struct(&obj.ty.to_string()) {
         if field.len() != st.field.len() {
@@ -221,7 +227,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         }
         println!("\tldloc {}", obj.offset);
     } else {
-        e0016((p.path, &p.lines, current_token), &obj.name);
+        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.name));
     }
     obj.ty.clone()
 }
@@ -256,7 +262,9 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
     let ns = if let Some(ns) = ns.find(&path) {
         ns
     } else {
-        e0016((p.path, &p.lines, current_token), &stname);
+        let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
+        e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+        return Type::Void;
     };
     if let Some(st) = ns.find_struct(&stname) {
         if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
@@ -279,7 +287,9 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
             Type::Void
         }
     } else {
-        e0016((p.path, &p.lines, current_token), &stname);
+        // unreachable?
+        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &stname);
+        Type::Void
     }
 }
 
@@ -439,7 +449,8 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                             e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, &stname);
                         }
                     } else {
-                        e0016((p.path, &p.lines, current_token), &stname);
+                        // unreachable?
+                        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &stname);
                     }
                 }
                 _ => {
