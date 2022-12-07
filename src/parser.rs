@@ -516,7 +516,26 @@ impl<'a> Parser<'a> {
             }
             ItemKind::ForeignMod(foreign_mod_item) => {
                 // WIP
-                let name = "System.Console.dll";
+                let name = if let Some(link_attr) = item.attrs.iter().find(|a| match &a.item {
+                    AttrItem::Delimited(i, _) => i == "link",
+                    _ => false
+                }) {
+                    if let AttrItem::Delimited(_, items) = &link_attr.item {
+                        let mut name = String::new();
+                        for item in items {
+                            if let AttrItem::Eq(key, value) = item {
+                                if key == "name" {
+                                    name = value.to_string();
+                                }
+                            }
+                        }
+                        name
+                    } else {
+                        todo!();
+                    }
+                }else {
+                    todo!();
+                };
                 if !name.ends_with(".dll") {
                     todo!("specify .dll file");
                 }
