@@ -1,3 +1,4 @@
+#[link(name = "System.Console.dll")]
 extern {
     struct Console {}
     impl Console {

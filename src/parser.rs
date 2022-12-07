@@ -13,7 +13,17 @@ use std::rc::Rc;
 
 // Grammar
 //
-// Program = Item *
+// Program :
+//     ItemWithAttrs *
+//
+// ItemWithAttrs :
+//     OuterAttr * Item
+// OuterAttr :
+//     `#` `[` MetaItem `]`
+// MetaItem :
+//     IDENTIFIER
+//   | IDENTIFIER ( IDENTIFIER `=` LITERAL )
+//   | IDENTIFIER `=` LITERAL
 //
 // Item :
 //     Function
@@ -213,6 +223,12 @@ use std::rc::Rc;
 //             `char` | `String`
 //     UserDefinedTypes :
 //         Struct
+//
+// LITERAL :
+//     CHAR_LITERAL
+//   | STRING_LITERAL
+//   | INTEGER_LITERAL
+//   | BOOLEAN_LITERAL
 //
 // CHAR_LITERAL :
 //     `'` ~[' \ \n \r \t] `'`
@@ -473,14 +489,14 @@ impl<'a> Parser<'a> {
 
     fn program(&mut self) -> Program<'a> {
         let mut program = Program::new(self.path, self.input, Rc::clone(&self.errors));
-        while let Some(item) = self.parse_item() {
+        while let Some(item) = self.parse_item_with_attrs() {
             self.parse_program(&mut program, item.0, item.1);
         }
         program
     }
 
-    fn parse_program(&mut self, program: &mut Program<'a>, begin: usize, item: ItemKind<'a>) {
-        match item {
+    fn parse_program(&mut self, program: &mut Program<'a>, begin: usize, item: Item<'a>) {
+        match item.kind {
             ItemKind::Struct(mut st) => {
                 if program.current_namespace.borrow().find_struct(&st.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &st.name);
@@ -522,32 +538,56 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_item(&mut self) -> Option<(usize, ItemKind<'a>)> {
+    fn parse_item_with_attrs(&mut self) -> Option<(usize, Item<'a>)> {
         let begin = self.idx;
-        if self.eat_keyword(Keyword::Struct) {
+        let mut attrs = vec![];
+        while self.eat(TokenKind::Pound) {
+            attrs.push(self.parse_outer_attr());
+        }
+        let kind = if self.eat_keyword(Keyword::Struct) {
             let st = self.parse_item_struct();
-            Some((begin, ItemKind::Struct(st)))
+            ItemKind::Struct(st)
         } else if self.eat_keyword(Keyword::Impl) {
             let impl_item = self.parse_item_impl();
-            Some((begin, ItemKind::Impl(impl_item)))
+            ItemKind::Impl(impl_item)
         } else if self.eat_keyword(Keyword::Mod) {
             let mod_item = self.parse_item_mod();
-            Some((begin, ItemKind::Mod(mod_item)))
+            ItemKind::Mod(mod_item)
         } else if self.eat_keyword(Keyword::Extern) {
             let foreign_mod_item = self.parse_item_foreign_mod();
-            Some((begin, ItemKind::ForeignMod(foreign_mod_item)))
+            ItemKind::ForeignMod(foreign_mod_item)
         } else if self.eat_keyword(Keyword::Fn) {
             let f = self.parse_item_fn();
-            Some((begin, ItemKind::Fn(f)))
+            ItemKind::Fn(f)
         } else if self.is_eof() || self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-            None
+            return None;
         } else {
             e0004(Rc::clone(&self.errors), self.errorset());
-            None
-        }
+            return None;
+        };
+        Some((begin, Item { attrs, kind, }))
     }
 
-    fn parse_item_mod(&mut self) -> (String, Vec<(usize, ItemKind<'a>)>) {
+    fn parse_outer_attr(&mut self) -> Attribute {
+        self.expect(TokenKind::OpenDelim(Delimiter::Bracket));
+        // WIP: とりあえず `#[attr(foo="bar")]` だけパースする
+        let ident = self.expect_ident();
+        self.expect(TokenKind::OpenDelim(Delimiter::Parenthesis));
+        let key = self.expect_ident();
+        self.expect(TokenKind::Assign);
+        let value = if let TokenKind::Literal(LiteralKind::String(s)) = &self.tokens[self.idx].kind {
+            s
+        } else {
+            e0002(Rc::clone(&self.errors), self.errorset());
+            ""
+        };
+        self.bump();
+        self.expect(TokenKind::CloseDelim(Delimiter::Parenthesis));
+        self.expect(TokenKind::CloseDelim(Delimiter::Bracket));
+        Attribute { item: AttrItem::Delimited(ident, vec![AttrItem::Eq(key, value.to_string())]) }
+    }
+
+    fn parse_item_mod(&mut self) -> (String, Vec<(usize, Item<'a>)>) {
         let id = self.expect_ident();
         self.current_mod.push(id.to_string());
         let mod_kind = if self.eat(TokenKind::Semi) {
@@ -561,9 +601,9 @@ impl<'a> Parser<'a> {
         (id, mod_kind)
     }
 
-    fn parse_mod(&mut self) -> Vec<(usize, ItemKind<'a>)> {
+    fn parse_mod(&mut self) -> Vec<(usize, Item<'a>)> {
         let mut items = vec![];
-        while let Some(item) = self.parse_item() {
+        while let Some(item) = self.parse_item_with_attrs() {
             items.push(item);
         }
         self.expect(TokenKind::CloseDelim(Delimiter::Brace));
@@ -573,8 +613,8 @@ impl<'a> Parser<'a> {
     fn parse_item_foreign_mod(&mut self) -> Vec<ForeignItemKind<'a>> {
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let mut foreign_items = vec![];
-        while let Some(item) = self.parse_item() {
-            let item = match item.1 {
+        while let Some(item) = self.parse_item_with_attrs() {
+            let item = match item.1.kind {
                 ItemKind::Fn(f) =>     ForeignItemKind::Fn(f),
                 ItemKind::Struct(s) => ForeignItemKind::Struct(s),
                 ItemKind::Impl(i) =>   ForeignItemKind::Impl(i),

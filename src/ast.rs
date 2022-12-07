@@ -560,6 +560,27 @@ impl fmt::Display for ShortCircuitOpKind {
 }
 
 #[derive(Clone, Debug)]
+pub struct Item<'a> {
+    pub attrs: Vec<Attribute>,
+    pub kind: ItemKind<'a>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Attribute {
+    pub item: AttrItem,
+}
+
+#[derive(Clone, Debug)]
+pub enum AttrItem {
+    ///// No arguments: `#[attr]`.
+    //Value(String),
+    /// Delimited arguments: `#[attr()]`.
+    Delimited(String, Vec<AttrItem>),
+    /// Arguments of a key-value attribute: `#[attr = "value"]`.
+    Eq(String, String),
+}
+
+#[derive(Clone, Debug)]
 pub enum ItemKind<'a> {
     /// A function declaration (`fn`).
     ///
@@ -568,7 +589,7 @@ pub enum ItemKind<'a> {
     /// A module declaration (`mod`).
     ///
     /// E.g., `mod foo;` or `mod foo { .. }`.
-    Mod((String, Vec<(usize, ItemKind<'a>)>)),  // (ident, items)
+    Mod((String, Vec<(usize, Item<'a>)>)),  // (ident, items)
     /// An external module (`extern`).
     ///
     /// E.g., `extern {}`.

@@ -176,10 +176,14 @@ impl<'a> Lexer<'a> {
                 _ => Token::new(TokenKind::Or, self.col, self.line)
             }
 
-            Some('{') => Token::new(TokenKind::OpenDelim(Delimiter::Brace),        self.col, self.line),
+            Some('#') => Token::new(TokenKind::Pound, self.col, self.line),
+
             Some('(') => Token::new(TokenKind::OpenDelim(Delimiter::Parenthesis),  self.col, self.line),
-            Some('}') => Token::new(TokenKind::CloseDelim(Delimiter::Brace),       self.col, self.line),
+            Some('{') => Token::new(TokenKind::OpenDelim(Delimiter::Brace),        self.col, self.line),
+            Some('[') => Token::new(TokenKind::OpenDelim(Delimiter::Bracket),      self.col, self.line),
             Some(')') => Token::new(TokenKind::CloseDelim(Delimiter::Parenthesis), self.col, self.line),
+            Some('}') => Token::new(TokenKind::CloseDelim(Delimiter::Brace),       self.col, self.line),
+            Some(']') => Token::new(TokenKind::CloseDelim(Delimiter::Bracket),     self.col, self.line),
 
             Some('=') => match self.peek_char() {
                 Some('=') => {
