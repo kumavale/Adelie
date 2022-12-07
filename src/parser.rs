@@ -279,6 +279,7 @@ use std::rc::Rc;
 //         | ident ( '(' ( expr ( ',' expr ) * ) ? ')' ) ?
 //         | ident '{' ( expr ( ',' expr ) * ) ? ',' ? '}'
 //         | '(' expr ')'
+//         | Box
 //
 
 #[derive(Debug)]
@@ -423,6 +424,11 @@ impl<'a> Parser<'a> {
         } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
             Some(ty.clone())
+        } else if self.eat_keyword(Keyword::Box) {
+            self.expect(TokenKind::Lt);
+            let ty = self.type_no_bounds()?;
+            self.expect(TokenKind::Gt);
+            Some(Type::Box(Box::new(ty)))
         } else if let Some(ident) = self.eat_ident() {
             // WIP
             if self.check(TokenKind::PathSep) {
@@ -942,18 +948,7 @@ impl<'a> Parser<'a> {
                 &self.tokens[begin..self.idx],
             )
         } else if self.eat(TokenKind::ShrEq) {
-            let begin2 = self.idx;
-            let lhs = node.clone();
-            new_assign_node(
-                lhs,
-                new_binary_op_node(
-                    BinaryOpKind::Shr,
-                    node,
-                    self.parse_expr(),
-                    &self.tokens[begin2..self.idx],
-                ),
-                &self.tokens[begin..self.idx],
-            )
+            unreachable!();
         } else {
             node
         }
@@ -1040,19 +1035,45 @@ impl<'a> Parser<'a> {
                     &self.tokens[begin..self.idx],
                 );
             } else if self.eat(TokenKind::Gt) {
-                node = new_binary_op_node(
-                    BinaryOpKind::Gt,
-                    node,
-                    self.parse_bitor(),
-                    &self.tokens[begin..self.idx],
-                );
+                node = if self.eat(TokenKind::Gt) {
+                    if self.eat(TokenKind::Assign) {
+                        let begin2 = self.idx;
+                        let lhs = node.clone();
+                        new_assign_node(
+                            lhs,
+                            new_binary_op_node(
+                                BinaryOpKind::Shr,
+                                node,
+                                self.parse_expr(),
+                                &self.tokens[begin2..self.idx],
+                            ),
+                            &self.tokens[begin..self.idx],
+                        )
+                    } else {
+                        new_binary_op_node(
+                            BinaryOpKind::Shr,
+                            node,
+                            self.parse_add(),
+                            &self.tokens[begin..self.idx],
+                        )
+                    }
+                } else if self.eat(TokenKind::Assign) {
+                    new_binary_op_node(
+                        BinaryOpKind::Ge,
+                        node,
+                        self.parse_bitor(),
+                        &self.tokens[begin..self.idx],
+                    )
+                } else {
+                    new_binary_op_node(
+                        BinaryOpKind::Gt,
+                        node,
+                        self.parse_bitor(),
+                        &self.tokens[begin..self.idx],
+                    )
+                };
             } else if self.eat(TokenKind::Ge) {
-                node = new_binary_op_node(
-                    BinaryOpKind::Ge,
-                    node,
-                    self.parse_bitor(),
-                    &self.tokens[begin..self.idx],
-                );
+                unreachable!();
             } else {
                 return node;
             }
@@ -1114,12 +1135,7 @@ impl<'a> Parser<'a> {
                     &self.tokens[begin..self.idx],
                 );
             } else if self.eat(TokenKind::Shr) {
-                node = new_binary_op_node(
-                    BinaryOpKind::Shr,
-                    node,
-                    self.parse_add(),
-                    &self.tokens[begin..self.idx],
-                );
+                unreachable!();
             } else {
                 return node;
             }
@@ -1299,6 +1315,10 @@ impl<'a> Parser<'a> {
                 self.idx += 1;
                 self.parse_ident("self")
             }
+            TokenKind::Keyword(Keyword::Box) => {
+                self.idx += 1;
+                self.parse_box()
+            }
             TokenKind::Builtin(kind) => {
                 self.idx += 1;
                 self.parse_builtin(kind)
@@ -1374,6 +1394,16 @@ impl<'a> Parser<'a> {
                 new_empty_node()
             }
         }
+    }
+
+    fn parse_box(&mut self) -> Node<'a> {
+        let begin = self.idx-1;
+        self.expect(TokenKind::PathSep);
+        let ident = self.expect_ident();
+        new_box_node(
+            self.parse_ident(&ident),
+            &self.tokens[begin..self.idx],
+        )
     }
 
     fn parse_builtin(&mut self, kind: &Builtin) -> Node<'a> {

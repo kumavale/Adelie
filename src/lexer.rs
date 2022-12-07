@@ -205,23 +205,7 @@ impl<'a> Lexer<'a> {
                 }
                 _ => Token::new(TokenKind::Lt, self.col, self.line),
             }
-            Some('>') => match self.peek_char() {
-                Some('=') => {
-                    self.seek(1);
-                    Token::new(TokenKind::Ge, self.col, self.line)
-                }
-                Some('>') => {
-                    self.seek(1);
-                    match self.peek_char() {
-                        Some('=') => {
-                            self.seek(1);
-                            Token::new(TokenKind::ShrEq, self.col, self.line)
-                        }
-                        _ => Token::new(TokenKind::Shr, self.col, self.line)
-                    }
-                }
-                _ => Token::new(TokenKind::Gt, self.col, self.line),
-            }
+            Some('>') => Token::new(TokenKind::Gt, self.col, self.line),
             Some('!') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
@@ -288,6 +272,7 @@ impl<'a> Lexer<'a> {
                     "string" => Token::new(TokenKind::Type(Type::String),                self.col, self.line),
 
                     "as"     => Token::new(TokenKind::Keyword(Keyword::As),      self.col, self.line),
+                    "Box"    => Token::new(TokenKind::Keyword(Keyword::Box),     self.col, self.line),
                     "break"  => Token::new(TokenKind::Keyword(Keyword::Break),   self.col, self.line),
                     "else"   => Token::new(TokenKind::Keyword(Keyword::Else),    self.col, self.line),
                     "false"  => Token::new(TokenKind::Keyword(Keyword::False),   self.col, self.line),

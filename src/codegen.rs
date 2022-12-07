@@ -17,6 +17,9 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
         NodeKind::String { ty, str } => {
             gen_il_string(node.token, p, ty, &str)
         }
+        NodeKind::Box { method } => {
+            gen_il_box(node.token, p, *method)
+        }
         NodeKind::Builtin { kind, args } => {
             gen_il_builtin(node.token, kind, args, p)
         }
@@ -104,6 +107,28 @@ fn gen_il_string(_current_token: &[Token], _p: &Program, ty: Type, str: &str) ->
     ty
 }
 
+fn gen_il_box<'a>(_current_token: &[Token], p: &'a Program<'a>, method: Node) -> Type {
+    if let NodeKind::Call { name, args } = method.kind {
+        match name.as_str() {
+            "new" => {
+                if args.len() != 1 {
+                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, method.token), 1, args.len());
+                }
+                let boxed_ty = gen_il(args.into_iter().next().unwrap(), p);
+                //println!("\tbox [System.Runtime]System.Int32");
+                println!("\tbox {}", boxed_ty.to_ilstr());
+                Type::Box(Box::new(boxed_ty))
+            }
+            _ => {
+                e0014(Rc::clone(&p.errors), (p.path, &p.lines, method.token), &name, "Box");
+                Type::Void
+            }
+        }
+    } else {
+        e0003(Rc::clone(&p.errors), (p.path, &p.lines, method.token));
+        Type::Void
+    }
+}
 fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args: Vec<Node>) -> Type {
     if let Some(func) = p.namespace.borrow().find_fn(name) {
         let params = &func
@@ -394,6 +419,14 @@ fn gen_il_loop<'a>(_current_token: &[Token], p: &'a Program<'a>, then: Node, brk
 fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs: Node) -> Type {
     match lhs.kind {
         NodeKind::Variable { obj } => {
+            fn check_type(lty: &Type, rty: &Type) -> Result<(), ()> {
+                match (lty, rty) {
+                    (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
+                    (Type::Box(boxedl), Type::Box(boxedr)) => check_type(boxedl, boxedr),
+                    _ if lty == rty => Ok(()),
+                    _ => Err(())
+                }
+            }
             let rty = gen_il(rhs, p);
             let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
@@ -401,10 +434,8 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             if !obj.is_mutable() && is_assigned {
                 e0028(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
             }
-            match (&obj.ty, &rty) {
-                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
-                _ if obj.ty == rty => (),
-                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty, &rty)
+            if check_type(&obj.ty, &rty).is_err() {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty, &rty);
             }
             if obj.is_param() {
                 println!("\tstarg {}", obj.offset);
@@ -551,16 +582,23 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
         }
         UnaryOpKind::Deref => {
             let ty = gen_il(expr, p);
-            if let Type::Ptr(ty) = ty {
-                match *ty {
-                    Type::Ptr(_) => println!("\tldind.i"),
-                    Type::Numeric(Numeric::I32) => println!("\tldind.i4"),
-                    _ => unimplemented!(),
+            match ty {
+                Type::Ptr(ty) => {
+                    match *ty {
+                        Type::Ptr(_) => println!("\tldind.i"),
+                        Type::Numeric(Numeric::I32) => println!("\tldind.i4"),
+                        _ => unimplemented!(),
+                    }
+                    *ty
                 }
-                *ty
-            } else {
-                e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
-                Type::Void
+                Type::Box(ty) => {
+                    println!("\tunbox.any {}", ty.to_ilstr());
+                    *ty
+                }
+                _ =>  {
+                    e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
+                    Type::Void
+                }
             }
         }
     }
