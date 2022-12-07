@@ -1,0 +1,9 @@
+extern {
+    struct Console {}
+    impl Console {
+        fn WriteLine(_: string) {}
+    }
+}
+fn main() {
+    Console::WriteLine("ok");
+}

@@ -569,6 +569,10 @@ pub enum ItemKind<'a> {
     ///
     /// E.g., `mod foo;` or `mod foo { .. }`.
     Mod((String, Vec<(usize, ItemKind<'a>)>)),  // (ident, items)
+    /// An external module (`extern`).
+    ///
+    /// E.g., `extern {}`.
+    ForeignMod(Vec<ForeignItemKind<'a>>),
     /// A struct definition (`struct`).
     ///
     /// E.g., `struct Foo<A> { x: A }`.
@@ -576,5 +580,12 @@ pub enum ItemKind<'a> {
     /// An implementation.
     ///
     /// E.g., `impl<A> Foo<A> { .. }` or `impl<A> Trait for Foo<A> { .. }`.
+    Impl(Impl<'a>),
+}
+
+#[derive(Clone, Debug)]
+pub enum ForeignItemKind<'a> {
+    Fn(Function<'a>),
+    Struct(Struct<'a>),
     Impl(Impl<'a>),
 }

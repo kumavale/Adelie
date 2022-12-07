@@ -4,6 +4,7 @@ use crate::class::{Struct, Impl};
 use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, Keyword};
+use crate::namespace::NameSpace;
 use crate::object::{Object, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{DelimiterKind, Token, TokenKind, LiteralKind};
@@ -17,6 +18,7 @@ use std::rc::Rc;
 // Item :
 //     Function
 //   | Mod
+//   | ForeignMod
 //   | Struct
 //   | Implementation
 //
@@ -33,6 +35,12 @@ use std::rc::Rc;
 //
 // Mod :
 //     `mod` IDENTIFIER ( `{` Item * `}` | `;` )
+// ForeignMod :
+//     `extern` `{` ForeignItem * `}`
+// ForeignItem :
+//     Function
+//   | Struct
+//   | Implementation
 //
 // Struct :
 //     `struct` IDENTIFIER `{` StructFields ? `}`
@@ -494,6 +502,21 @@ impl<'a> Parser<'a> {
                 }
                 program.leave_namespace();
             }
+            ItemKind::ForeignMod(foreign_mod_item) => {
+                // WIP
+                let name = "System.Console.dll";
+                if !name.ends_with(".dll") {
+                    todo!("specify .dll file");
+                }
+                let mut foreign_namespace = NameSpace::new(&name[..name.len()-4], None);
+                foreign_mod_item.into_iter().for_each(|item| match item {
+                        ForeignItemKind::Fn(f)     => foreign_namespace.push_fn(f),
+                        ForeignItemKind::Struct(s) => foreign_namespace.push_struct(s),
+                        ForeignItemKind::Impl(i)   => foreign_namespace.push_impl(i),
+                });
+                foreign_namespace.is_foreign = true;
+                program.namespace.borrow_mut().children.push(Rc::new(RefCell::new(foreign_namespace)));
+            }
             ItemKind::Fn(f) => {
                 if program.current_namespace.borrow().find_fn(&f.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &f.name);
@@ -514,6 +537,9 @@ impl<'a> Parser<'a> {
         } else if self.eat_keyword(Keyword::Mod) {
             let mod_item = self.parse_item_mod();
             Some((begin, ItemKind::Mod(mod_item)))
+        } else if self.eat_keyword(Keyword::Extern) {
+            let foreign_mod_item = self.parse_item_foreign_mod();
+            Some((begin, ItemKind::ForeignMod(foreign_mod_item)))
         } else if self.eat_keyword(Keyword::Fn) {
             let f = self.parse_item_fn();
             Some((begin, ItemKind::Fn(f)))
@@ -546,6 +572,26 @@ impl<'a> Parser<'a> {
         }
         self.expect(TokenKind::RBrace);
         items
+    }
+
+    fn parse_item_foreign_mod(&mut self) -> Vec<ForeignItemKind<'a>> {
+        self.expect(TokenKind::LBrace);
+        let mut foreign_items = vec![];
+        while let Some(item) = self.parse_item() {
+            let item = match item.1 {
+                ItemKind::Fn(f) =>     ForeignItemKind::Fn(f),
+                ItemKind::Struct(s) => ForeignItemKind::Struct(s),
+                ItemKind::Impl(i) =>   ForeignItemKind::Impl(i),
+                _ => {
+                    let message = "not supported in `extern` blocks";
+                    e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[item.0..=item.0]), message);
+                    continue;
+                }
+            };
+            foreign_items.push(item);
+        }
+        self.expect(TokenKind::RBrace);
+        foreign_items
     }
 
     fn parse_item_struct(&mut self) -> Struct<'a> {

@@ -906,7 +906,13 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     .map(|o|o.borrow().ty.to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
-                println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
+                if ns.is_foreign {
+                    let reference = &ns.name;
+                    println!("\tcall {} [{}]System.{}::{}({})", func.rettype.to_ilstr(), reference, segment, name, params);
+                    // TODO:                ^^^^^^^
+                } else {
+                    println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
+                }
                 func.rettype.clone()
             } else {
                 e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &name);

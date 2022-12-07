@@ -275,6 +275,7 @@ impl<'a> Lexer<'a> {
                     "Box"    => Token::new(TokenKind::Keyword(Keyword::Box),     self.col, self.line),
                     "break"  => Token::new(TokenKind::Keyword(Keyword::Break),   self.col, self.line),
                     "else"   => Token::new(TokenKind::Keyword(Keyword::Else),    self.col, self.line),
+                    "extern" => Token::new(TokenKind::Keyword(Keyword::Extern),  self.col, self.line),
                     "false"  => Token::new(TokenKind::Keyword(Keyword::False),   self.col, self.line),
                     "fn"     => Token::new(TokenKind::Keyword(Keyword::Fn),      self.col, self.line),
                     "if"     => Token::new(TokenKind::Keyword(Keyword::If),      self.col, self.line),
