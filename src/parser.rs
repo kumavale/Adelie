@@ -7,7 +7,7 @@ use crate::keyword::{Type, Keyword};
 use crate::namespace::NameSpace;
 use crate::object::{Object, FindSymbol, SymbolTable};
 use crate::program::Program;
-use crate::token::{DelimiterKind, Token, TokenKind, LiteralKind};
+use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -384,22 +384,18 @@ impl<'a> Parser<'a> {
         self.idx += 1;
     }
 
-    fn close_delimiter(&mut self, delim: DelimiterKind, start_brace: Token) {
+    fn close_delimiter(&mut self, delim: Delimiter, start_brace: Token) {
         let mut brace_count = 1;
-        let (ldelim, rdelim) = match delim {
-            DelimiterKind::Paren => (TokenKind::LParen, TokenKind::RParen),
-            DelimiterKind::Brace => (TokenKind::LBrace, TokenKind::RBrace),
-        };
         while !self.is_eof() {
             match &self.tokens[self.idx].kind {
-                d if *d == rdelim => {
+                d if *d == TokenKind::CloseDelim(delim) => {
                     brace_count -= 1;
                     if brace_count == 0 {
                         self.idx += 1;
                         return;
                     }
                 }
-                d if *d == ldelim => brace_count += 1,
+                d if *d == TokenKind::OpenDelim(delim) => brace_count += 1,
                 _ => (),  // Do nothing
             }
             self.idx += 1;
@@ -543,7 +539,7 @@ impl<'a> Parser<'a> {
         } else if self.eat_keyword(Keyword::Fn) {
             let f = self.parse_item_fn();
             Some((begin, ItemKind::Fn(f)))
-        } else if self.is_eof() || self.check(TokenKind::RBrace) {
+        } else if self.is_eof() || self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
             None
         } else {
             e0004(Rc::clone(&self.errors), self.errorset());
@@ -558,7 +554,7 @@ impl<'a> Parser<'a> {
             // TODO
             todo!("ModKind::Unloaded");
         } else {
-            self.expect(TokenKind::LBrace);
+            self.expect(TokenKind::OpenDelim(Delimiter::Brace));
             self.parse_mod()
         };
         self.current_mod.pop();
@@ -570,12 +566,12 @@ impl<'a> Parser<'a> {
         while let Some(item) = self.parse_item() {
             items.push(item);
         }
-        self.expect(TokenKind::RBrace);
+        self.expect(TokenKind::CloseDelim(Delimiter::Brace));
         items
     }
 
     fn parse_item_foreign_mod(&mut self) -> Vec<ForeignItemKind<'a>> {
-        self.expect(TokenKind::LBrace);
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let mut foreign_items = vec![];
         while let Some(item) = self.parse_item() {
             let item = match item.1 {
@@ -590,19 +586,19 @@ impl<'a> Parser<'a> {
             };
             foreign_items.push(item);
         }
-        self.expect(TokenKind::RBrace);
+        self.expect(TokenKind::CloseDelim(Delimiter::Brace));
         foreign_items
     }
 
     fn parse_item_struct(&mut self) -> Struct<'a> {
         let mut st = Struct::new();
         st.name = self.expect_ident();
-        self.expect(TokenKind::LBrace);
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let start_brace = self.idx-1;
-        while !self.eat(TokenKind::RBrace) {
+        while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
             let ident = self.expect_ident();
             if ident.is_empty() {
-                self.close_delimiter(DelimiterKind::Brace, self.tokens[start_brace].clone());
+                self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
                 break;
             }
             if st.field.iter().any(|o|o.name==ident) {
@@ -613,7 +609,7 @@ impl<'a> Parser<'a> {
                 let obj = Object::new(ident, st.field.len(), false, ty, false);
                 st.field.push(obj);
             }
-            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
+            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
                 e0008(Rc::clone(&self.errors), self.errorset());
             }
         }
@@ -623,14 +619,14 @@ impl<'a> Parser<'a> {
     fn parse_item_impl(&mut self) -> Impl<'a> {
         let ident = self.expect_ident();
         self.current_impl = Some(Impl::new(ident));
-        self.expect(TokenKind::LBrace);
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         while self.eat_keyword(Keyword::Fn) {
             let func = self.parse_item_fn();
             self.current_impl.as_mut().unwrap()
                 .functions
                 .push(Rc::new(func));
         }
-        self.expect(TokenKind::RBrace);
+        self.expect(TokenKind::CloseDelim(Delimiter::Brace));
         self.current_impl.take().unwrap()
     }
 
@@ -640,9 +636,9 @@ impl<'a> Parser<'a> {
         self.g_symbol_table.push(Rc::clone(&obj));
         self.current_fn = Some(Function::new(&ident));
 
-        self.expect(TokenKind::LParen);
+        self.expect(TokenKind::OpenDelim(Delimiter::Parenthesis));
         let start_brace = self.idx-1;
-        if !self.eat(TokenKind::RParen) {
+        if !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
             // TODO: 所有権の実装後に`&`なしの`self`に対応
             if self.eat(TokenKind::And) {
                 let is_mutable = self.eat_keyword(Keyword::Mut);
@@ -654,7 +650,7 @@ impl<'a> Parser<'a> {
                     let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
                     obj.borrow_mut().assigned = true;
                     self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
-                    if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
+                    if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                         e0009(Rc::clone(&self.errors), self.errorset());
                     }
                 } else {
@@ -662,11 +658,11 @@ impl<'a> Parser<'a> {
                         "variable declaration cannot be a reference");
                 }
             }
-            while !self.eat(TokenKind::RParen) {
+            while !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                 self.parse_fn_params();
-                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                     e0009(Rc::clone(&self.errors), self.errorset());
-                    self.close_delimiter(DelimiterKind::Paren, self.tokens[start_brace].clone());
+                    self.close_delimiter(Delimiter::Parenthesis, self.tokens[start_brace].clone());
                     break;
                 }
             }
@@ -676,7 +672,7 @@ impl<'a> Parser<'a> {
             self.parse_ret_ty();
         }
 
-        self.expect(TokenKind::LBrace);
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         self.current_fn_mut().statements = self.parse_block_expr();
         self.current_fn.take().unwrap()
     }
@@ -714,15 +710,15 @@ impl<'a> Parser<'a> {
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
         let begin = self.idx;
-        let mut stmts = if self.check(TokenKind::RBrace) {
+        let mut stmts = if self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
             vec![new_empty_node()]
         } else {
             vec![]
         };
-        while !self.check(TokenKind::RBrace) && !self.is_eof() {
+        while !self.check(TokenKind::CloseDelim(Delimiter::Brace)) && !self.is_eof() {
             stmts.push(self.parse_stmt());
         }
-        self.close_delimiter(DelimiterKind::Brace, self.tokens[begin-1].clone());
+        self.close_delimiter(Delimiter::Brace, self.tokens[begin-1].clone());
         self.except_struct_expression = except_struct_expression;
         self.current_fn_mut().lvar_symbol_table.leave_scope();
         new_block_node(stmts, &self.tokens[begin..self.idx])
@@ -805,7 +801,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expr(&mut self) -> Node<'a> {
-        if self.eat(TokenKind::LBrace) {
+        if self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
             self.parse_block_expr()
         } else if self.eat_keyword(Keyword::If) {
             self.parse_if_expr()
@@ -821,10 +817,10 @@ impl<'a> Parser<'a> {
     fn parse_if_expr(&mut self) -> Node<'a> {
         let begin = self.idx - 1;
         let cond = self.parse_cond();
-        self.expect(TokenKind::LBrace);
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let then = self.parse_block_expr();
         let els = if self.eat_keyword(Keyword::Else) {
-            self.expect(TokenKind::LBrace);
+            self.expect(TokenKind::OpenDelim(Delimiter::Brace));
             Some(self.parse_block_expr())
         } else {
             None
@@ -838,7 +834,7 @@ impl<'a> Parser<'a> {
         self.brk_label_seq = self.seq();
         let brk_label_seq = self.brk_label_seq;
         self.loop_count += 1;
-        self.expect(TokenKind::LBrace);
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let then = self.parse_block_expr();
         self.loop_count -= 1;
         self.brk_label_seq = tmp;
@@ -852,7 +848,7 @@ impl<'a> Parser<'a> {
         let brk_label_seq = self.brk_label_seq;
         let cond = self.parse_cond();
         self.loop_count += 1;
-        self.expect(TokenKind::LBrace);
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let then = self.parse_block_expr();
         self.loop_count -= 1;
         self.brk_label_seq = tmp;
@@ -1300,15 +1296,15 @@ impl<'a> Parser<'a> {
             if self.eat(TokenKind::Dot) {
                 let begin = self.idx;
                 let ident = self.expect_ident();
-                if self.eat(TokenKind::LParen) {
+                if self.eat(TokenKind::OpenDelim(Delimiter::Parenthesis)) {
                     // method
                     let start_paren = self.idx - 1;
                     let mut args = vec![];
-                    while !self.eat(TokenKind::RParen) && !self.is_eof() {
+                    while !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) && !self.is_eof() {
                         args.push(self.parse_expr());
-                        if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
+                        if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                             e0010(Rc::clone(&self.errors), self.errorset());
-                            self.close_delimiter(DelimiterKind::Paren, self.tokens[start_paren].clone());
+                            self.close_delimiter(Delimiter::Parenthesis, self.tokens[start_paren].clone());
                             break;
                         }
                     }
@@ -1329,14 +1325,14 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_term(&mut self) -> Node<'a> {
-        if self.eat(TokenKind::LParen) {
+        if self.eat(TokenKind::OpenDelim(Delimiter::Parenthesis)) {
             let except_struct_expression = self.except_struct_expression;
             self.except_struct_expression = false;
             let node = self.parse_expr();
-            self.expect(TokenKind::RParen);
+            self.expect(TokenKind::CloseDelim(Delimiter::Parenthesis));
             self.except_struct_expression = except_struct_expression;
             return node;
-        } else if self.eat(TokenKind::LBrace) {
+        } else if self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
             let except_struct_expression = self.except_struct_expression;
             self.except_struct_expression = false;
             let node = self.parse_block_expr();
@@ -1394,29 +1390,29 @@ impl<'a> Parser<'a> {
     fn parse_ident(&mut self, name: &str) -> Node<'a> {
         if self.eat(TokenKind::PathSep) {
             self.parse_simple_path(name)
-        } else if self.eat(TokenKind::LParen) {
+        } else if self.eat(TokenKind::OpenDelim(Delimiter::Parenthesis)) {
             // function
             let begin = self.idx-2;
             let mut args = vec![];
-            while !self.eat(TokenKind::RParen) {
+            while !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                 args.push(self.parse_expr());
-                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                     e0010(Rc::clone(&self.errors), self.errorset());
-                    self.close_delimiter(DelimiterKind::Paren, self.tokens[begin+1].clone());
+                    self.close_delimiter(Delimiter::Parenthesis, self.tokens[begin+1].clone());
                     break;
                 }
             }
             new_function_call_node(name, args, &self.tokens[begin..self.idx])
-        } else if !self.except_struct_expression && self.eat(TokenKind::LBrace) {
+        } else if !self.except_struct_expression && self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
             // struct
             let begin = self.idx-2;
             let mut field = vec![];
-            while !self.eat(TokenKind::RBrace) {
+            while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
                 let start_brace = self.idx-1;
                 field.push(self.parse_expr());
-                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RBrace) {
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
                     e0009(Rc::clone(&self.errors), self.errorset());
-                    self.close_delimiter(DelimiterKind::Brace, self.tokens[start_brace].clone());
+                    self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
                     break;
                 }
             }
@@ -1455,11 +1451,11 @@ impl<'a> Parser<'a> {
     fn parse_builtin(&mut self, kind: &Builtin) -> Node<'a> {
         let begin = self.idx-1;
         self.expect(TokenKind::Not);
-        self.expect(TokenKind::LParen);
+        self.expect(TokenKind::OpenDelim(Delimiter::Parenthesis));
         let mut args = vec![];
-        while !self.eat(TokenKind::RParen) {
+        while !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
             args.push(self.parse_expr());
-            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::RParen) {
+            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                 e0010(Rc::clone(&self.errors), self.errorset());
             }
         }
