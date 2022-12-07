@@ -1,8 +1,13 @@
+struct Foo { a: i32 }
+impl Foo { fn b(&self) -> i32 { self.a } }
 fn main() {
     let a: Box<i32> = Box::new(42); assert_eq!(42, *a);
     let a: Box<i32>=Box::new({let i:i32=42;i}); assert_eq!(42, *a);
     let a: Box<Box<i32>>=Box::new(Box::new(42)); assert_eq!(42, **a);
     let a: Box<Box<i32>>=Box::new(Box::new({let i:i32=42;i})); assert_eq!(42, **a);
+    let f: Box<Foo> = Box::new(Foo { 42 }); assert_eq!(42, (*f).a);
+    let f: Box<Foo> = Box::new(Foo { 42 }); assert_eq!(42, (*f).b());
+    let f: Box<Box<Foo>> = Box::new(Box::new(Foo { 42 })); assert_eq!(42, (**f).b());
 
     // should compile error
     //let a: Box<i32> = Box::a;
