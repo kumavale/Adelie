@@ -419,6 +419,14 @@ fn gen_il_loop<'a>(_current_token: &[Token], p: &'a Program<'a>, then: Node, brk
 fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs: Node) -> Type {
     match lhs.kind {
         NodeKind::Variable { obj } => {
+            fn check_type(lty: &Type, rty: &Type) -> Result<(), ()> {
+                match (lty, rty) {
+                    (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
+                    (Type::Box(boxedl), Type::Box(boxedr)) => check_type(boxedl, boxedr),
+                    _ if lty == rty => Ok(()),
+                    _ => Err(())
+                }
+            }
             let rty = gen_il(rhs, p);
             let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
@@ -426,15 +434,8 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             if !obj.is_mutable() && is_assigned {
                 e0028(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
             }
-            match (&obj.ty, &rty) {
-                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
-                _ if obj.ty == rty => (),
-                (Type::Box(_boxedl), Type::Box(_boxedr)) => {
-                    // TODO
-                    let message = "[TODO] boxed type check";
-                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), message);
-                }
-                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty, &rty)
+            if check_type(&obj.ty, &rty).is_err() {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty, &rty);
             }
             if obj.is_param() {
                 println!("\tstarg {}", obj.offset);

@@ -1,6 +1,7 @@
 fn main() {
-    //let a: Box<i32> = Box::new(42); assert_eq!(42, *a);
-    let a: Box<i32> = Box::new({let i:i32=42;i}); assert_eq!(42, *a);
+    let a: Box<i32> = Box::new(42); assert_eq!(42, *a);
+    let a: Box<i32>=Box::new({let i:i32=42;i}); assert_eq!(42, *a);
+    let a: Box<Box<i32>>=Box::new(Box::new(42)); assert_eq!(42, **a);
     let a: Box<Box<i32>>=Box::new(Box::new({let i:i32=42;i})); assert_eq!(42, **a);
 
     // should compile error
