@@ -948,18 +948,7 @@ impl<'a> Parser<'a> {
                 &self.tokens[begin..self.idx],
             )
         } else if self.eat(TokenKind::ShrEq) {
-            let begin2 = self.idx;
-            let lhs = node.clone();
-            new_assign_node(
-                lhs,
-                new_binary_op_node(
-                    BinaryOpKind::Shr,
-                    node,
-                    self.parse_expr(),
-                    &self.tokens[begin2..self.idx],
-                ),
-                &self.tokens[begin..self.idx],
-            )
+            unreachable!();
         } else {
             node
         }
@@ -1046,19 +1035,45 @@ impl<'a> Parser<'a> {
                     &self.tokens[begin..self.idx],
                 );
             } else if self.eat(TokenKind::Gt) {
-                node = new_binary_op_node(
-                    BinaryOpKind::Gt,
-                    node,
-                    self.parse_bitor(),
-                    &self.tokens[begin..self.idx],
-                );
+                node = if self.eat(TokenKind::Gt) {
+                    if self.eat(TokenKind::Assign) {
+                        let begin2 = self.idx;
+                        let lhs = node.clone();
+                        new_assign_node(
+                            lhs,
+                            new_binary_op_node(
+                                BinaryOpKind::Shr,
+                                node,
+                                self.parse_expr(),
+                                &self.tokens[begin2..self.idx],
+                            ),
+                            &self.tokens[begin..self.idx],
+                        )
+                    } else {
+                        new_binary_op_node(
+                            BinaryOpKind::Shr,
+                            node,
+                            self.parse_add(),
+                            &self.tokens[begin..self.idx],
+                        )
+                    }
+                } else if self.eat(TokenKind::Assign) {
+                    new_binary_op_node(
+                        BinaryOpKind::Ge,
+                        node,
+                        self.parse_bitor(),
+                        &self.tokens[begin..self.idx],
+                    )
+                } else {
+                    new_binary_op_node(
+                        BinaryOpKind::Gt,
+                        node,
+                        self.parse_bitor(),
+                        &self.tokens[begin..self.idx],
+                    )
+                };
             } else if self.eat(TokenKind::Ge) {
-                node = new_binary_op_node(
-                    BinaryOpKind::Ge,
-                    node,
-                    self.parse_bitor(),
-                    &self.tokens[begin..self.idx],
-                );
+                unreachable!();
             } else {
                 return node;
             }
@@ -1120,12 +1135,7 @@ impl<'a> Parser<'a> {
                     &self.tokens[begin..self.idx],
                 );
             } else if self.eat(TokenKind::Shr) {
-                node = new_binary_op_node(
-                    BinaryOpKind::Shr,
-                    node,
-                    self.parse_add(),
-                    &self.tokens[begin..self.idx],
-                );
+                unreachable!();
             } else {
                 return node;
             }

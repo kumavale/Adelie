@@ -205,23 +205,7 @@ impl<'a> Lexer<'a> {
                 }
                 _ => Token::new(TokenKind::Lt, self.col, self.line),
             }
-            Some('>') => match self.peek_char() {
-                Some('=') => {
-                    self.seek(1);
-                    Token::new(TokenKind::Ge, self.col, self.line)
-                }
-                Some('>') => {
-                    self.seek(1);
-                    match self.peek_char() {
-                        Some('=') => {
-                            self.seek(1);
-                            Token::new(TokenKind::ShrEq, self.col, self.line)
-                        }
-                        _ => Token::new(TokenKind::Shr, self.col, self.line)
-                    }
-                }
-                _ => Token::new(TokenKind::Gt, self.col, self.line),
-            }
+            Some('>') => Token::new(TokenKind::Gt, self.col, self.line),
             Some('!') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
