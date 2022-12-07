@@ -423,6 +423,11 @@ impl<'a> Parser<'a> {
         } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
             Some(ty.clone())
+        } else if self.eat_keyword(Keyword::Box) {
+            self.expect(TokenKind::Lt);
+            let ty = self.type_no_bounds()?;
+            self.expect(TokenKind::Gt);
+            Some(Type::Box(Box::new(ty)))
         } else if let Some(ident) = self.eat_ident() {
             // WIP
             if self.check(TokenKind::PathSep) {

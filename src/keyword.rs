@@ -3,6 +3,7 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Keyword {
     As,
+    Box,
     Break,
     Else,
     False,
@@ -25,6 +26,7 @@ impl fmt::Display for Keyword {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Keyword::As        => write!(f, "as"),
+            Keyword::Box       => write!(f, "Box"),
             Keyword::Break     => write!(f, "break"),
             Keyword::Else      => write!(f, "else"),
             Keyword::False     => write!(f, "false"),
@@ -49,6 +51,7 @@ impl fmt::Display for Keyword {
 pub enum Type {
     Numeric(Numeric),
     Bool,
+    Box(Box<Type>),
     Char,
     String,
     Struct(Vec<String>, String, bool),  // (path, name, is_mutable)
@@ -79,6 +82,7 @@ impl fmt::Display for Type {
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
             Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
             Type::Bool            => write!(f, "bool"),
+            Type::Box(t)          => write!(f, "Box<{}>", t),
             Type::Char            => write!(f, "char"),
             Type::String          => write!(f, "string"),
             Type::Struct(_, n, _) => write!(f, "{}", n),
@@ -94,6 +98,7 @@ impl Type {
         match self {
             Type::Numeric(n)      => n.to_ilstr(),
             Type::Bool            => "bool".to_string(),
+            Type::Box(_)          => "object".to_string(),
             Type::Char            => "char".to_string(),
             Type::String          => "string".to_string(),
             Type::Struct(_, n, _) => format!("valuetype {}", n),
