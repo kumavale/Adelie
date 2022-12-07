@@ -592,7 +592,10 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                     *ty
                 }
                 Type::Box(ty) => {
-                    println!("\tunbox.any {}", ty.to_ilstr());
+                    match *ty {
+                        Type::Struct(..) => println!("\tunbox {}", ty.to_ilstr()),
+                        _ => println!("\tunbox.any {}", ty.to_ilstr()),
+                    }
                     *ty
                 }
                 _ =>  {
