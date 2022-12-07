@@ -279,6 +279,7 @@ use std::rc::Rc;
 //         | ident ( '(' ( expr ( ',' expr ) * ) ? ')' ) ?
 //         | ident '{' ( expr ( ',' expr ) * ) ? ',' ? '}'
 //         | '(' expr ')'
+//         | Box
 //
 
 #[derive(Debug)]
@@ -1304,6 +1305,10 @@ impl<'a> Parser<'a> {
                 self.idx += 1;
                 self.parse_ident("self")
             }
+            TokenKind::Keyword(Keyword::Box) => {
+                self.idx += 1;
+                self.parse_box()
+            }
             TokenKind::Builtin(kind) => {
                 self.idx += 1;
                 self.parse_builtin(kind)
@@ -1379,6 +1384,16 @@ impl<'a> Parser<'a> {
                 new_empty_node()
             }
         }
+    }
+
+    fn parse_box(&mut self) -> Node<'a> {
+        let begin = self.idx-1;
+        self.expect(TokenKind::PathSep);
+        let ident = self.expect_ident();
+        new_box_node(
+            self.parse_ident(&ident),
+            &self.tokens[begin..self.idx],
+        )
     }
 
     fn parse_builtin(&mut self, kind: &Builtin) -> Node<'a> {

@@ -91,6 +91,7 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl
                 match ty {
                     Type::Numeric(n) => n.to_ilstr(),
                     Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
+                    b @ Type::Box(_) => b.to_ilstr(),
                     _ => unimplemented!()
                 });
         }

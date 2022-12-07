@@ -58,6 +58,9 @@ pub enum NodeKind<'a> {
         ty: Type,
         str: String,  // ".*"
     },
+    Box {
+        method: Box<Node<'a>>,
+    },
     Builtin {
         kind: Builtin,
         args: Vec<Node<'a>>,
@@ -463,6 +466,18 @@ pub fn new_variable_node_with_let<'a>(
     Node {
         kind: NodeKind::Variable {
             obj,
+        },
+        token,
+    }
+}
+
+pub fn new_box_node<'a>(
+    method: Node<'a>,
+    token: &'a [Token],
+) -> Node<'a> {
+    Node {
+        kind: NodeKind::Box {
+            method: Box::new(method),
         },
         token,
     }
