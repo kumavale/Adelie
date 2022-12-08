@@ -396,6 +396,18 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn expect_string_literal(&mut self) -> String {
+        if let TokenKind::Literal(LiteralKind::String(s)) = &self.tokens[self.idx].kind {
+            self.idx += 1;
+            s.to_string()
+        } else {
+            let message = format!("expect string literal, but got {}", self.tokens[self.idx].kind);
+            e0000(Rc::clone(&self.errors), self.errorset(), &message);
+            self.idx += 1;
+            "".to_string()
+        }
+    }
+
     fn bump(&mut self) {
         self.idx += 1;
     }
@@ -515,31 +527,17 @@ impl<'a> Parser<'a> {
                 program.leave_namespace();
             }
             ItemKind::ForeignMod(foreign_mod_item) => {
-                // WIP
-                let name = if let Some(link_attr) = item.attrs.iter().find(|a| match &a.item {
-                    AttrItem::Delimited(i, _) => i == "link",
-                    _ => false
-                }) {
-                    if let AttrItem::Delimited(_, items) = &link_attr.item {
-                        let mut name = String::new();
-                        for item in items {
-                            if let AttrItem::Eq(key, value) = item {
-                                if key == "name" {
-                                    name = value.to_string();
-                                }
-                            }
-                        }
-                        name
-                    } else {
-                        todo!();
-                    }
-                }else {
-                    todo!();
-                };
-                if !name.ends_with(".dll") {
-                    todo!("specify .dll file");
-                }
-                let mut foreign_namespace = NameSpace::new(&name[..name.len()-4], None);
+                let name = item.attrs.iter()
+                    .find(|attr| attr.find_item("link").is_some())
+                    .and_then(|attr| attr.find_value("name"))
+                    .and_then(|name| if name.ends_with(".dll") { Some(name) } else { None })
+                    .and_then(|name| name.get(..name.len()-4))
+                    .unwrap_or_else(|| {
+                        let message = "specify the `.dll` file";
+                        e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
+                        ""
+                    });
+                let mut foreign_namespace = NameSpace::new(name, None);
                 foreign_mod_item.into_iter().for_each(|item| match item {
                         ForeignItemKind::Fn(f)     => foreign_namespace.push_fn(f),
                         ForeignItemKind::Struct(s) => foreign_namespace.push_struct(s),
@@ -558,11 +556,11 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item_with_attrs(&mut self) -> Option<(usize, Item<'a>)> {
-        let begin = self.idx;
         let mut attrs = vec![];
         while self.eat(TokenKind::Pound) {
             attrs.push(self.parse_outer_attr());
         }
+        let begin = self.idx;
         let kind = if self.eat_keyword(Keyword::Struct) {
             let st = self.parse_item_struct();
             ItemKind::Struct(st)
@@ -594,16 +592,10 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::OpenDelim(Delimiter::Parenthesis));
         let key = self.expect_ident();
         self.expect(TokenKind::Assign);
-        let value = if let TokenKind::Literal(LiteralKind::String(s)) = &self.tokens[self.idx].kind {
-            s
-        } else {
-            e0002(Rc::clone(&self.errors), self.errorset());
-            ""
-        };
-        self.bump();
+        let value = self.expect_string_literal();
         self.expect(TokenKind::CloseDelim(Delimiter::Parenthesis));
         self.expect(TokenKind::CloseDelim(Delimiter::Bracket));
-        Attribute { item: AttrItem::Delimited(ident, vec![AttrItem::Eq(key, value.to_string())]) }
+        Attribute { item: AttrItem::Delimited(ident, (key, value)) }
     }
 
     fn parse_item_mod(&mut self) -> (String, Vec<(usize, Item<'a>)>) {

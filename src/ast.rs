@@ -570,14 +570,32 @@ pub struct Attribute {
     pub item: AttrItem,
 }
 
+impl Attribute {
+    pub fn find_item(&self, name: &str) -> Option<&AttrItem> {
+        match &self.item {
+            AttrItem::Delimited(n, _) /*| AttrItem::Eq(n, _)*/ => {
+                if n == name { Some(&self.item) } else { None }
+            }
+        }
+    }
+
+    pub fn find_value(&self, key: &str) -> Option<&str> {
+        match &self.item {
+            AttrItem::Delimited(_, (k, v)) /*| AttrItem::Eq(k, v)*/ => {
+                if k == key { Some(v) } else { None }
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum AttrItem {
     ///// No arguments: `#[attr]`.
     //Value(String),
-    /// Delimited arguments: `#[attr()]`.
-    Delimited(String, Vec<AttrItem>),
-    /// Arguments of a key-value attribute: `#[attr = "value"]`.
-    Eq(String, String),
+    /// Delimited arguments: `#[attr(key = "value")]`.
+    Delimited(String, (String, String)),
+    ///// Arguments of a key-value attribute: `#[attr = "value"]`.
+    //Eq(String, String),
 }
 
 #[derive(Clone, Debug)]
