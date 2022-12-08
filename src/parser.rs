@@ -4,7 +4,6 @@ use crate::class::{Struct, Impl};
 use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, Keyword};
-use crate::namespace::NameSpace;
 use crate::object::{Object, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
@@ -321,6 +320,7 @@ pub struct Parser<'a> {
     loop_count: usize,
     current_mod: Vec<String>,
     errors: Rc<RefCell<Errors>>,
+    is_foreign: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -345,6 +345,7 @@ impl<'a> Parser<'a> {
             loop_count: 0,
             current_mod: vec![],
             errors,
+            is_foreign: false,
         }
     }
 
@@ -521,6 +522,7 @@ impl<'a> Parser<'a> {
             }
             ItemKind::Mod(mod_item) => {
                 program.enter_namespace(&mod_item.0);
+                program.current_namespace.borrow_mut().is_foreign = self.is_foreign;
                 for item in mod_item.1 {
                     self.parse_program(program, item.0, item.1);
                 }
@@ -537,14 +539,24 @@ impl<'a> Parser<'a> {
                         e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
                         ""
                     });
-                let mut foreign_namespace = NameSpace::new(name, None);
+                program.enter_namespace(name);
+                program.current_namespace.borrow_mut().is_foreign = true;
+                self.is_foreign = true;
                 foreign_mod_item.into_iter().for_each(|item| match item {
-                        ForeignItemKind::Fn(f)     => foreign_namespace.push_fn(f),
-                        ForeignItemKind::Struct(s) => foreign_namespace.push_struct(s),
-                        ForeignItemKind::Impl(i)   => foreign_namespace.push_impl(i),
+                        ForeignItemKind::Fn(f)     => program.current_namespace.borrow_mut().push_fn(f),
+                        ForeignItemKind::Struct(s) => program.current_namespace.borrow_mut().push_struct(s),
+                        ForeignItemKind::Impl(i)   => program.current_namespace.borrow_mut().push_impl(i),
+                        ForeignItemKind::Mod((ident, items)) => {
+                            program.enter_namespace(&ident);
+                            program.current_namespace.borrow_mut().is_foreign = true;
+                            for item in items {
+                                self.parse_program(program, item.0, item.1);
+                            }
+                            program.leave_namespace();
+                        }
                 });
-                foreign_namespace.is_foreign = true;
-                program.namespace.borrow_mut().children.push(Rc::new(RefCell::new(foreign_namespace)));
+                self.is_foreign = false;
+                program.leave_namespace();
             }
             ItemKind::Fn(f) => {
                 if program.current_namespace.borrow().find_fn(&f.name).is_some() {
@@ -627,6 +639,7 @@ impl<'a> Parser<'a> {
         while let Some(item) = self.parse_item_with_attrs() {
             let item = match item.1.kind {
                 ItemKind::Fn(f) =>     ForeignItemKind::Fn(f),
+                ItemKind::Mod(m) =>    ForeignItemKind::Mod(m),
                 ItemKind::Struct(s) => ForeignItemKind::Struct(s),
                 ItemKind::Impl(i) =>   ForeignItemKind::Impl(i),
                 _ => {

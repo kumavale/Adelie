@@ -625,6 +625,7 @@ pub enum ItemKind<'a> {
 #[derive(Clone, Debug)]
 pub enum ForeignItemKind<'a> {
     Fn(Function<'a>),
+    Mod((String, Vec<(usize, Item<'a>)>)),
     Struct(Struct<'a>),
     Impl(Impl<'a>),
 }

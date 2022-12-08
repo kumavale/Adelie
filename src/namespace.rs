@@ -64,6 +64,20 @@ impl<'a> NameSpace<'a> {
                         continue 'tree;
                     }
                 }
+                if child.borrow().is_foreign {
+                    for child in &child.borrow().children {
+                        if child.borrow().name == *ns {
+                            current_namespace = child.as_ptr();
+                            continue 'tree;
+                        }
+                        for st in child.borrow().structs.iter() {
+                            if st.name == *ns {
+                                current_namespace = child.as_ptr();
+                                continue 'tree;
+                            }
+                        }
+                    }
+                }
             }
             for st in unsafe{ (*current_namespace).structs.iter() } {
                 if st.name == *ns {

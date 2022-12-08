@@ -907,9 +907,9 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     .collect::<Vec<String>>()
                     .join(", ");
                 if ns.is_foreign {
-                    let reference = &ns.name;
-                    println!("\tcall {} [{}]System.{}::{}({})", func.rettype.to_ilstr(), reference, segment, name, params);
-                    // TODO:                ^^^^^^^
+                    let parent_ns = &ns.parent.upgrade().unwrap();
+                    let reference = &parent_ns.borrow().name;
+                    println!("\tcall {} [{}]{}::{}({})", func.rettype.to_ilstr(), reference, full_path.join("."), name, params);
                 } else {
                     println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
                 }

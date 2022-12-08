@@ -1,10 +1,12 @@
 #[link(name = "System.Console.dll")]
 extern {
-    struct Console {}
-    impl Console {
-        fn WriteLine(_: string) {}
+    mod System {
+        struct Console {}
+        impl Console {
+            fn WriteLine(_: string) {}
+        }
     }
 }
 fn main() {
-    Console::WriteLine("ok");
+    System::Console::WriteLine("ok");
 }
