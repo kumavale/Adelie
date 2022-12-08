@@ -560,6 +560,45 @@ impl fmt::Display for ShortCircuitOpKind {
 }
 
 #[derive(Clone, Debug)]
+pub struct Item<'a> {
+    pub attrs: Vec<Attribute>,
+    pub kind: ItemKind<'a>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Attribute {
+    pub item: AttrItem,
+}
+
+impl Attribute {
+    pub fn find_item(&self, name: &str) -> Option<&AttrItem> {
+        match &self.item {
+            AttrItem::Delimited(n, _) /*| AttrItem::Eq(n, _)*/ => {
+                if n == name { Some(&self.item) } else { None }
+            }
+        }
+    }
+
+    pub fn find_value(&self, key: &str) -> Option<&str> {
+        match &self.item {
+            AttrItem::Delimited(_, (k, v)) /*| AttrItem::Eq(k, v)*/ => {
+                if k == key { Some(v) } else { None }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum AttrItem {
+    ///// No arguments: `#[attr]`.
+    //Value(String),
+    /// Delimited arguments: `#[attr(key = "value")]`.
+    Delimited(String, (String, String)),
+    ///// Arguments of a key-value attribute: `#[attr = "value"]`.
+    //Eq(String, String),
+}
+
+#[derive(Clone, Debug)]
 pub enum ItemKind<'a> {
     /// A function declaration (`fn`).
     ///
@@ -568,7 +607,11 @@ pub enum ItemKind<'a> {
     /// A module declaration (`mod`).
     ///
     /// E.g., `mod foo;` or `mod foo { .. }`.
-    Mod((String, Vec<(usize, ItemKind<'a>)>)),  // (ident, items)
+    Mod((String, Vec<(usize, Item<'a>)>)),  // (ident, items)
+    /// An external module (`extern`).
+    ///
+    /// E.g., `extern {}`.
+    ForeignMod(Vec<ForeignItemKind<'a>>),
     /// A struct definition (`struct`).
     ///
     /// E.g., `struct Foo<A> { x: A }`.
@@ -576,5 +619,13 @@ pub enum ItemKind<'a> {
     /// An implementation.
     ///
     /// E.g., `impl<A> Foo<A> { .. }` or `impl<A> Trait for Foo<A> { .. }`.
+    Impl(Impl<'a>),
+}
+
+#[derive(Clone, Debug)]
+pub enum ForeignItemKind<'a> {
+    Fn(Function<'a>),
+    Mod((String, Vec<(usize, Item<'a>)>)),
+    Struct(Struct<'a>),
     Impl(Impl<'a>),
 }

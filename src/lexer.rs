@@ -1,6 +1,6 @@
 use crate::builtin::*;
 use crate::keyword::{Keyword, Numeric, Type};
-use crate::token::{LiteralKind, Token, TokenKind};
+use crate::token::{Delimiter, LiteralKind, Token, TokenKind};
 use std::cmp::Ordering;
 
 pub struct Lexer<'a> {
@@ -176,10 +176,14 @@ impl<'a> Lexer<'a> {
                 _ => Token::new(TokenKind::Or, self.col, self.line)
             }
 
-            Some('{') => Token::new(TokenKind::LBrace, self.col, self.line),
-            Some('}') => Token::new(TokenKind::RBrace, self.col, self.line),
-            Some('(') => Token::new(TokenKind::LParen, self.col, self.line),
-            Some(')') => Token::new(TokenKind::RParen, self.col, self.line),
+            Some('#') => Token::new(TokenKind::Pound, self.col, self.line),
+
+            Some('(') => Token::new(TokenKind::OpenDelim(Delimiter::Parenthesis),  self.col, self.line),
+            Some('{') => Token::new(TokenKind::OpenDelim(Delimiter::Brace),        self.col, self.line),
+            Some('[') => Token::new(TokenKind::OpenDelim(Delimiter::Bracket),      self.col, self.line),
+            Some(')') => Token::new(TokenKind::CloseDelim(Delimiter::Parenthesis), self.col, self.line),
+            Some('}') => Token::new(TokenKind::CloseDelim(Delimiter::Brace),       self.col, self.line),
+            Some(']') => Token::new(TokenKind::CloseDelim(Delimiter::Bracket),     self.col, self.line),
 
             Some('=') => match self.peek_char() {
                 Some('=') => {
@@ -275,6 +279,7 @@ impl<'a> Lexer<'a> {
                     "Box"    => Token::new(TokenKind::Keyword(Keyword::Box),     self.col, self.line),
                     "break"  => Token::new(TokenKind::Keyword(Keyword::Break),   self.col, self.line),
                     "else"   => Token::new(TokenKind::Keyword(Keyword::Else),    self.col, self.line),
+                    "extern" => Token::new(TokenKind::Keyword(Keyword::Extern),  self.col, self.line),
                     "false"  => Token::new(TokenKind::Keyword(Keyword::False),   self.col, self.line),
                     "fn"     => Token::new(TokenKind::Keyword(Keyword::Fn),      self.col, self.line),
                     "if"     => Token::new(TokenKind::Keyword(Keyword::If),      self.col, self.line),

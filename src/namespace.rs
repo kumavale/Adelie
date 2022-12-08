@@ -29,6 +29,7 @@ pub struct NameSpace<'a> {
     pub functions: Vec<Rc<Function<'a>>>,
     pub structs:   Vec<Rc<Struct<'a>>>,
     pub impls:     Vec<Rc<Impl<'a>>>,
+    pub is_foreign: bool,
 }
 
 impl<'a> NameSpace<'a> {
@@ -44,6 +45,7 @@ impl<'a> NameSpace<'a> {
             functions: vec![],
             structs:   vec![],
             impls:     vec![],
+            is_foreign: false,
         }
     }
 
@@ -55,6 +57,26 @@ impl<'a> NameSpace<'a> {
                 if child.borrow().name == *ns {
                     current_namespace = child.as_ptr();
                     continue 'tree;
+                }
+                for st in child.borrow().structs.iter() {
+                    if st.name == *ns {
+                        current_namespace = child.as_ptr();
+                        continue 'tree;
+                    }
+                }
+                if child.borrow().is_foreign {
+                    for child in &child.borrow().children {
+                        if child.borrow().name == *ns {
+                            current_namespace = child.as_ptr();
+                            continue 'tree;
+                        }
+                        for st in child.borrow().structs.iter() {
+                            if st.name == *ns {
+                                current_namespace = child.as_ptr();
+                                continue 'tree;
+                            }
+                        }
+                    }
                 }
             }
             for st in unsafe{ (*current_namespace).structs.iter() } {

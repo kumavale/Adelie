@@ -21,10 +21,12 @@ pub enum TokenKind {
     Shl,    // <<
     Shr,    // >>
 
-    LBrace,  // {
-    RBrace,  // }
-    LParen,  // (
-    RParen,  // )
+    Pound,  // #
+
+    /// An opening delimiter (e.g., `{`).
+    OpenDelim(Delimiter),
+    /// An closing delimiter (e.g., `}`).
+    CloseDelim(Delimiter),
 
     EqEq,     // ==
     Lt,       // <
@@ -100,10 +102,14 @@ impl fmt::Display for CommentKind {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum DelimiterKind {
-    Paren,
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Delimiter {
+    /// `( ... )`
+    Parenthesis,
+    /// `{ ... }`
     Brace,
+    /// `[ ... ]`
+    Bracket,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -143,10 +149,14 @@ impl fmt::Display for TokenKind {
             TokenKind::Shl => write!(f, "<<"),
             TokenKind::Shr => write!(f, ">>"),
 
-            TokenKind::LBrace => write!(f, "{{"),
-            TokenKind::RBrace => write!(f, "}}"),
-            TokenKind::LParen => write!(f, "("),
-            TokenKind::RParen => write!(f, ")"),
+            TokenKind::Pound => write!(f, "#"),
+
+            TokenKind::OpenDelim(Delimiter::Parenthesis)  => write!(f, "("),
+            TokenKind::OpenDelim(Delimiter::Brace)        => write!(f, "{{"),
+            TokenKind::OpenDelim(Delimiter::Bracket)      => write!(f, "["),
+            TokenKind::CloseDelim(Delimiter::Parenthesis) => write!(f, ")"),
+            TokenKind::CloseDelim(Delimiter::Brace)       => write!(f, "}}"),
+            TokenKind::CloseDelim(Delimiter::Bracket)     => write!(f, "]"),
 
             TokenKind::EqEq    => write!(f, "=="),
             TokenKind::Lt      => write!(f, "<"),

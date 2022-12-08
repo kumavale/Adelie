@@ -52,6 +52,10 @@ fn gen_init() {
     println!(".assembly extern System.Diagnostics.Debug {{
         .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)
     }}");
+    // TODO: 属性によって読み込まれたdll名から自動生成
+    println!(".assembly extern System.Console {{
+        .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)
+    }}");
     //println!(".assembly extern System.Windows.Forms {{
     //    .publickeytoken = (B7 7A 5C 56 19 34 E0 89)
     //}}");
@@ -59,6 +63,9 @@ fn gen_init() {
 }
 
 fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
+    if namespace.is_foreign {
+        return;
+    }
     gen_structs(program, namespace);
     gen_impls(program, namespace);
     gen_functions(program, namespace);
