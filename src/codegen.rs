@@ -781,6 +781,7 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
         }
         _ => {
             if is_bool {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ltype, &rtype);
                 Type::Bool
             } else if is_invalid {
                 // TODO: これ以上評価したくないので、無効なTypeを返す
