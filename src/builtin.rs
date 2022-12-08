@@ -47,13 +47,13 @@ fn gen_il_builtin_assert<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Progr
     Type::Void
 }
 
-fn gen_il_builtin_assert_eq<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
+fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
     if args.len() != 2 {
         todo!();
     }
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
-    gen_il(new_binary_op_node(BinaryOpKind::Eq, lhs, rhs, &[]), p);
+    gen_il(new_binary_op_node(BinaryOpKind::Eq, lhs, rhs, token), p);
     println!("\tcall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
     Type::Void
 }
