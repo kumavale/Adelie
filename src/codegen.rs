@@ -909,8 +909,12 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     .join(", ");
                 if ns.is_foreign {
                     let parent_ns = &ns.parent.upgrade().unwrap();
-                    let reference = &parent_ns.borrow().name;
-                    println!("\tcall {} [{}]{}::{}({})", func.rettype.to_ilstr(), reference, full_path.join("."), name, params);
+                    let reference = &parent_ns.borrow().name; // WIP
+                    if func.is_ctor {
+                        println!("\tnewobj instance void [{}]{}::{}({})", reference, full_path.join("."), name, params);
+                    } else {
+                        println!("\tcall {} [{}]{}::{}({})", func.rettype.to_ilstr(), reference, full_path.join("."), name, params);
+                    }
                 } else {
                     println!("\tcall {} {}::{}({})", func.rettype.to_ilstr(), segment, name, params);
                 }

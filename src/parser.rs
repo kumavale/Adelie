@@ -541,7 +541,6 @@ impl<'a> Parser<'a> {
                     });
                 program.enter_namespace(name);
                 program.current_namespace.borrow_mut().is_foreign = true;
-                self.is_foreign = true;
                 foreign_mod_item.into_iter().for_each(|item| match item {
                         ForeignItemKind::Fn(f)     => program.current_namespace.borrow_mut().push_fn(f),
                         ForeignItemKind::Struct(s) => program.current_namespace.borrow_mut().push_struct(s),
@@ -634,6 +633,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item_foreign_mod(&mut self) -> Vec<ForeignItemKind<'a>> {
+        self.is_foreign = true;
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let mut foreign_items = vec![];
         while let Some(item) = self.parse_item_with_attrs() {
@@ -705,7 +705,9 @@ impl<'a> Parser<'a> {
         self.current_fn = Some(Function::new(&ident, is_ctor));
 
         if is_ctor {
-            if let Some(ref im) = self.current_impl {
+            if !self.is_foreign {
+                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be inside an extern block");
+            } else if let Some(ref im) = self.current_impl {
                 self.current_fn_mut().rettype = Type::Struct(self.current_mod.to_vec(), im.name.to_string(), false);
             } else {
                 e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be an impl");
