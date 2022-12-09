@@ -695,10 +695,22 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item_fn(&mut self) -> Function<'a> {
-        let ident = self.expect_ident();
+        let (ident, is_ctor) = if self.eat_keyword(Keyword::Ctor) {
+            (".ctor".to_string(), true)
+        } else {
+            (self.expect_ident(), false)
+        };
         let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void, false)));
         self.g_symbol_table.push(Rc::clone(&obj));
-        self.current_fn = Some(Function::new(&ident));
+        self.current_fn = Some(Function::new(&ident, is_ctor));
+
+        if is_ctor {
+            if let Some(ref im) = self.current_impl {
+                self.current_fn_mut().rettype = Type::Struct(self.current_mod.to_vec(), im.name.to_string(), false);
+            } else {
+                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be an impl");
+            }
+        }
 
         self.expect(TokenKind::OpenDelim(Delimiter::Parenthesis));
         let start_brace = self.idx-1;
@@ -730,6 +742,10 @@ impl<'a> Parser<'a> {
                     break;
                 }
             }
+        }
+
+        if is_ctor && self.check(TokenKind::RArrow) {
+            e0000(Rc::clone(&self.errors), self.errorset(), "`.ctor` cannot have a return type");
         }
 
         if self.eat(TokenKind::RArrow) {
@@ -1528,19 +1544,27 @@ impl<'a> Parser<'a> {
 
     fn parse_simple_path(&mut self, segment: &str) -> Node<'a> {
         let begin = self.idx-2;
-        let ident = self.expect_ident();
-        if self.eat(TokenKind::PathSep) {
+        if self.eat_keyword(Keyword::Ctor) {
             new_path_node(
                 segment,
-                self.parse_simple_path(&ident),
+                self.parse_ident(".ctor"),
                 &self.tokens[begin..self.idx],
             )
         } else {
-            new_path_node(
-                segment,
-                self.parse_ident(&ident),
-                &self.tokens[begin..self.idx],
-            )
+            let ident = self.expect_ident();
+            if self.eat(TokenKind::PathSep) {
+                new_path_node(
+                    segment,
+                    self.parse_simple_path(&ident),
+                    &self.tokens[begin..self.idx],
+                )
+            } else {
+                new_path_node(
+                    segment,
+                    self.parse_ident(&ident),
+                    &self.tokens[begin..self.idx],
+                )
+            }
         }
     }
 }

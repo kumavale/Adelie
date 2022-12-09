@@ -211,7 +211,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                     .map(|p|p.borrow().ty.to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
-                println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), st_name, ident, params);
+                println!("\tcall instance {} {}::{}({})", func.rettype.to_ilstr(), &st_name, ident, params);
                 func.rettype.clone()
             } else {
                 // unreachable?

@@ -4,6 +4,7 @@ use std::fmt;
 pub enum Keyword {
     As,
     Box,
+    Ctor,
     Break,
     Else,
     Extern,
@@ -29,6 +30,7 @@ impl fmt::Display for Keyword {
             Keyword::As        => write!(f, "as"),
             Keyword::Box       => write!(f, "Box"),
             Keyword::Break     => write!(f, "break"),
+            Keyword::Ctor      => write!(f, ".ctor"),
             Keyword::Else      => write!(f, "else"),
             Keyword::Extern    => write!(f, "extern"),
             Keyword::False     => write!(f, "false"),

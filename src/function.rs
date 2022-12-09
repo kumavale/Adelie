@@ -10,10 +10,11 @@ pub struct Function<'a> {
     pub lvar_symbol_table: SymbolTable,
     pub param_symbol_table: SymbolTable,
     pub is_static: bool,
+    pub is_ctor: bool,
 }
 
 impl<'a> Function<'a> {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: &str, is_ctor: bool) -> Self {
         Function {
             name: name.to_string(),
             rettype: Type::Void,
@@ -21,6 +22,7 @@ impl<'a> Function<'a> {
             lvar_symbol_table: SymbolTable::new(),
             param_symbol_table: SymbolTable::new(),
             is_static: true,
+            is_ctor,
         }
     }
 }

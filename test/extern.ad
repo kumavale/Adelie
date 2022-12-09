@@ -1,12 +1,22 @@
-#[link(name = "System.Console.dll")]
+//#[link(name = "System.Console.dll")]
+//extern {
+//    mod System {
+//        struct Console {}
+//        impl Console {
+//            fn WriteLine(_: string) {}
+//        }
+//    }
+//}
+#[link(name = "System.Runtime.dll")]
 extern {
     mod System {
-        struct Console {}
-        impl Console {
-            fn WriteLine(_: string) {}
+        struct Random {}
+        impl Random {
+            fn .ctor() {}
         }
     }
 }
 fn main() {
-    System::Console::WriteLine("ok");
+    let r: System::Random = System::Random::.ctor();
+    //System::Console::WriteLine("ok");
 }
