@@ -18,6 +18,7 @@ use crate::keyword::{Type, Numeric};
 use crate::namespace::NameSpace;
 use crate::program::Program;
 use std::cell::RefCell;
+use std::path::Path;
 use std::rc::Rc;
 
 fn main() {
@@ -39,7 +40,7 @@ fn main() {
     }
     //eprintln!("{:#?}", program);
 
-    gen_init();
+    gen_manifest(Path::new(&path));
     gen_items(&program, &program.namespace.borrow());
 
     if !program.errors.borrow().is_empty() {
@@ -47,7 +48,7 @@ fn main() {
     }
 }
 
-fn gen_init() {
+fn gen_manifest(path: &Path) {
     println!(".assembly extern mscorlib {{}}");
     println!(".assembly extern System.Diagnostics.Debug {{
         .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)
@@ -59,7 +60,12 @@ fn gen_init() {
     //println!(".assembly extern System.Windows.Forms {{
     //    .publickeytoken = (B7 7A 5C 56 19 34 E0 89)
     //}}");
-    println!(".assembly tmp {{}}");
+
+    let assembly_name = path
+        .file_stem()
+        .and_then(|n|n.to_str())
+        .unwrap_or_default();
+    println!(".assembly '{}' {{}}", assembly_name);
 }
 
 fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
