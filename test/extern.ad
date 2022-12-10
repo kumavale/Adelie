@@ -1,13 +1,13 @@
-//#[link(name = "System.Console.dll")]
-//extern {
-//    mod System {
-//        struct Console {}
-//        impl Console {
-//            fn WriteLine(_: string) {}
-//        }
-//    }
-//}
-#[link(name = "System.Runtime.dll")]
+#[link(name = "System.Console.dll")]
+extern {
+    mod System {
+        struct Console {}
+        impl Console {
+            fn WriteLine(_: string) {}
+        }
+    }
+}
+#[link(name = "mscorlib.dll")]
 extern {
     mod System {
         class Random {}
@@ -16,23 +16,22 @@ extern {
         }
     }
 }
-//#[link(name = "System.Windows.Forms.dll")]
-//extern {
-//    mod System {
-//        mod Windows {
-//            mod Forms {
-//                enum DialogResult {}
-//                struct MessageBox {}
-//                impl MessageBox {
-//                    fn Show(text: string) -> DialogResult {}
-//                }
-//            }
-//        }
-//    }
-//}
+#[link(name = "System.Windows.Forms.dll")]
+extern {
+    mod System {
+        mod Windows {
+            mod Forms {
+                enum DialogResult {}
+                struct MessageBox {}
+                impl MessageBox {
+                    fn Show(text: string) -> DialogResult {}
+                }
+            }
+        }
+    }
+}
 fn main() {
-    //System::Windows::Forms::MessageBox::Show("hello!");
+    System::Windows::Forms::MessageBox::Show("hello!");
     let r: System::Random = System::Random::.ctor();
-    //System::Console::WriteLine("ok");
-    ;
+    System::Console::WriteLine("ok");
 }

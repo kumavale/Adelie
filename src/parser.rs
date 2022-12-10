@@ -539,11 +539,10 @@ impl<'a> Parser<'a> {
                 }
                 program.current_namespace.borrow_mut().push_class(cl);
             }
-            ItemKind::Enum(mut ed) => {
+            ItemKind::Enum(ed) => {
                 if program.current_namespace.borrow().find_enum(&ed.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &ed.name);
                 }
-                ed.reference = program.current_namespace.borrow().reference();
                 program.current_namespace.borrow_mut().push_enum(ed);
             }
             ItemKind::Impl(impl_item) => {
@@ -558,14 +557,11 @@ impl<'a> Parser<'a> {
                 program.leave_namespace();
             }
             ItemKind::ForeignMod(foreign_mod_item) => {
-                let name = self.foreign_reference
-                    .as_deref()
-                    .unwrap_or_else(|| {
-                        let message = "specify the `.dll` file";
-                        e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
-                        ""
-                    });
-                program.enter_namespace(name);
+                if self.foreign_reference.is_none() {
+                    let message = "specify the `.dll` file";
+                    e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
+                }
+                program.enter_namespace("extern");
                 program.current_namespace.borrow_mut().is_foreign = true;
                 foreign_mod_item.into_iter().for_each(|item| match item {
                         ForeignItemKind::Fn(f)     => program.current_namespace.borrow_mut().push_fn(f),
@@ -801,8 +797,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item_impl(&mut self) -> Impl<'a> {
-        let ident = self.expect_ident();
-        self.current_impl = Some(Impl::new(ident));
+        let name= self.expect_ident();
+        self.current_impl = Some(Impl::new(name, self.current_mod.to_vec(), self.foreign_reference.clone()));
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         while self.eat_keyword(Keyword::Fn) {
             let func = self.parse_item_fn();

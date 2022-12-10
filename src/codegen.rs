@@ -917,7 +917,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     .collect::<Vec<String>>()
                     .join(", ");
                 if ns.is_foreign {
-                    let reference = &ns.reference().unwrap();
+                    let reference = &im.reference.as_ref().unwrap();
                     if func.is_ctor {
                         println!("\tnewobj instance void [{}]{}::{}({})", reference, full_path.join("."), name, params);
                     } else {

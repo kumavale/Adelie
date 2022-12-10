@@ -103,13 +103,17 @@ impl<'a> FindSymbol for Vec<Rc<Class<'a>>> {
 pub struct Impl<'a> {
     // TODO: trait
     pub name: String,
+    pub path: Vec<String>,
+    pub reference: Option<String>,
     pub functions: Vec<Rc<Function<'a>>>,
 }
 
 impl<'a> Impl<'a> {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: String, path: Vec<String>, reference: Option<String>) -> Self {
         Impl {
             name,
+            path,
+            reference,
             functions: vec![],
         }
     }

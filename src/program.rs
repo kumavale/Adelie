@@ -26,9 +26,17 @@ impl<'a> Program<'a> {
     }
 
     pub fn enter_namespace(&mut self, id: &str) {
-        let child = Rc::new(RefCell::new(NameSpace::new(id, Some(Rc::clone(&self.current_namespace)))));
-        self.current_namespace.borrow_mut().children.push(Rc::clone(&child));
-        self.current_namespace = child;
+        let same_ns = self.current_namespace.borrow().children
+            .iter()
+            .find(|child| child.borrow().name == id)
+            .map(Rc::clone);
+        if let Some(ns) = same_ns {
+            self.current_namespace = ns;
+        } else {
+            let child = Rc::new(RefCell::new(NameSpace::new(id, Some(Rc::clone(&self.current_namespace)))));
+            self.current_namespace.borrow_mut().children.push(Rc::clone(&child));
+            self.current_namespace = child;
+        }
     }
 
     pub fn leave_namespace(&mut self) {

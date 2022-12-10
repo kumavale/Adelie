@@ -165,21 +165,6 @@ impl<'a> NameSpace<'a> {
         self.classes.push(Rc::new(c));
     }
 
-    pub fn reference(&self) -> Option<String> {
-        let mut namespace: *const NameSpace = self;
-        unsafe {
-            while let Some(parent) = (*namespace).parent.upgrade() {
-                let name = (*namespace).name.to_string();
-                if parent.borrow().name == "crate" {
-                    return Some(name);
-                } else {
-                    namespace = parent.as_ptr();
-                }
-            }
-        }
-        None
-    }
-
     #[allow(dead_code)]
     pub fn full_path(&self) -> Vec<String> {
         use std::collections::VecDeque;
