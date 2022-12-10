@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::builtin::*;
-use crate::class::{Struct, Impl, EnumDef};
+use crate::class::{Struct, Class, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Keyword};
@@ -527,12 +527,17 @@ impl<'a> Parser<'a> {
 
     fn parse_program(&mut self, program: &mut Program<'a>, begin: usize, item: Item<'a>) {
         match item.kind {
-            ItemKind::Struct(mut st) => {
+            ItemKind::Struct(st) => {
                 if program.current_namespace.borrow().find_struct(&st.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &st.name);
                 }
-                st.path = self.current_mod.to_vec();
                 program.current_namespace.borrow_mut().push_struct(st);
+            }
+            ItemKind::Class(cl) => {
+                if program.current_namespace.borrow().find_class(&cl.name).is_some() {
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &cl.name);
+                }
+                program.current_namespace.borrow_mut().push_class(cl);
             }
             ItemKind::Enum(mut ed) => {
                 if program.current_namespace.borrow().find_enum(&ed.name).is_some() {
@@ -566,6 +571,7 @@ impl<'a> Parser<'a> {
                         ForeignItemKind::Fn(f)     => program.current_namespace.borrow_mut().push_fn(f),
                         ForeignItemKind::Struct(s) => program.current_namespace.borrow_mut().push_struct(s),
                         ForeignItemKind::Enum(e)   => program.current_namespace.borrow_mut().push_enum(e),
+                        ForeignItemKind::Class(c)  => program.current_namespace.borrow_mut().push_class(c),
                         ForeignItemKind::Impl(i)   => program.current_namespace.borrow_mut().push_impl(i),
                         ForeignItemKind::Mod((ident, items)) => {
                             program.enter_namespace(&ident);
@@ -595,11 +601,11 @@ impl<'a> Parser<'a> {
         }
         let begin = self.idx;
         let kind = if self.eat_keyword(Keyword::Struct) {
-            let st = self.parse_item_struct(false);
+            let st = self.parse_item_struct();
             ItemKind::Struct(st)
         } else if self.eat_keyword(Keyword::Class) {
-            let class = self.parse_item_struct(true);
-            ItemKind::Struct(class)
+            let class = self.parse_item_class();
+            ItemKind::Class(class)
         } else if self.eat_keyword(Keyword::Enum) {
             let enum_item = self.parse_item_enum();
             ItemKind::Enum(enum_item)
@@ -675,6 +681,7 @@ impl<'a> Parser<'a> {
                 ItemKind::Fn(f)     => ForeignItemKind::Fn(f),
                 ItemKind::Mod(m)    => ForeignItemKind::Mod(m),
                 ItemKind::Struct(s) => ForeignItemKind::Struct(s),
+                ItemKind::Class(c)  => ForeignItemKind::Class(c),
                 ItemKind::Impl(i)   => ForeignItemKind::Impl(i),
                 ItemKind::Enum(e)   => ForeignItemKind::Enum(e),
                 _ => {
@@ -689,10 +696,9 @@ impl<'a> Parser<'a> {
         foreign_items
     }
 
-    fn parse_item_struct(&mut self, is_class: bool) -> Struct<'a> {
-        let mut st = Struct::new();
-        st.name = self.expect_ident();
-        st.is_class = is_class;
+    fn parse_item_struct(&mut self) -> Struct<'a> {
+        let name = self.expect_ident();
+        let mut st = Struct::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
         if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), st.name.to_string())) {
             // replace
             let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
@@ -770,6 +776,30 @@ impl<'a> Parser<'a> {
         ed
     }
 
+    fn parse_item_class(&mut self) -> Class<'a> {
+        if !self.is_foreign {
+            e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]), "`class` must be inside an extern block");
+        }
+        let name = self.expect_ident();
+        let cl = Class::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
+        if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), cl.name.to_string())) {
+            // replace
+            let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
+                (path.to_vec(), name.to_string())
+            } else {
+                unreachable!();
+            };
+            *ty.borrow_mut() = Type::Class(self.foreign_reference.clone(), path, name);
+        } else {
+            // insert
+            let ty = RRType::new(Type::Class(self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string()));
+            self.ident_types.insert((self.current_mod.to_vec(), cl.name.to_string()), ty);
+        }
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
+        self.expect(TokenKind::CloseDelim(Delimiter::Brace));
+        cl
+    }
+
     fn parse_item_impl(&mut self) -> Impl<'a> {
         let ident = self.expect_ident();
         self.current_impl = Some(Impl::new(ident));
@@ -798,7 +828,8 @@ impl<'a> Parser<'a> {
             if !self.is_foreign {
                 e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be inside an extern block");
             } else if let Some(ref im) = self.current_impl {
-                self.current_fn_mut().rettype = RRType::new(Type::Struct(self.current_mod.to_vec(), im.name.to_string(), false));
+                let ty = self.ident_types.get(&(self.current_mod.to_vec(), im.name.to_string())).unwrap();
+                self.current_fn_mut().rettype = RRType::clone(ty);
             } else {
                 e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be an impl");
             }

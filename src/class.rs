@@ -10,20 +10,20 @@ pub struct Struct<'a> {
     pub name: String,
     pub field: Vec<Object>,
     pub path: Vec<String>,
+    pub reference: Option<String>,
     //pub impls: Vec<Impl<'a>>,  // trait毎
     pub _dummy: &'a Dummy,
-    pub is_class: bool,
 }
 
 impl<'a> Struct<'a> {
-    pub fn new() -> Self {
+    pub fn new(name: String, path: Vec<String>, reference: Option<String>) -> Self {
         Struct {
-            name: String::new(),
+            name,
             field: vec![],
-            path: vec![],
+            path,
+            reference,
             //impls: vec![],
             _dummy: &Dummy(),
-            is_class: false,
         }
     }
 }
@@ -42,6 +42,53 @@ impl<'a> FindSymbol for [Struct<'a>] {
 
 impl<'a> FindSymbol for Vec<Rc<Struct<'a>>> {
     type Item = Rc<Struct<'a>>;
+
+    fn find(&self, name: &str) -> Option<&Self::Item> {
+        self.iter().find(|s|s.name == name)
+    }
+
+    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
+        self.iter_mut().find(|s|s.name == name)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Class<'a> {
+    pub name: String,
+    pub field: Vec<Object>,
+    pub path: Vec<String>,
+    pub reference: Option<String>,
+    //pub impls: Vec<Impl<'a>>,  // trait毎
+    pub _dummy: &'a Dummy,
+}
+
+impl<'a> Class<'a> {
+    pub fn new(name: String, path: Vec<String>, reference: Option<String>) -> Self {
+        Class {
+            name,
+            field: vec![],
+            path,
+            reference,
+            //impls: vec![],
+            _dummy: &Dummy(),
+        }
+    }
+}
+
+impl<'a> FindSymbol for [Class<'a>] {
+    type Item = Class<'a>;
+
+    fn find(&self, name: &str) -> Option<&Self::Item> {
+        self.iter().find(|s|s.name == name)
+    }
+
+    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
+        self.iter_mut().find(|s|s.name == name)
+    }
+}
+
+impl<'a> FindSymbol for Vec<Rc<Class<'a>>> {
+    type Item = Rc<Class<'a>>;
 
     fn find(&self, name: &str) -> Option<&Self::Item> {
         self.iter().find(|s|s.name == name)

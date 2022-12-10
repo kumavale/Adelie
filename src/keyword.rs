@@ -68,7 +68,7 @@ pub enum Type {
     Struct(/*TODO: dll Option<String>,*/Vec<String>, String, bool),  // (path, name, is_mutable)
     _Self(Vec<String>, String, bool),   // (path, name, is_mutable)
     Enum(Option<String>, Vec<String>, String),  // (dll, path, name)
-    // TODO: Class
+    Class(Option<String>, Vec<String>, String),  // (dll, path, name)
     Box(RRType),
     Ptr(RRType),
     Void,
@@ -104,6 +104,7 @@ impl fmt::Display for Type {
             Type::Struct(_, n, _) => write!(f, "{}", n),
             Type::_Self(_, n, _)  => write!(f, "{}", n),
             Type::Enum(_, _, n)   => write!(f, "{}", n),
+            Type::Class(_, _, n)  => write!(f, "{}", n),
             Type::Box(t)          => write!(f, "Box<{}>", t.borrow()),
             Type::Ptr(t)          => write!(f, "&{}", t.borrow()),
             Type::Void            => write!(f, "void"),
@@ -126,6 +127,13 @@ impl Type {
                     format!("valuetype [{}]{}.{}", r, p.join("."), n)
                 } else {
                     format!("valuetype {}", n)
+                }
+            }
+            Type::Class(r, p, n)   => {
+                if let Some(r) = r {
+                    format!("class [{}]{}.{}", r, p.join("."), n)
+                } else {
+                    format!("class {}", n)
                 }
             }
             Type::Box(_)          => "object".to_string(),

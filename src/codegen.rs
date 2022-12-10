@@ -229,9 +229,9 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
 
 fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Type {
     let ns = p.namespace.borrow();
-    let ns = if let Type::Struct(path, _, _) = &*obj.ty.borrow() {
+    let (ns, name) = if let Type::Struct(path, name, _) = &*obj.ty.borrow() {
         if let Some(ns) = ns.find(path) {
-            ns
+            (ns, name.to_string())
         } else {
             let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
             e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -241,7 +241,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.name));
         return Type::Void;
     };
-    if let Some(st) = ns.find_struct(&obj.ty.borrow().to_string()) {
+    if let Some(st) = ns.find_struct(&name) {
         if field.len() != st.field.len() {
             e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &st.name);
         }
