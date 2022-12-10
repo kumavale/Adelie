@@ -1,19 +1,19 @@
-use crate::keyword::Type;
+use crate::keyword::RRType;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Object {
     pub name: String,
     pub offset: usize,
     pub is_param: bool,
-    pub ty: Type,
+    pub ty: RRType,
     pub assigned: bool,
     pub mutable: bool,
 }
 
 impl Object {
-    pub fn new(name: String, offset: usize, is_param: bool, ty: Type, mutable: bool) -> Self {
+    pub fn new(name: String, offset: usize, is_param: bool, ty: RRType, mutable: bool) -> Self {
         Object {
             name,
             offset,
@@ -37,7 +37,7 @@ impl Object {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SymbolTable {
     pub objs: Vec<Rc<RefCell<Object>>>,
     pub scopes: Vec<Vec<Rc<RefCell<Object>>>>,

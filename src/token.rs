@@ -2,7 +2,7 @@ use crate::builtin::*;
 use crate::keyword::{Keyword, Type};
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TokenKind {
     Plus,      // +
     Minus,     // -
@@ -112,7 +112,7 @@ pub enum Delimiter {
     Bracket,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token {
     pub kind: TokenKind,
     pub cur: usize,

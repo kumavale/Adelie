@@ -218,7 +218,19 @@ impl<'a> Lexer<'a> {
                 _ => Token::new(TokenKind::Not, self.col, self.line),
             }
 
-            Some('.') => Token::new(TokenKind::Dot,   self.col, self.line),
+            Some('.') => {
+                if self.chars
+                    .get(self.read_position..self.read_position+4)
+                    .map(|s|s.iter().collect::<String>())
+                    .filter(|ident| *ident == "ctor" )
+                    .is_some()
+                {
+                    self.seek(4);
+                    Token::new(TokenKind::Keyword(Keyword::Ctor), self.col, self.line)
+                } else {
+                    Token::new(TokenKind::Dot, self.col, self.line)
+                }
+            }
             Some(',') => Token::new(TokenKind::Comma, self.col, self.line),
             Some(';') => Token::new(TokenKind::Semi,  self.col, self.line),
             Some(':') => match self.peek_char() {
@@ -278,7 +290,9 @@ impl<'a> Lexer<'a> {
                     "as"     => Token::new(TokenKind::Keyword(Keyword::As),      self.col, self.line),
                     "Box"    => Token::new(TokenKind::Keyword(Keyword::Box),     self.col, self.line),
                     "break"  => Token::new(TokenKind::Keyword(Keyword::Break),   self.col, self.line),
+                    "class"  => Token::new(TokenKind::Keyword(Keyword::Class),   self.col, self.line),
                     "else"   => Token::new(TokenKind::Keyword(Keyword::Else),    self.col, self.line),
+                    "enum"   => Token::new(TokenKind::Keyword(Keyword::Enum),    self.col, self.line),
                     "extern" => Token::new(TokenKind::Keyword(Keyword::Extern),  self.col, self.line),
                     "false"  => Token::new(TokenKind::Keyword(Keyword::False),   self.col, self.line),
                     "fn"     => Token::new(TokenKind::Keyword(Keyword::Fn),      self.col, self.line),

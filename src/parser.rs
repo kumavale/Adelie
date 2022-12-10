@@ -1,13 +1,14 @@
 use crate::ast::*;
 use crate::builtin::*;
-use crate::class::{Struct, Impl};
+use crate::class::{Struct, Class, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, Keyword};
+use crate::keyword::{Type, RRType, Keyword};
 use crate::object::{Object, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 // Grammar
@@ -321,6 +322,8 @@ pub struct Parser<'a> {
     current_mod: Vec<String>,
     errors: Rc<RefCell<Errors>>,
     is_foreign: bool,
+    foreign_reference: Option<String>,
+    ident_types: HashMap<(Vec<String>, String), RRType>,  // (path, name)
 }
 
 impl<'a> Parser<'a> {
@@ -346,6 +349,8 @@ impl<'a> Parser<'a> {
             current_mod: vec![],
             errors,
             is_foreign: false,
+            foreign_reference: None,
+            ident_types: HashMap::new(),
         }
     }
 
@@ -449,34 +454,46 @@ impl<'a> Parser<'a> {
         self.current_fn.as_mut().unwrap()
     }
 
-    fn type_no_bounds(&mut self) -> Option<Type> {
+    fn type_no_bounds(&mut self) -> Option<RRType> {
         if self.eat(TokenKind::And) {
-            Some(Type::Ptr(Box::new(self.type_no_bounds()?)))
+            Some(RRType::new(Type::Ptr(self.type_no_bounds()?)))
         } else if self.eat(TokenKind::AndAnd) {
-            Some(Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()?)))))
+            Some(RRType::new(Type::Ptr(RRType::new(Type::Ptr(self.type_no_bounds()?)))))
         } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
-            Some(ty.clone())
+            Some(RRType::new(ty.clone()))
         } else if self.eat_keyword(Keyword::Box) {
             self.expect(TokenKind::Lt);
             let ty = self.type_no_bounds()?;
             self.expect(TokenKind::Gt);
-            Some(Type::Box(Box::new(ty)))
+            Some(RRType::new(Type::Box(ty)))
         } else if let Some(ident) = self.eat_ident() {
-            // WIP
-            if self.check(TokenKind::PathSep) {
+            // enum, struct, class のいずれかになる
+            // この時点ではそれが何かは定かではないので、識別子を示す特殊なTypeを返す
+            // AST構築後に変換する
+            // TODO: self.ident_typesにType::RRIdentが無いか検査
+            let (path, name) = if self.check(TokenKind::PathSep) {
                 let mut path = vec![ident];
                 while self.eat(TokenKind::PathSep) {
                     path.push(self.expect_ident());
                 }
                 let ident = path.pop().unwrap();
-                Some(Type::Struct(path, ident, false))
+                (path, ident)
             } else {
-                Some(Type::Struct(self.current_mod.to_vec(), ident, false))
+                (self.current_mod.to_vec(), ident)
+            };
+            if let Some(ty) = self.ident_types.get(&(path.to_vec(), name.to_string())) {
+                // known ident
+                Some(RRType::clone(ty))
+            } else {
+                // insert
+                let tmp_ty = RRType::new(Type::RRIdent(path.to_vec(), name.to_string()));
+                self.ident_types.insert((path, name), RRType::clone(&tmp_ty));
+                Some(tmp_ty)
             }
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
-            Some(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false))
+            Some(RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false)))
         } else {
             e0002(Rc::clone(&self.errors), self.errorset());
             None
@@ -510,12 +527,23 @@ impl<'a> Parser<'a> {
 
     fn parse_program(&mut self, program: &mut Program<'a>, begin: usize, item: Item<'a>) {
         match item.kind {
-            ItemKind::Struct(mut st) => {
+            ItemKind::Struct(st) => {
                 if program.current_namespace.borrow().find_struct(&st.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &st.name);
                 }
-                st.path = program.current_namespace.borrow().full_path();
                 program.current_namespace.borrow_mut().push_struct(st);
+            }
+            ItemKind::Class(cl) => {
+                if program.current_namespace.borrow().find_class(&cl.name).is_some() {
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &cl.name);
+                }
+                program.current_namespace.borrow_mut().push_class(cl);
+            }
+            ItemKind::Enum(ed) => {
+                if program.current_namespace.borrow().find_enum(&ed.name).is_some() {
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &ed.name);
+                }
+                program.current_namespace.borrow_mut().push_enum(ed);
             }
             ItemKind::Impl(impl_item) => {
                 program.current_namespace.borrow_mut().push_impl(impl_item);
@@ -529,22 +557,21 @@ impl<'a> Parser<'a> {
                 program.leave_namespace();
             }
             ItemKind::ForeignMod(foreign_mod_item) => {
-                let name = item.attrs.iter()
-                    .find(|attr| attr.find_item("link").is_some())
-                    .and_then(|attr| attr.find_value("name"))
-                    .and_then(|name| if name.ends_with(".dll") { Some(name) } else { None })
-                    .and_then(|name| name.get(..name.len()-4))
-                    .unwrap_or_else(|| {
-                        let message = "specify the `.dll` file";
-                        e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
-                        ""
-                    });
-                program.enter_namespace(name);
+                if self.foreign_reference.is_none() {
+                    let message = "specify the `.dll` file";
+                    e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
+                }
+                program.references = item.attrs.iter()
+                    .filter(|attr| attr.find_item("link").is_some())
+                    .cloned()
+                    .collect();
+                program.enter_namespace("extern");
                 program.current_namespace.borrow_mut().is_foreign = true;
-                self.is_foreign = true;
                 foreign_mod_item.into_iter().for_each(|item| match item {
                         ForeignItemKind::Fn(f)     => program.current_namespace.borrow_mut().push_fn(f),
                         ForeignItemKind::Struct(s) => program.current_namespace.borrow_mut().push_struct(s),
+                        ForeignItemKind::Enum(e)   => program.current_namespace.borrow_mut().push_enum(e),
+                        ForeignItemKind::Class(c)  => program.current_namespace.borrow_mut().push_class(c),
                         ForeignItemKind::Impl(i)   => program.current_namespace.borrow_mut().push_impl(i),
                         ForeignItemKind::Mod((ident, items)) => {
                             program.enter_namespace(&ident);
@@ -576,6 +603,12 @@ impl<'a> Parser<'a> {
         let kind = if self.eat_keyword(Keyword::Struct) {
             let st = self.parse_item_struct();
             ItemKind::Struct(st)
+        } else if self.eat_keyword(Keyword::Class) {
+            let class = self.parse_item_class();
+            ItemKind::Class(class)
+        } else if self.eat_keyword(Keyword::Enum) {
+            let enum_item = self.parse_item_enum();
+            ItemKind::Enum(enum_item)
         } else if self.eat_keyword(Keyword::Impl) {
             let impl_item = self.parse_item_impl();
             ItemKind::Impl(impl_item)
@@ -583,6 +616,12 @@ impl<'a> Parser<'a> {
             let mod_item = self.parse_item_mod();
             ItemKind::Mod(mod_item)
         } else if self.eat_keyword(Keyword::Extern) {
+            self.foreign_reference = attrs.iter()
+                .find(|attr| attr.find_item("link").is_some())
+                .and_then(|attr| attr.find_value("name"))
+                .and_then(|name| if name.ends_with(".dll") { Some(name) } else { None })
+                .and_then(|name| name.get(..name.len()-4))
+                .map(|name| name.to_string());
             let foreign_mod_item = self.parse_item_foreign_mod();
             ItemKind::ForeignMod(foreign_mod_item)
         } else if self.eat_keyword(Keyword::Fn) {
@@ -598,16 +637,24 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_outer_attr(&mut self) -> Attribute {
+        // WIP: とりあえず `#[attr(foo="bar",foo="bar",...)]` だけパースする
+        let mut kvs = vec![];
         self.expect(TokenKind::OpenDelim(Delimiter::Bracket));
-        // WIP: とりあえず `#[attr(foo="bar")]` だけパースする
         let ident = self.expect_ident();
         self.expect(TokenKind::OpenDelim(Delimiter::Parenthesis));
         let key = self.expect_ident();
         self.expect(TokenKind::Assign);
         let value = self.expect_string_literal();
+        kvs.push((key, value));
+        while self.eat(TokenKind::Comma) {
+            let key = self.expect_ident();
+            self.expect(TokenKind::Assign);
+            let value = self.expect_string_literal();
+            kvs.push((key, value));
+        }
         self.expect(TokenKind::CloseDelim(Delimiter::Parenthesis));
         self.expect(TokenKind::CloseDelim(Delimiter::Bracket));
-        Attribute { item: AttrItem::Delimited(ident, (key, value)) }
+        Attribute { item: AttrItem::Delimited(ident, kvs) }
     }
 
     fn parse_item_mod(&mut self) -> (String, Vec<(usize, Item<'a>)>) {
@@ -634,14 +681,17 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item_foreign_mod(&mut self) -> Vec<ForeignItemKind<'a>> {
+        self.is_foreign = true;
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let mut foreign_items = vec![];
         while let Some(item) = self.parse_item_with_attrs() {
             let item = match item.1.kind {
-                ItemKind::Fn(f) =>     ForeignItemKind::Fn(f),
-                ItemKind::Mod(m) =>    ForeignItemKind::Mod(m),
+                ItemKind::Fn(f)     => ForeignItemKind::Fn(f),
+                ItemKind::Mod(m)    => ForeignItemKind::Mod(m),
                 ItemKind::Struct(s) => ForeignItemKind::Struct(s),
-                ItemKind::Impl(i) =>   ForeignItemKind::Impl(i),
+                ItemKind::Class(c)  => ForeignItemKind::Class(c),
+                ItemKind::Impl(i)   => ForeignItemKind::Impl(i),
+                ItemKind::Enum(e)   => ForeignItemKind::Enum(e),
                 _ => {
                     let message = "not supported in `extern` blocks";
                     e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[item.0..=item.0]), message);
@@ -655,8 +705,21 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item_struct(&mut self) -> Struct<'a> {
-        let mut st = Struct::new();
-        st.name = self.expect_ident();
+        let name = self.expect_ident();
+        let mut st = Struct::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
+        if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), st.name.to_string())) {
+            // replace
+            let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
+                (path.to_vec(), name.to_string())
+            } else {
+                unreachable!();
+            };
+            *ty.borrow_mut() = Type::Struct(path, name, false);
+        } else {
+            // insert
+            let ty = RRType::new(Type::Struct(self.current_mod.to_vec(), st.name.to_string(), false));
+            self.ident_types.insert((self.current_mod.to_vec(), st.name.to_string()), ty);
+        }
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let start_brace = self.idx-1;
         while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
@@ -680,9 +743,74 @@ impl<'a> Parser<'a> {
         st
     }
 
+    fn parse_item_enum(&mut self) -> EnumDef {
+        let name = self.expect_ident();
+        let ed = EnumDef::new(name, self.current_mod.to_vec());
+        if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), ed.name.to_string())) {
+            // replace
+            let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
+                (path.to_vec(), name.to_string())
+            } else {
+                unreachable!();
+            };
+            *ty.borrow_mut() = Type::Enum(self.foreign_reference.clone(), path, name);
+        } else {
+            // insert
+            let ty = RRType::new(Type::Enum(self.foreign_reference.clone(), self.current_mod.to_vec(), ed.name.to_string()));
+            self.ident_types.insert((self.current_mod.to_vec(), ed.name.to_string()), ty);
+        }
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
+        //let start_brace = self.idx-1;
+        while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
+            todo!();
+            // ↓parse_item_structを引用
+            //let ident = self.expect_ident();
+            //if ident.is_empty() {
+            //    self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
+            //    break;
+            //}
+            //if st.field.iter().any(|o|o.name==ident) {
+            //    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            //}
+            //self.expect(TokenKind::Colon);
+            //if let Some(ty) = self.type_no_bounds() {
+            //    let obj = Object::new(ident, st.field.len(), false, ty, false);
+            //    st.field.push(obj);
+            //}
+            //if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
+            //    e0008(Rc::clone(&self.errors), self.errorset());
+            //}
+        }
+        ed
+    }
+
+    fn parse_item_class(&mut self) -> Class<'a> {
+        if !self.is_foreign {
+            e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]), "`class` must be inside an extern block");
+        }
+        let name = self.expect_ident();
+        let cl = Class::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
+        if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), cl.name.to_string())) {
+            // replace
+            let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
+                (path.to_vec(), name.to_string())
+            } else {
+                unreachable!();
+            };
+            *ty.borrow_mut() = Type::Class(self.foreign_reference.clone(), path, name);
+        } else {
+            // insert
+            let ty = RRType::new(Type::Class(self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string()));
+            self.ident_types.insert((self.current_mod.to_vec(), cl.name.to_string()), ty);
+        }
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
+        self.expect(TokenKind::CloseDelim(Delimiter::Brace));
+        cl
+    }
+
     fn parse_item_impl(&mut self) -> Impl<'a> {
-        let ident = self.expect_ident();
-        self.current_impl = Some(Impl::new(ident));
+        let name= self.expect_ident();
+        self.current_impl = Some(Impl::new(name, self.current_mod.to_vec(), self.foreign_reference.clone()));
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         while self.eat_keyword(Keyword::Fn) {
             let func = self.parse_item_fn();
@@ -695,10 +823,25 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item_fn(&mut self) -> Function<'a> {
-        let ident = self.expect_ident();
-        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void, false)));
+        let (ident, is_ctor) = if self.eat_keyword(Keyword::Ctor) {
+            (".ctor".to_string(), true)
+        } else {
+            (self.expect_ident(), false)
+        };
+        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, RRType::new(Type::Void), false)));
         self.g_symbol_table.push(Rc::clone(&obj));
-        self.current_fn = Some(Function::new(&ident));
+        self.current_fn = Some(Function::new(&ident, is_ctor));
+
+        if is_ctor {
+            if !self.is_foreign {
+                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be inside an extern block");
+            } else if let Some(ref im) = self.current_impl {
+                let ty = self.ident_types.get(&(self.current_mod.to_vec(), im.name.to_string())).unwrap();
+                self.current_fn_mut().rettype = RRType::clone(ty);
+            } else {
+                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be an impl");
+            }
+        }
 
         self.expect(TokenKind::OpenDelim(Delimiter::Parenthesis));
         let start_brace = self.idx-1;
@@ -710,7 +853,7 @@ impl<'a> Parser<'a> {
                     // (&self) -> (self: &Self)
                     self.current_fn_mut().is_static = false;
                     let ident = "self".to_string();
-                    let ty = Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false);
+                    let ty = RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false));
                     let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
                     obj.borrow_mut().assigned = true;
                     self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
@@ -732,8 +875,12 @@ impl<'a> Parser<'a> {
             }
         }
 
+        if is_ctor && self.check(TokenKind::RArrow) {
+            e0000(Rc::clone(&self.errors), self.errorset(), "`.ctor` cannot have a return type");
+        }
+
         if self.eat(TokenKind::RArrow) {
-            self.parse_ret_ty();
+            self.parse_fn_ret_ty();
         }
 
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
@@ -763,7 +910,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_ret_ty(&mut self) {
+    fn parse_fn_ret_ty(&mut self) {
         if let Some(ty) = self.type_no_bounds() {
             self.current_fn_mut().rettype = ty;
         }
@@ -841,7 +988,7 @@ impl<'a> Parser<'a> {
         let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = self.expect_ident();
         self.expect(TokenKind::Colon);
-        let ty = self.type_no_bounds().unwrap_or(Type::Void);
+        let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Void));
         let token = &self.tokens[begin..self.idx];
         let node = new_variable_node_with_let(
             &mut self.current_fn_mut().lvar_symbol_table,
@@ -1528,19 +1675,27 @@ impl<'a> Parser<'a> {
 
     fn parse_simple_path(&mut self, segment: &str) -> Node<'a> {
         let begin = self.idx-2;
-        let ident = self.expect_ident();
-        if self.eat(TokenKind::PathSep) {
+        if self.eat_keyword(Keyword::Ctor) {
             new_path_node(
                 segment,
-                self.parse_simple_path(&ident),
+                self.parse_ident(".ctor"),
                 &self.tokens[begin..self.idx],
             )
         } else {
-            new_path_node(
-                segment,
-                self.parse_ident(&ident),
-                &self.tokens[begin..self.idx],
-            )
+            let ident = self.expect_ident();
+            if self.eat(TokenKind::PathSep) {
+                new_path_node(
+                    segment,
+                    self.parse_simple_path(&ident),
+                    &self.tokens[begin..self.idx],
+                )
+            } else {
+                new_path_node(
+                    segment,
+                    self.parse_ident(&ident),
+                    &self.tokens[begin..self.idx],
+                )
+            }
         }
     }
 }

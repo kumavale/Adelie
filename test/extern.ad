@@ -1,4 +1,4 @@
-#[link(name = "System.Console.dll")]
+#[link(name="System.Console.dll", publickeytoken="B0 3F 5F 7F 11 D5 0A 3A")]
 extern {
     mod System {
         struct Console {}
@@ -7,6 +7,31 @@ extern {
         }
     }
 }
+#[link(name="mscorlib.dll")]
+extern {
+    mod System {
+        class Random {}
+        impl Random {
+            fn .ctor() {}
+        }
+    }
+}
+#[link(name="System.Windows.Forms.dll", publickeytoken="B7 7A 5C 56 19 34 E0 89")]
+extern {
+    mod System {
+        mod Windows {
+            mod Forms {
+                enum DialogResult {}
+                struct MessageBox {}
+                impl MessageBox {
+                    fn Show(text: string) -> DialogResult {}
+                }
+            }
+        }
+    }
+}
 fn main() {
+    //System::Windows::Forms::MessageBox::Show("hello!");
+    let r: System::Random = System::Random::.ctor();
     System::Console::WriteLine("ok");
 }

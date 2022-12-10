@@ -1,4 +1,4 @@
-use crate::class::{Struct, Impl};
+use crate::class::{Struct, Class, Impl, EnumDef};
 use crate::function::Function;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -29,6 +29,8 @@ pub struct NameSpace<'a> {
     pub functions: Vec<Rc<Function<'a>>>,
     pub structs:   Vec<Rc<Struct<'a>>>,
     pub impls:     Vec<Rc<Impl<'a>>>,
+    pub enums:     Vec<Rc<EnumDef>>,
+    pub classes:   Vec<Rc<Class<'a>>>,
     pub is_foreign: bool,
 }
 
@@ -45,6 +47,8 @@ impl<'a> NameSpace<'a> {
             functions: vec![],
             structs:   vec![],
             impls:     vec![],
+            enums:     vec![],
+            classes:   vec![],
             is_foreign: false,
         }
     }
@@ -64,6 +68,12 @@ impl<'a> NameSpace<'a> {
                         continue 'tree;
                     }
                 }
+                for cl in child.borrow().classes.iter() {
+                    if cl.name == *ns {
+                        current_namespace = child.as_ptr();
+                        continue 'tree;
+                    }
+                }
                 if child.borrow().is_foreign {
                     for child in &child.borrow().children {
                         if child.borrow().name == *ns {
@@ -76,11 +86,22 @@ impl<'a> NameSpace<'a> {
                                 continue 'tree;
                             }
                         }
+                        for cl in child.borrow().classes.iter() {
+                            if cl.name == *ns {
+                                current_namespace = child.as_ptr();
+                                continue 'tree;
+                            }
+                        }
                     }
                 }
             }
             for st in unsafe{ (*current_namespace).structs.iter() } {
                 if st.name == *ns {
+                    continue 'tree;
+                }
+            }
+            for cl in unsafe{ (*current_namespace).classes.iter() } {
+                if cl.name == *ns {
                     continue 'tree;
                 }
             }
@@ -110,6 +131,20 @@ impl<'a> NameSpace<'a> {
             .map(Rc::clone)
     }
 
+    pub fn find_enum(&self, name: &str) -> Option<Rc<EnumDef>> {
+        self.enums
+            .iter()
+            .find(|item| item.name == name)
+            .map(Rc::clone)
+    }
+
+    pub fn find_class(&self, name: &str) -> Option<Rc<Class<'a>>> {
+        self.classes
+            .iter()
+            .find(|item| item.name == name)
+            .map(Rc::clone)
+    }
+
     pub fn push_fn(&mut self, f: Function<'a>) {
         self.functions.push(Rc::new(f));
     }
@@ -122,11 +157,19 @@ impl<'a> NameSpace<'a> {
         self.impls.push(Rc::new(i));
     }
 
+    pub fn push_enum(&mut self, e: EnumDef) {
+        self.enums.push(Rc::new(e));
+    }
+
+    pub fn push_class(&mut self, c: Class<'a>) {
+        self.classes.push(Rc::new(c));
+    }
+
+    #[allow(dead_code)]
     pub fn full_path(&self) -> Vec<String> {
         use std::collections::VecDeque;
         let mut namespace: *const NameSpace = self;
         let mut path = VecDeque::new();
-        path.push_front("crate".to_string());
         unsafe {
             path.push_front((*namespace).name.to_string());
             while let Some(parent) = (*namespace).parent.upgrade() {

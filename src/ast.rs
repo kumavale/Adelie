@@ -1,7 +1,7 @@
 use crate::builtin::*;
-use crate::class::{Struct, Impl};
+use crate::class::{Struct, Class, Impl, EnumDef};
 use crate::function::Function;
-use crate::keyword::{Keyword, Numeric, Type};
+use crate::keyword::{Keyword, Numeric, Type, RRType};
 use crate::object::{Object, SymbolTable};
 use crate::token::Token;
 use std::cell::RefCell;
@@ -113,7 +113,7 @@ pub enum NodeKind<'a> {
         brk_label_seq: usize,
     },
     Cast {
-        ty: Type,
+        ty: RRType,
         expr: Box<Node<'a>>,
     },
     UnaryOp {
@@ -339,7 +339,7 @@ pub fn new_bool_node(
 }
 
 pub fn new_cast_node<'a>(
-    ty: Type,
+    ty: RRType,
     expr: Node<'a>,
     token: &'a [Token],
 ) -> Node<'a> {
@@ -399,7 +399,7 @@ pub fn new_struct_expr_node<'a>(
             Object::new(unique_name,
                         symbol_table.len(),
                         false,
-                        Type::Struct(current_mod, name.to_string(), false),
+                        RRType::new(Type::Struct(current_mod, name.to_string(), false)),
                         false)));
     obj.borrow_mut().assigned = true;
     symbol_table.push(Rc::clone(&obj));
@@ -457,7 +457,7 @@ pub fn new_variable_node<'a>(
 pub fn new_variable_node_with_let<'a>(
     symbol_table: &mut SymbolTable,
     ident: String,
-    ty: Type,
+    ty: RRType,
     token: &'a [Token],
     mutable: bool,
 ) -> Node<'a> {
@@ -581,8 +581,11 @@ impl Attribute {
 
     pub fn find_value(&self, key: &str) -> Option<&str> {
         match &self.item {
-            AttrItem::Delimited(_, (k, v)) /*| AttrItem::Eq(k, v)*/ => {
-                if k == key { Some(v) } else { None }
+            AttrItem::Delimited(_, kvs) /*| AttrItem::Eq(k, v)*/ => {
+                for (k, v) in kvs {
+                    if k == key { return Some(v) }
+                }
+                None
             }
         }
     }
@@ -593,7 +596,7 @@ pub enum AttrItem {
     ///// No arguments: `#[attr]`.
     //Value(String),
     /// Delimited arguments: `#[attr(key = "value")]`.
-    Delimited(String, (String, String)),
+    Delimited(String, Vec<(String, String)>),
     ///// Arguments of a key-value attribute: `#[attr = "value"]`.
     //Eq(String, String),
 }
@@ -612,10 +615,19 @@ pub enum ItemKind<'a> {
     ///
     /// E.g., `extern {}`.
     ForeignMod(Vec<ForeignItemKind<'a>>),
+    /// An enum definition (`enum`).
+    ///
+    /// E.g., `enum Foo<A, B> { C<A>, D<B> }`.
+    Enum(EnumDef),
     /// A struct definition (`struct`).
     ///
     /// E.g., `struct Foo<A> { x: A }`.
     Struct(Struct<'a>),
+    /// A class definition (`class`).
+    /// must be inside an extern block.
+    ///
+    /// E.g., `class Foo<A> { x: A }`.
+    Class(Class<'a>),
     /// An implementation.
     ///
     /// E.g., `impl<A> Foo<A> { .. }` or `impl<A> Trait for Foo<A> { .. }`.
@@ -626,6 +638,8 @@ pub enum ItemKind<'a> {
 pub enum ForeignItemKind<'a> {
     Fn(Function<'a>),
     Mod((String, Vec<(usize, Item<'a>)>)),
+    Enum(EnumDef),
+    Class(Class<'a>),
     Struct(Struct<'a>),
     Impl(Impl<'a>),
 }
