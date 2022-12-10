@@ -382,6 +382,7 @@ pub fn new_function_call_node<'a>(
 
 pub fn new_struct_expr_node<'a>(
     symbol_table: &mut SymbolTable,
+    reference: Option<String>,
     name: &str,
     field: Vec<Node<'a>>,
     token: &'a [Token],
@@ -399,7 +400,7 @@ pub fn new_struct_expr_node<'a>(
             Object::new(unique_name,
                         symbol_table.len(),
                         false,
-                        RRType::new(Type::Struct(current_mod, name.to_string(), false)),
+                        RRType::new(Type::Struct(reference, current_mod, name.to_string(), false)),
                         false)));
     obj.borrow_mut().assigned = true;
     symbol_table.push(Rc::clone(&obj));

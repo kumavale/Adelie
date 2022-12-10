@@ -561,6 +561,7 @@ impl<'a> Parser<'a> {
                     let message = "specify the `.dll` file";
                     e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
                 }
+                self.foreign_reference = None;
                 program.references = item.attrs.iter()
                     .filter(|attr| attr.find_item("link").is_some())
                     .cloned()
@@ -714,10 +715,10 @@ impl<'a> Parser<'a> {
             } else {
                 unreachable!();
             };
-            *ty.borrow_mut() = Type::Struct(path, name, false);
+            *ty.borrow_mut() = Type::Struct(self.foreign_reference.clone(), path, name, false);
         } else {
             // insert
-            let ty = RRType::new(Type::Struct(self.current_mod.to_vec(), st.name.to_string(), false));
+            let ty = RRType::new(Type::Struct(self.foreign_reference.clone(), self.current_mod.to_vec(), st.name.to_string(), false));
             self.ident_types.insert((self.current_mod.to_vec(), st.name.to_string()), ty);
         }
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
@@ -789,7 +790,7 @@ impl<'a> Parser<'a> {
             e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]), "`class` must be inside an extern block");
         }
         let name = self.expect_ident();
-        let cl = Class::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
+        let mut cl = Class::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
         if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), cl.name.to_string())) {
             // replace
             let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
@@ -797,14 +798,32 @@ impl<'a> Parser<'a> {
             } else {
                 unreachable!();
             };
-            *ty.borrow_mut() = Type::Class(self.foreign_reference.clone(), path, name);
+            *ty.borrow_mut() = Type::Class(self.foreign_reference.clone(), path, name, false);
         } else {
             // insert
-            let ty = RRType::new(Type::Class(self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string()));
+            let ty = RRType::new(Type::Class(self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string(), false));
             self.ident_types.insert((self.current_mod.to_vec(), cl.name.to_string()), ty);
         }
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
-        self.expect(TokenKind::CloseDelim(Delimiter::Brace));
+        let start_brace = self.idx-1;
+        while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
+            let ident = self.expect_ident();
+            if ident.is_empty() {
+                self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
+                break;
+            }
+            if cl.field.iter().any(|o|o.name==ident) {
+                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            }
+            self.expect(TokenKind::Colon);
+            if let Some(ty) = self.type_no_bounds() {
+                let obj = Object::new(ident, cl.field.len(), false, ty, false);
+                cl.field.push(obj);
+            }
+            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
+                e0008(Rc::clone(&self.errors), self.errorset());
+            }
+        }
         cl
     }
 
@@ -1629,8 +1648,10 @@ impl<'a> Parser<'a> {
             }
             let tokens = &self.tokens[begin..self.idx];
             let current_mod = self.current_mod.to_vec();
+            let reference = self.foreign_reference.clone();
             new_struct_expr_node(
                 &mut self.current_fn_mut().lvar_symbol_table,
+                reference,
                 name,
                 field,
                 tokens,

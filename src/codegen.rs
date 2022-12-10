@@ -164,7 +164,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
 
 fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str, args: Vec<Node>) -> Type {
     match gen_il(expr, p) {
-        Type::Struct(path, st_name, _) => {
+        Type::Struct(_, path, st_name, _) => {
             let ns = p.namespace.borrow();
             let ns = if let Some(ns) = ns.find(&path) {
                 ns
@@ -229,7 +229,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
 
 fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Type {
     let ns = p.namespace.borrow();
-    let (ns, name) = if let Type::Struct(path, name, _) = &*obj.ty.borrow() {
+    let (ns, name) = if let Type::Struct(_, path, name, _) = &*obj.ty.borrow() {
         if let Some(ns) = ns.find(path) {
             (ns, name.to_string())
         } else {
@@ -261,7 +261,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
 
 fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str) -> Type {
     let (path, stname, is_mutable) = match gen_il(expr, p) {
-        Type::Struct(path, stname, is_mutable) => {
+        Type::Struct(_, path, stname, is_mutable) => {
             (path, stname, is_mutable)
         }
         Type::_Self(path, stname, is_mutable) => {
@@ -467,10 +467,19 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             }
         }
         NodeKind::Field { expr, ident } => {
-            match gen_il(*expr, p) {
-                Type::Struct(_, stname, is_mutable) |
-                Type::_Self(_, stname, is_mutable) => {
-                    if let Some(st) = p.namespace.borrow().find_struct(&stname) {
+            let field_ty = gen_il(*expr, p);
+            match field_ty {
+                Type::Struct(_, ref path, ref name, is_mutable) |
+                Type::_Self(ref path, ref name, is_mutable) => {
+                    let namespace = p.namespace.borrow();
+                    let ns = if let Some(ns) = namespace.find(path) {
+                        ns
+                    } else {
+                        let message = format!("failed to resolve: use of undeclared crate or module `{}`", path.join("::"));
+                        e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                        return Type::Void;
+                    };
+                    if let Some(st) = ns.find_struct(name) {
                         if let Some(field) = st.field.iter().find(|o|o.name==ident) {
                             let rty = gen_il(rhs, p);
                             match (&*field.ty.borrow(), &rty) {
@@ -479,20 +488,49 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.ty.borrow(), &rty)
                             }
                             if !is_mutable {
-                                let message = format!("cannot assign to `{stname}.{ident}`, as `{stname}` is not declared as mutable");
+                                let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
-                            println!("\tstfld {} {}::{}", field.ty.borrow().to_ilstr(), stname, ident);
+                            println!("\tstfld {} {}::{}", field.ty.borrow().to_ilstr(), field_ty.to_ilstr(), ident);
                         } else {
-                            e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, &stname);
+                            e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                         }
                     } else {
                         // unreachable?
-                        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &stname);
+                        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
                     }
                 }
-                _ => {
-                    unimplemented!("primitive type");
+                Type::Class(_, ref path, ref name, is_mutable) => {
+                    let namespace = p.namespace.borrow();
+                    let ns = if let Some(ns) = namespace.find(path) {
+                        ns
+                    } else {
+                        let message = format!("failed to resolve: use of undeclared crate or module `{}`", path.join("::"));
+                        e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                        return Type::Void;
+                    };
+                    if let Some(cl) = ns.find_class(name) {
+                        if let Some(field) = cl.field.iter().find(|o|o.name==ident) {
+                            let rty = gen_il(rhs, p);
+                            match (&*field.ty.borrow(), &rty) {
+                                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+                                _ if *field.ty.borrow() == rty => (),
+                                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.ty.borrow(), &rty)
+                            }
+                            if !is_mutable {
+                                let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
+                                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                            }
+                            println!("\tstfld {} {}::{}", field.ty.borrow().to_ilstr(), field_ty.to_ilstr(), ident);
+                        } else {
+                            e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
+                        }
+                    } else {
+                        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
+                    }
+                }
+                ty => {
+                    unimplemented!("primitive type: {:?}", ty);
                 }
             }
         }

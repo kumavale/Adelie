@@ -123,7 +123,7 @@ fn gen_impls<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                 .enumerate()
                 .map(|(i, obj)| {
                     let obj = obj.borrow();
-                    if let keyword::Type::Struct(_, name, _) = &*obj.ty.borrow() {
+                    if let keyword::Type::Struct(.., name, _) = &*obj.ty.borrow() {
                         use crate::object::FindSymbol;
                         if namespace.structs.find(name).is_none() {
                             panic!("cannot find struct, variant or union type `{}` in this scope", name);
