@@ -8,7 +8,7 @@ use crate::object::{Object, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 // Grammar
@@ -322,8 +322,7 @@ pub struct Parser<'a> {
     current_mod: Vec<String>,
     errors: Rc<RefCell<Errors>>,
     is_foreign: bool,
-    ident_types: HashSet<RRType>,
-    //ident_types: HashMap<(Vec<String>, String), Type>,  // (path, name)
+    ident_types: HashMap<(Vec<String>, String), RRType>,  // (path, name)
 }
 
 impl<'a> Parser<'a> {
@@ -349,8 +348,7 @@ impl<'a> Parser<'a> {
             current_mod: vec![],
             errors,
             is_foreign: false,
-            ident_types: HashSet::new(),
-            //ident_types: HashMap::new(),
+            ident_types: HashMap::new(),
         }
     }
 
@@ -482,22 +480,15 @@ impl<'a> Parser<'a> {
             } else {
                 (self.current_mod.to_vec(), ident)
             };
-            let tmp_ty = RRType::new(Type::RRIdent(path, name.to_string()));
-            if let Some(mut ty) = self.ident_types.take(&tmp_ty) {
+            if let Some(ty) = self.ident_types.get(&(path.to_vec(), name.to_string())) {
                 // known ident
-                let (path, name) = if let Type::Struct(path, name, f) = &*ty.borrow() {
-                    (path.to_vec(), name.to_string())
-                } else {
-                    unreachable!();
-                };
-                dbg!(("replace", &path, &name));
-                *ty.borrow_mut() = Type::Struct(path, name, false);
+                Some(RRType::clone(ty))
             } else {
                 // insert
-                dbg!(("insert", &self.current_mod, name));
-                self.ident_types.insert(RRType::clone(&tmp_ty));
+                let tmp_ty = RRType::new(Type::RRIdent(path.to_vec(), name.to_string()));
+                self.ident_types.insert((path, name), RRType::clone(&tmp_ty));
+                Some(tmp_ty)
             }
-            Some(tmp_ty)
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
             Some(RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false)))
@@ -685,20 +676,18 @@ impl<'a> Parser<'a> {
         let mut st = Struct::new();
         st.name = self.expect_ident();
         st.is_class = is_class;
-        let tmp_ty = RRType::new(Type::RRIdent(self.current_mod.to_vec(), st.name.to_string()));
-        if let Some(mut ty) = self.ident_types.take(&tmp_ty) {
+        if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), st.name.to_string())) {
             // replace
             let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
                 (path.to_vec(), name.to_string())
             } else {
                 unreachable!();
             };
-            dbg!(("replace", &path, &name));
             *ty.borrow_mut() = Type::Struct(path, name, false);
         } else {
             // insert
-            dbg!(("insert", &self.current_mod, &st.name));
-            self.ident_types.insert(tmp_ty);
+            let ty = RRType::new(Type::Struct(self.current_mod.to_vec(), st.name.to_string(), false));
+            self.ident_types.insert((self.current_mod.to_vec(), st.name.to_string()), ty);
         }
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let start_brace = self.idx-1;

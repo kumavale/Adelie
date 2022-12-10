@@ -221,8 +221,9 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                 Type::Void
             }
         }
-        _ => {
-            unimplemented!("primitive type")
+        ty => {
+            return ty;
+            //unimplemented!("primitive type: {}", ty);
         }
     }
 }
@@ -281,8 +282,22 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
                 }
             }
         }
-        _ => {
-            unimplemented!("primitive type");
+        Type::RRPtr(ty) => {
+            match &*ty.borrow() {
+                Type::_Self(path, stname, is_mutable) => {
+                    // &self
+                    // tmp
+                    //println!("\tldarg.0");
+                    (path.to_vec(), stname.clone(), *is_mutable)
+                }
+                _ => {
+                    unimplemented!()
+                }
+            }
+        }
+        ty => {
+            return ty.clone();
+            //unimplemented!("primitive type: {}", ty);
         }
     };
     let ns = p.namespace.borrow();
@@ -448,19 +463,23 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
         NodeKind::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
             let lty = gen_il(*expr, p);
             let rty = gen_il(rhs, p);
-            if let Type::Ptr(lty) = lty {
-                match (&*lty, &rty) {
-                    (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
-                    _ if *lty == rty => (),
-                    _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty, &rty)
+            let lty = match lty {
+                Type::Ptr(lty) => *lty,
+                Type::RRPtr(lty) => lty.borrow().clone(),
+                _ => {
+                    e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty);
+                    return Type::Void;
                 }
-                match *lty {
-                    Type::Ptr(_) => println!("\tstind.i"),
-                    Type::Numeric(Numeric::I32) => println!("\tstind.i4"),
-                    _ => unimplemented!(),
-                }
-            } else {
-                e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty);
+            };
+            match (&lty, &rty) {
+                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+                _ if lty == rty => (),
+                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty, &rty)
+            }
+            match lty {
+                Type::Ptr(_) => println!("\tstind.i"),
+                Type::Numeric(Numeric::I32) => println!("\tstind.i4"),
+                _ => unimplemented!(),
             }
         }
         NodeKind::Field { expr, ident } => {
@@ -594,12 +613,29 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                     }
                     *ty
                 }
+                Type::RRPtr(ty) => {
+                    let ty = ty.borrow().clone();
+                    match ty {
+                        Type::Ptr(_) | Type::RRPtr(_) => println!("\tldind.i"),
+                        Type::Numeric(Numeric::I32) => println!("\tldind.i4"),
+                        _ => unimplemented!(),
+                    }
+                    ty
+                }
                 Type::Box(ty) => {
                     match *ty {
                         Type::Struct(..) => println!("\tunbox {}", ty.to_ilstr()),
                         _ => println!("\tunbox.any {}", ty.to_ilstr()),
                     }
                     *ty
+                }
+                Type::RRBox(ty) => {
+                    let ty = ty.borrow().clone();
+                    match ty {
+                        Type::Struct(..) => println!("\tunbox {}", ty.to_ilstr()),
+                        _ => println!("\tunbox.any {}", ty.to_ilstr()),
+                    }
+                    ty
                 }
                 _ =>  {
                     e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);

@@ -125,9 +125,9 @@ impl Type {
             Type::Ptr(t)          => format!("{}&", t.to_ilstr()),
             Type::_Self(_, n, _)  => n.to_string(),
             Type::Void            => "void".to_string(),
-            Type::RRIdent(..) |
-            Type::RRBox(..)   |
-            Type::RRPtr(..)   => panic!("cannot to ilstr: {}", &self),
+            Type::RRBox(_)        => "object".to_string(),  // WIP: これで良いのか？
+            Type::RRPtr(p)        => format!("{}&", p.borrow().to_ilstr()),
+            Type::RRIdent(..)     => panic!("cannot to ilstr: {}", &self),
         }
     }
 }
