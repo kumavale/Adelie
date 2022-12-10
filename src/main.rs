@@ -40,7 +40,7 @@ fn main() {
     }
     //eprintln!("{:#?}", program);
 
-    gen_manifest(Path::new(&path));
+    gen_manifest(&program, Path::new(&path));
     gen_items(&program, &program.namespace.borrow());
 
     if !program.errors.borrow().is_empty() {
@@ -48,18 +48,21 @@ fn main() {
     }
 }
 
-fn gen_manifest(path: &Path) {
+fn gen_manifest<'a>(program: &'a Program<'a>, path: &Path) {
+    // 組み込み関数で使用
     println!(".assembly extern mscorlib {{}}");
-    println!(".assembly extern System.Diagnostics.Debug {{
-        .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)
-    }}");
-    // TODO: 属性によって読み込まれたdll名から自動生成
-    println!(".assembly extern System.Console {{
-        .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)
-    }}");
-    println!(".assembly extern System.Windows.Forms {{
-        .publickeytoken = (B7 7A 5C 56 19 34 E0 89)
-    }}");
+    println!(".assembly extern System.Diagnostics.Debug {{");
+    println!("    .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)");
+    println!("}}");
+
+    for assembly in &program.references {
+        let name = assembly.find_value("name").unwrap();
+        println!(".assembly extern {} {{", &name[..name.len()-4]);
+        if let Some(pkt) = assembly.find_value("publickeytoken") {
+            println!("    .publickeytoken = ({})", pkt);
+        }
+        println!("}}");
+    }
 
     let assembly_name = path
         .file_stem()

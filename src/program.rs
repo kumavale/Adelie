@@ -1,3 +1,4 @@
+use crate::ast::Attribute;
 use crate::error::Errors;
 use crate::namespace::NameSpace;
 use std::cell::RefCell;
@@ -11,6 +12,7 @@ pub struct Program<'a> {
     pub namespace: Rc<RefCell<NameSpace<'a>>>,
     pub current_namespace: Rc<RefCell<NameSpace<'a>>>,
     pub errors: Rc<RefCell<Errors>>,
+    pub references: Vec<Attribute>,
 }
 
 impl<'a> Program<'a> {
@@ -22,6 +24,7 @@ impl<'a> Program<'a> {
             namespace: Rc::clone(&namespace),
             current_namespace: namespace,
             errors,
+            references: vec![],
         }
     }
 

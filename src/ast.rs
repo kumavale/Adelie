@@ -581,8 +581,11 @@ impl Attribute {
 
     pub fn find_value(&self, key: &str) -> Option<&str> {
         match &self.item {
-            AttrItem::Delimited(_, (k, v)) /*| AttrItem::Eq(k, v)*/ => {
-                if k == key { Some(v) } else { None }
+            AttrItem::Delimited(_, kvs) /*| AttrItem::Eq(k, v)*/ => {
+                for (k, v) in kvs {
+                    if k == key { return Some(v) }
+                }
+                None
             }
         }
     }
@@ -593,7 +596,7 @@ pub enum AttrItem {
     ///// No arguments: `#[attr]`.
     //Value(String),
     /// Delimited arguments: `#[attr(key = "value")]`.
-    Delimited(String, (String, String)),
+    Delimited(String, Vec<(String, String)>),
     ///// Arguments of a key-value attribute: `#[attr = "value"]`.
     //Eq(String, String),
 }

@@ -561,6 +561,10 @@ impl<'a> Parser<'a> {
                     let message = "specify the `.dll` file";
                     e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
                 }
+                program.references = item.attrs.iter()
+                    .filter(|attr| attr.find_item("link").is_some())
+                    .cloned()
+                    .collect();
                 program.enter_namespace("extern");
                 program.current_namespace.borrow_mut().is_foreign = true;
                 foreign_mod_item.into_iter().for_each(|item| match item {
@@ -633,16 +637,24 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_outer_attr(&mut self) -> Attribute {
+        // WIP: とりあえず `#[attr(foo="bar",foo="bar",...)]` だけパースする
+        let mut kvs = vec![];
         self.expect(TokenKind::OpenDelim(Delimiter::Bracket));
-        // WIP: とりあえず `#[attr(foo="bar")]` だけパースする
         let ident = self.expect_ident();
         self.expect(TokenKind::OpenDelim(Delimiter::Parenthesis));
         let key = self.expect_ident();
         self.expect(TokenKind::Assign);
         let value = self.expect_string_literal();
+        kvs.push((key, value));
+        while self.eat(TokenKind::Comma) {
+            let key = self.expect_ident();
+            self.expect(TokenKind::Assign);
+            let value = self.expect_string_literal();
+            kvs.push((key, value));
+        }
         self.expect(TokenKind::CloseDelim(Delimiter::Parenthesis));
         self.expect(TokenKind::CloseDelim(Delimiter::Bracket));
-        Attribute { item: AttrItem::Delimited(ident, (key, value)) }
+        Attribute { item: AttrItem::Delimited(ident, kvs) }
     }
 
     fn parse_item_mod(&mut self) -> (String, Vec<(usize, Item<'a>)>) {
