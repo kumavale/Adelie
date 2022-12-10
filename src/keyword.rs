@@ -63,18 +63,16 @@ impl fmt::Display for Keyword {
 pub enum Type {
     Numeric(Numeric),
     Bool,
-    Box(Box<Type>),
+    Box(RRType),
     Char,
     String,
     Struct(Vec<String>, String, bool),  // (path, name, is_mutable)
     _Self(Vec<String>, String, bool),   // (path, name, is_mutable)
-    Ptr(Box<Type>),
+    Ptr(RRType),
     Void,
 
     /// enum, struct or class
     RRIdent(Vec<String>, String),  // (path, name) //pathは将来的には要らないかも
-    RRBox(RRType),
-    RRPtr(RRType),
 }
 
 impl Type {
@@ -99,16 +97,14 @@ impl fmt::Display for Type {
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
             Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
             Type::Bool            => write!(f, "bool"),
-            Type::Box(t)          => write!(f, "Box<{}>", t),
+            Type::Box(t)          => write!(f, "Box<{}>", t.borrow()),
             Type::Char            => write!(f, "char"),
             Type::String          => write!(f, "string"),
             Type::Struct(_, n, _) => write!(f, "{}", n),
-            Type::Ptr(t)          => write!(f, "&{}", t),
+            Type::Ptr(t)          => write!(f, "&{}", t.borrow()),
             Type::_Self(_, n, _)  => write!(f, "{}", n),
             Type::Void            => write!(f, "void"),
             Type::RRIdent(_, n)   => write!(f, "RRIdent<{}>", n),
-            Type::RRBox(t)        => write!(f, "RRBox<{}>", t.borrow()),
-            Type::RRPtr(t)        => write!(f, "RR&{}", t.borrow()),
         }
     }
 }
@@ -122,11 +118,9 @@ impl Type {
             Type::Char            => "char".to_string(),
             Type::String          => "string".to_string(),
             Type::Struct(_, n, _) => format!("valuetype {}", n),
-            Type::Ptr(t)          => format!("{}&", t.to_ilstr()),
+            Type::Ptr(t)          => format!("{}&", t.borrow().to_ilstr()),
             Type::_Self(_, n, _)  => n.to_string(),
             Type::Void            => "void".to_string(),
-            Type::RRBox(_)        => "object".to_string(),  // WIP: これで良いのか？
-            Type::RRPtr(p)        => format!("{}&", p.borrow().to_ilstr()),
             Type::RRIdent(..)     => panic!("cannot to ilstr: {}", &self),
         }
     }

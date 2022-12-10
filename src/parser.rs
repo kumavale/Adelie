@@ -454,9 +454,9 @@ impl<'a> Parser<'a> {
 
     fn type_no_bounds(&mut self) -> Option<RRType> {
         if self.eat(TokenKind::And) {
-            Some(RRType::new(Type::RRPtr(self.type_no_bounds()?)))
+            Some(RRType::new(Type::Ptr(self.type_no_bounds()?)))
         } else if self.eat(TokenKind::AndAnd) {
-            Some(RRType::new(Type::RRPtr(RRType::new(Type::RRPtr(self.type_no_bounds()?)))))
+            Some(RRType::new(Type::Ptr(RRType::new(Type::Ptr(self.type_no_bounds()?)))))
         } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
             Some(RRType::new(ty.clone()))
@@ -464,7 +464,7 @@ impl<'a> Parser<'a> {
             self.expect(TokenKind::Lt);
             let ty = self.type_no_bounds()?;
             self.expect(TokenKind::Gt);
-            Some(RRType::new(Type::RRBox(ty)))
+            Some(RRType::new(Type::Box(ty)))
         } else if let Some(ident) = self.eat_ident() {
             // WIP
             // enum, struct, class のいずれかになる

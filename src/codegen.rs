@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::builtin::*;
 use crate::error::*;
-use crate::keyword::{Type, Numeric, Keyword};
+use crate::keyword::{Type, RRType, Numeric, Keyword};
 use crate::object::Object;
 use crate::program::Program;
 use crate::token::Token;
@@ -117,7 +117,7 @@ fn gen_il_box<'a>(_current_token: &[Token], p: &'a Program<'a>, method: Node) ->
                 let boxed_ty = gen_il(args.into_iter().next().unwrap(), p);
                 //println!("\tbox [System.Runtime]System.Int32");
                 println!("\tbox {}", boxed_ty.to_ilstr());
-                Type::Box(Box::new(boxed_ty))
+                Type::Box(RRType::new(boxed_ty))
             }
             _ => {
                 e0014(Rc::clone(&p.errors), (p.path, &p.lines, method.token), &name, "Box");
@@ -222,8 +222,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
             }
         }
         ty => {
-            return ty;
-            //unimplemented!("primitive type: {}", ty);
+            unimplemented!("primitive type: {}", ty);
         }
     }
 }
@@ -270,19 +269,6 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
             (path, stname, is_mutable)
         }
         Type::Ptr(ty) => {
-            match *ty {
-                Type::_Self(path, stname, is_mutable) => {
-                    // &self
-                    // tmp
-                    //println!("\tldarg.0");
-                    (path, stname, is_mutable)
-                }
-                _ => {
-                    unimplemented!()
-                }
-            }
-        }
-        Type::RRPtr(ty) => {
             match &*ty.borrow() {
                 Type::_Self(path, stname, is_mutable) => {
                     // &self
@@ -296,8 +282,7 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
             }
         }
         ty => {
-            return ty.clone();
-            //unimplemented!("primitive type: {}", ty);
+            unimplemented!("primitive type: {}", ty);
         }
     };
     let ns = p.namespace.borrow();
@@ -439,7 +424,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             fn check_type(lty: &Type, rty: &Type) -> Result<(), ()> {
                 match (lty, rty) {
                     (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
-                    (Type::Box(boxedl), Type::Box(boxedr)) => check_type(boxedl, boxedr),
+                    (Type::Box(boxedl), Type::Box(boxedr)) => check_type(&boxedl.borrow(), &boxedr.borrow()),
                     _ if lty == rty => Ok(()),
                     _ => Err(())
                 }
@@ -464,8 +449,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             let lty = gen_il(*expr, p);
             let rty = gen_il(rhs, p);
             let lty = match lty {
-                Type::Ptr(lty) => *lty,
-                Type::RRPtr(lty) => lty.borrow().clone(),
+                Type::Ptr(lty) => lty.borrow().clone(),
                 _ => {
                     e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty);
                     return Type::Void;
@@ -596,40 +580,25 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                 } else {
                     println!("\tldloca {}", obj.offset);
                 }
-                let x = Type::Ptr(Box::new(obj.ty.borrow().clone()));
+                let x = Type::Ptr(RRType::new(obj.ty.borrow().clone()));
                 x
             } else {
-                Type::Ptr(Box::new(gen_il(expr, p)))
+                Type::Ptr(RRType::new(gen_il(expr, p)))
             }
         }
         UnaryOpKind::Deref => {
             let ty = gen_il(expr, p);
             match ty {
                 Type::Ptr(ty) => {
-                    match *ty {
-                        Type::Ptr(_) => println!("\tldind.i"),
-                        Type::Numeric(Numeric::I32) => println!("\tldind.i4"),
-                        _ => unimplemented!(),
-                    }
-                    *ty
-                }
-                Type::RRPtr(ty) => {
                     let ty = ty.borrow().clone();
                     match ty {
-                        Type::Ptr(_) | Type::RRPtr(_) => println!("\tldind.i"),
+                        Type::Ptr(_) => println!("\tldind.i"),
                         Type::Numeric(Numeric::I32) => println!("\tldind.i4"),
                         _ => unimplemented!(),
                     }
                     ty
                 }
                 Type::Box(ty) => {
-                    match *ty {
-                        Type::Struct(..) => println!("\tunbox {}", ty.to_ilstr()),
-                        _ => println!("\tunbox.any {}", ty.to_ilstr()),
-                    }
-                    *ty
-                }
-                Type::RRBox(ty) => {
                     let ty = ty.borrow().clone();
                     match ty {
                         Type::Struct(..) => println!("\tunbox {}", ty.to_ilstr()),
