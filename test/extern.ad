@@ -31,7 +31,7 @@ extern {
     }
 }
 fn main() {
-    System::Windows::Forms::MessageBox::Show("hello!");
+    //System::Windows::Forms::MessageBox::Show("hello!");
     let r: System::Random = System::Random::.ctor();
     System::Console::WriteLine("ok");
 }
