@@ -5,13 +5,14 @@ use std::rc::Rc;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Dummy();
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Struct<'a> {
     pub name: String,
     pub field: Vec<Object>,
     pub path: Vec<String>,
     //pub impls: Vec<Impl<'a>>,  // trait毎
     pub _dummy: &'a Dummy,
+    pub is_class: bool,
 }
 
 impl<'a> Struct<'a> {
@@ -22,6 +23,7 @@ impl<'a> Struct<'a> {
             path: vec![],
             //impls: vec![],
             _dummy: &Dummy(),
+            is_class: false,
         }
     }
 }

@@ -7,16 +7,32 @@
 //        }
 //    }
 //}
-#[link(name = "System.Runtime.dll")]
-extern {
-    mod System {
-        struct Random {}
-        impl Random {
-            fn .ctor() {}
-        }
-    }
-}
+//#[link(name = "System.Runtime.dll")]
+//extern {
+//    mod System {
+//        class Random {}
+//        impl Random {
+//            fn .ctor() {}
+//        }
+//    }
+//}
+//#[link(name = "System.Windows.Forms.dll")]
+//extern {
+//    mod System {
+//        mod Windows {
+//            mod Forms {
+//                enum DialogResult {}
+//                struct MessageBox {}
+//                impl MessageBox {
+//                    fn Show(text: string) -> DialogResult {}
+//                }
+//            }
+//        }
+//    }
+//}
 fn main() {
-    let r: System::Random = System::Random::.ctor();
+    //System::Windows::Forms::MessageBox::Show("hello!");
+    //let r: System::Random = System::Random::.ctor();
     //System::Console::WriteLine("ok");
+    ;
 }

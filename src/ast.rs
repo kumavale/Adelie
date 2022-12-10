@@ -1,7 +1,7 @@
 use crate::builtin::*;
 use crate::class::{Struct, Impl};
 use crate::function::Function;
-use crate::keyword::{Keyword, Numeric, Type};
+use crate::keyword::{Keyword, Numeric, Type, RRType};
 use crate::object::{Object, SymbolTable};
 use crate::token::Token;
 use std::cell::RefCell;
@@ -113,7 +113,7 @@ pub enum NodeKind<'a> {
         brk_label_seq: usize,
     },
     Cast {
-        ty: Type,
+        ty: RRType,
         expr: Box<Node<'a>>,
     },
     UnaryOp {
@@ -339,7 +339,7 @@ pub fn new_bool_node(
 }
 
 pub fn new_cast_node<'a>(
-    ty: Type,
+    ty: RRType,
     expr: Node<'a>,
     token: &'a [Token],
 ) -> Node<'a> {
@@ -399,7 +399,7 @@ pub fn new_struct_expr_node<'a>(
             Object::new(unique_name,
                         symbol_table.len(),
                         false,
-                        Type::Struct(current_mod, name.to_string(), false),
+                        RRType::new(Type::Struct(current_mod, name.to_string(), false)),
                         false)));
     obj.borrow_mut().assigned = true;
     symbol_table.push(Rc::clone(&obj));
@@ -457,7 +457,7 @@ pub fn new_variable_node<'a>(
 pub fn new_variable_node_with_let<'a>(
     symbol_table: &mut SymbolTable,
     ident: String,
-    ty: Type,
+    ty: RRType,
     token: &'a [Token],
     mutable: bool,
 ) -> Node<'a> {

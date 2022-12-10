@@ -3,11 +3,12 @@ use crate::builtin::*;
 use crate::class::{Struct, Impl};
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, Keyword};
+use crate::keyword::{Type, RRType, Keyword};
 use crate::object::{Object, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
+use std::collections::{HashSet, HashMap};
 use std::rc::Rc;
 
 // Grammar
@@ -321,6 +322,8 @@ pub struct Parser<'a> {
     current_mod: Vec<String>,
     errors: Rc<RefCell<Errors>>,
     is_foreign: bool,
+    ident_types: HashSet<RRType>,
+    //ident_types: HashMap<(Vec<String>, String), Type>,  // (path, name)
 }
 
 impl<'a> Parser<'a> {
@@ -346,6 +349,8 @@ impl<'a> Parser<'a> {
             current_mod: vec![],
             errors,
             is_foreign: false,
+            ident_types: HashSet::new(),
+            //ident_types: HashMap::new(),
         }
     }
 
@@ -449,34 +454,53 @@ impl<'a> Parser<'a> {
         self.current_fn.as_mut().unwrap()
     }
 
-    fn type_no_bounds(&mut self) -> Option<Type> {
+    fn type_no_bounds(&mut self) -> Option<RRType> {
         if self.eat(TokenKind::And) {
-            Some(Type::Ptr(Box::new(self.type_no_bounds()?)))
+            Some(RRType::new(Type::RRPtr(self.type_no_bounds()?)))
         } else if self.eat(TokenKind::AndAnd) {
-            Some(Type::Ptr(Box::new(Type::Ptr(Box::new(self.type_no_bounds()?)))))
+            Some(RRType::new(Type::RRPtr(RRType::new(Type::RRPtr(self.type_no_bounds()?)))))
         } else if let TokenKind::Type(ty) = &self.tokens[self.idx].kind {
             self.idx += 1;
-            Some(ty.clone())
+            Some(RRType::new(ty.clone()))
         } else if self.eat_keyword(Keyword::Box) {
             self.expect(TokenKind::Lt);
             let ty = self.type_no_bounds()?;
             self.expect(TokenKind::Gt);
-            Some(Type::Box(Box::new(ty)))
+            Some(RRType::new(Type::RRBox(ty)))
         } else if let Some(ident) = self.eat_ident() {
             // WIP
-            if self.check(TokenKind::PathSep) {
+            // enum, struct, class のいずれかになる
+            // この時点ではそれが何かは定かではないので、識別子を示す特殊なTypeを返す
+            // AST構築後に変換する
+            let (path, name) = if self.check(TokenKind::PathSep) {
                 let mut path = vec![ident];
                 while self.eat(TokenKind::PathSep) {
                     path.push(self.expect_ident());
                 }
                 let ident = path.pop().unwrap();
-                Some(Type::Struct(path, ident, false))
+                (path, ident)
             } else {
-                Some(Type::Struct(self.current_mod.to_vec(), ident, false))
+                (self.current_mod.to_vec(), ident)
+            };
+            let tmp_ty = RRType::new(Type::RRIdent(path, name.to_string()));
+            if let Some(mut ty) = self.ident_types.take(&tmp_ty) {
+                // known ident
+                let (path, name) = if let Type::Struct(path, name, f) = &*ty.borrow() {
+                    (path.to_vec(), name.to_string())
+                } else {
+                    unreachable!();
+                };
+                dbg!(("replace", &path, &name));
+                *ty.borrow_mut() = Type::Struct(path, name, false);
+            } else {
+                // insert
+                dbg!(("insert", &self.current_mod, name));
+                self.ident_types.insert(RRType::clone(&tmp_ty));
             }
+            Some(tmp_ty)
         } else if self.eat_keyword(Keyword::SelfUpper) {
             self.current_fn_mut().is_static = false;
-            Some(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false))
+            Some(RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false)))
         } else {
             e0002(Rc::clone(&self.errors), self.errorset());
             None
@@ -514,7 +538,7 @@ impl<'a> Parser<'a> {
                 if program.current_namespace.borrow().find_struct(&st.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &st.name);
                 }
-                st.path = program.current_namespace.borrow().full_path();
+                st.path = self.current_mod.to_vec();
                 program.current_namespace.borrow_mut().push_struct(st);
             }
             ItemKind::Impl(impl_item) => {
@@ -573,8 +597,11 @@ impl<'a> Parser<'a> {
         }
         let begin = self.idx;
         let kind = if self.eat_keyword(Keyword::Struct) {
-            let st = self.parse_item_struct();
+            let st = self.parse_item_struct(false);
             ItemKind::Struct(st)
+        } else if self.eat_keyword(Keyword::Class) {
+            let class = self.parse_item_struct(true);
+            ItemKind::Struct(class)
         } else if self.eat_keyword(Keyword::Impl) {
             let impl_item = self.parse_item_impl();
             ItemKind::Impl(impl_item)
@@ -654,9 +681,25 @@ impl<'a> Parser<'a> {
         foreign_items
     }
 
-    fn parse_item_struct(&mut self) -> Struct<'a> {
+    fn parse_item_struct(&mut self, is_class: bool) -> Struct<'a> {
         let mut st = Struct::new();
         st.name = self.expect_ident();
+        st.is_class = is_class;
+        let tmp_ty = RRType::new(Type::RRIdent(self.current_mod.to_vec(), st.name.to_string()));
+        if let Some(mut ty) = self.ident_types.take(&tmp_ty) {
+            // replace
+            let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
+                (path.to_vec(), name.to_string())
+            } else {
+                unreachable!();
+            };
+            dbg!(("replace", &path, &name));
+            *ty.borrow_mut() = Type::Struct(path, name, false);
+        } else {
+            // insert
+            dbg!(("insert", &self.current_mod, &st.name));
+            self.ident_types.insert(tmp_ty);
+        }
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let start_brace = self.idx-1;
         while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
@@ -700,7 +743,7 @@ impl<'a> Parser<'a> {
         } else {
             (self.expect_ident(), false)
         };
-        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, Type::Void, false)));
+        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, RRType::new(Type::Void), false)));
         self.g_symbol_table.push(Rc::clone(&obj));
         self.current_fn = Some(Function::new(&ident, is_ctor));
 
@@ -708,7 +751,7 @@ impl<'a> Parser<'a> {
             if !self.is_foreign {
                 e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be inside an extern block");
             } else if let Some(ref im) = self.current_impl {
-                self.current_fn_mut().rettype = Type::Struct(self.current_mod.to_vec(), im.name.to_string(), false);
+                self.current_fn_mut().rettype = RRType::new(Type::Struct(self.current_mod.to_vec(), im.name.to_string(), false));
             } else {
                 e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be an impl");
             }
@@ -724,7 +767,7 @@ impl<'a> Parser<'a> {
                     // (&self) -> (self: &Self)
                     self.current_fn_mut().is_static = false;
                     let ident = "self".to_string();
-                    let ty = Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false);
+                    let ty = RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false));
                     let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
                     obj.borrow_mut().assigned = true;
                     self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
@@ -751,7 +794,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.eat(TokenKind::RArrow) {
-            self.parse_ret_ty();
+            self.parse_fn_ret_ty();
         }
 
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
@@ -781,7 +824,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_ret_ty(&mut self) {
+    fn parse_fn_ret_ty(&mut self) {
         if let Some(ty) = self.type_no_bounds() {
             self.current_fn_mut().rettype = ty;
         }
@@ -859,7 +902,7 @@ impl<'a> Parser<'a> {
         let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = self.expect_ident();
         self.expect(TokenKind::Colon);
-        let ty = self.type_no_bounds().unwrap_or(Type::Void);
+        let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Void));
         let token = &self.tokens[begin..self.idx];
         let node = new_variable_node_with_let(
             &mut self.current_fn_mut().lvar_symbol_table,
