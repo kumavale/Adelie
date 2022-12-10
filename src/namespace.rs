@@ -1,4 +1,4 @@
-use crate::class::{Struct, Impl};
+use crate::class::{Struct, Impl, EnumDef};
 use crate::function::Function;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -29,6 +29,7 @@ pub struct NameSpace<'a> {
     pub functions: Vec<Rc<Function<'a>>>,
     pub structs:   Vec<Rc<Struct<'a>>>,
     pub impls:     Vec<Rc<Impl<'a>>>,
+    pub enums:     Vec<Rc<EnumDef>>,
     pub is_foreign: bool,
 }
 
@@ -45,6 +46,7 @@ impl<'a> NameSpace<'a> {
             functions: vec![],
             structs:   vec![],
             impls:     vec![],
+            enums:     vec![],
             is_foreign: false,
         }
     }
@@ -110,6 +112,13 @@ impl<'a> NameSpace<'a> {
             .map(Rc::clone)
     }
 
+    pub fn find_enum(&self, name: &str) -> Option<Rc<EnumDef>> {
+        self.enums
+            .iter()
+            .find(|item| item.name == name)
+            .map(Rc::clone)
+    }
+
     pub fn push_fn(&mut self, f: Function<'a>) {
         self.functions.push(Rc::new(f));
     }
@@ -120,6 +129,10 @@ impl<'a> NameSpace<'a> {
 
     pub fn push_impl(&mut self, i: Impl<'a>) {
         self.impls.push(Rc::new(i));
+    }
+
+    pub fn push_enum(&mut self, e: EnumDef) {
+        self.enums.push(Rc::new(e));
     }
 
     pub fn reference(&self) -> Option<String> {

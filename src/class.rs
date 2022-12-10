@@ -79,3 +79,22 @@ impl<'a> FindSymbol for [Impl<'a>] {
         self.iter_mut().find(|s|s.name == name)
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EnumDef {
+    pub name: String,
+    pub path: Vec<String>,
+    pub reference: Option<String>,
+    pub variants: Vec<Object>,
+}
+
+impl EnumDef {
+    pub fn new(name: String, path: Vec<String>) -> Self {
+        EnumDef {
+            name,
+            path,
+            reference: None,
+            variants: vec![],
+        }
+    }
+}

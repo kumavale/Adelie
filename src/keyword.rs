@@ -63,11 +63,13 @@ impl fmt::Display for Keyword {
 pub enum Type {
     Numeric(Numeric),
     Bool,
-    Box(RRType),
     Char,
     String,
-    Struct(Vec<String>, String, bool),  // (path, name, is_mutable)
+    Struct(/*TODO: dll Option<String>,*/Vec<String>, String, bool),  // (path, name, is_mutable)
     _Self(Vec<String>, String, bool),   // (path, name, is_mutable)
+    Enum(Option<String>, Vec<String>, String),  // (dll, path, name)
+    // TODO: Class
+    Box(RRType),
     Ptr(RRType),
     Void,
 
@@ -97,12 +99,13 @@ impl fmt::Display for Type {
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
             Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
             Type::Bool            => write!(f, "bool"),
-            Type::Box(t)          => write!(f, "Box<{}>", t.borrow()),
             Type::Char            => write!(f, "char"),
             Type::String          => write!(f, "string"),
             Type::Struct(_, n, _) => write!(f, "{}", n),
-            Type::Ptr(t)          => write!(f, "&{}", t.borrow()),
             Type::_Self(_, n, _)  => write!(f, "{}", n),
+            Type::Enum(_, _, n)   => write!(f, "{}", n),
+            Type::Box(t)          => write!(f, "Box<{}>", t.borrow()),
+            Type::Ptr(t)          => write!(f, "&{}", t.borrow()),
             Type::Void            => write!(f, "void"),
             Type::RRIdent(_, n)   => write!(f, "RRIdent<{}>", n),
         }
@@ -114,12 +117,19 @@ impl Type {
         match self {
             Type::Numeric(n)      => n.to_ilstr(),
             Type::Bool            => "bool".to_string(),
-            Type::Box(_)          => "object".to_string(),
             Type::Char            => "char".to_string(),
             Type::String          => "string".to_string(),
             Type::Struct(_, n, _) => format!("valuetype {}", n),
-            Type::Ptr(t)          => format!("{}&", t.borrow().to_ilstr()),
             Type::_Self(_, n, _)  => n.to_string(),
+            Type::Enum(r, p, n)   => {
+                if let Some(r) = r {
+                    format!("valuetype [{}]{}.{}", r, p.join("."), n)
+                } else {
+                    format!("valuetype {}", n)
+                }
+            }
+            Type::Box(_)          => "object".to_string(),
+            Type::Ptr(t)          => format!("{}&", t.borrow().to_ilstr()),
             Type::Void            => "void".to_string(),
             Type::RRIdent(..)     => panic!("cannot to ilstr: {}", &self),
         }

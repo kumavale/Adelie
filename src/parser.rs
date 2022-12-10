@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::builtin::*;
-use crate::class::{Struct, Impl};
+use crate::class::{Struct, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Keyword};
@@ -322,6 +322,7 @@ pub struct Parser<'a> {
     current_mod: Vec<String>,
     errors: Rc<RefCell<Errors>>,
     is_foreign: bool,
+    foreign_reference: Option<String>,
     ident_types: HashMap<(Vec<String>, String), RRType>,  // (path, name)
 }
 
@@ -348,6 +349,7 @@ impl<'a> Parser<'a> {
             current_mod: vec![],
             errors,
             is_foreign: false,
+            foreign_reference: None,
             ident_types: HashMap::new(),
         }
     }
@@ -466,10 +468,10 @@ impl<'a> Parser<'a> {
             self.expect(TokenKind::Gt);
             Some(RRType::new(Type::Box(ty)))
         } else if let Some(ident) = self.eat_ident() {
-            // WIP
             // enum, struct, class のいずれかになる
             // この時点ではそれが何かは定かではないので、識別子を示す特殊なTypeを返す
             // AST構築後に変換する
+            // TODO: self.ident_typesにType::RRIdentが無いか検査
             let (path, name) = if self.check(TokenKind::PathSep) {
                 let mut path = vec![ident];
                 while self.eat(TokenKind::PathSep) {
@@ -532,6 +534,13 @@ impl<'a> Parser<'a> {
                 st.path = self.current_mod.to_vec();
                 program.current_namespace.borrow_mut().push_struct(st);
             }
+            ItemKind::Enum(mut ed) => {
+                if program.current_namespace.borrow().find_enum(&ed.name).is_some() {
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &ed.name);
+                }
+                ed.reference = program.current_namespace.borrow().reference();
+                program.current_namespace.borrow_mut().push_enum(ed);
+            }
             ItemKind::Impl(impl_item) => {
                 program.current_namespace.borrow_mut().push_impl(impl_item);
             }
@@ -544,11 +553,8 @@ impl<'a> Parser<'a> {
                 program.leave_namespace();
             }
             ItemKind::ForeignMod(foreign_mod_item) => {
-                let name = item.attrs.iter()
-                    .find(|attr| attr.find_item("link").is_some())
-                    .and_then(|attr| attr.find_value("name"))
-                    .and_then(|name| if name.ends_with(".dll") { Some(name) } else { None })
-                    .and_then(|name| name.get(..name.len()-4))
+                let name = self.foreign_reference
+                    .as_deref()
                     .unwrap_or_else(|| {
                         let message = "specify the `.dll` file";
                         e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
@@ -559,6 +565,7 @@ impl<'a> Parser<'a> {
                 foreign_mod_item.into_iter().for_each(|item| match item {
                         ForeignItemKind::Fn(f)     => program.current_namespace.borrow_mut().push_fn(f),
                         ForeignItemKind::Struct(s) => program.current_namespace.borrow_mut().push_struct(s),
+                        ForeignItemKind::Enum(e)   => program.current_namespace.borrow_mut().push_enum(e),
                         ForeignItemKind::Impl(i)   => program.current_namespace.borrow_mut().push_impl(i),
                         ForeignItemKind::Mod((ident, items)) => {
                             program.enter_namespace(&ident);
@@ -593,6 +600,9 @@ impl<'a> Parser<'a> {
         } else if self.eat_keyword(Keyword::Class) {
             let class = self.parse_item_struct(true);
             ItemKind::Struct(class)
+        } else if self.eat_keyword(Keyword::Enum) {
+            let enum_item = self.parse_item_enum();
+            ItemKind::Enum(enum_item)
         } else if self.eat_keyword(Keyword::Impl) {
             let impl_item = self.parse_item_impl();
             ItemKind::Impl(impl_item)
@@ -600,6 +610,12 @@ impl<'a> Parser<'a> {
             let mod_item = self.parse_item_mod();
             ItemKind::Mod(mod_item)
         } else if self.eat_keyword(Keyword::Extern) {
+            self.foreign_reference = attrs.iter()
+                .find(|attr| attr.find_item("link").is_some())
+                .and_then(|attr| attr.find_value("name"))
+                .and_then(|name| if name.ends_with(".dll") { Some(name) } else { None })
+                .and_then(|name| name.get(..name.len()-4))
+                .map(|name| name.to_string());
             let foreign_mod_item = self.parse_item_foreign_mod();
             ItemKind::ForeignMod(foreign_mod_item)
         } else if self.eat_keyword(Keyword::Fn) {
@@ -656,10 +672,11 @@ impl<'a> Parser<'a> {
         let mut foreign_items = vec![];
         while let Some(item) = self.parse_item_with_attrs() {
             let item = match item.1.kind {
-                ItemKind::Fn(f) =>     ForeignItemKind::Fn(f),
-                ItemKind::Mod(m) =>    ForeignItemKind::Mod(m),
+                ItemKind::Fn(f)     => ForeignItemKind::Fn(f),
+                ItemKind::Mod(m)    => ForeignItemKind::Mod(m),
                 ItemKind::Struct(s) => ForeignItemKind::Struct(s),
-                ItemKind::Impl(i) =>   ForeignItemKind::Impl(i),
+                ItemKind::Impl(i)   => ForeignItemKind::Impl(i),
+                ItemKind::Enum(e)   => ForeignItemKind::Enum(e),
                 _ => {
                     let message = "not supported in `extern` blocks";
                     e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[item.0..=item.0]), message);
@@ -710,6 +727,47 @@ impl<'a> Parser<'a> {
             }
         }
         st
+    }
+
+    fn parse_item_enum(&mut self) -> EnumDef {
+        let name = self.expect_ident();
+        let ed = EnumDef::new(name, self.current_mod.to_vec());
+        if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), ed.name.to_string())) {
+            // replace
+            let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
+                (path.to_vec(), name.to_string())
+            } else {
+                unreachable!();
+            };
+            *ty.borrow_mut() = Type::Enum(self.foreign_reference.clone(), path, name);
+        } else {
+            // insert
+            let ty = RRType::new(Type::Enum(self.foreign_reference.clone(), self.current_mod.to_vec(), ed.name.to_string()));
+            self.ident_types.insert((self.current_mod.to_vec(), ed.name.to_string()), ty);
+        }
+        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
+        //let start_brace = self.idx-1;
+        while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
+            todo!();
+            // ↓parse_item_structを引用
+            //let ident = self.expect_ident();
+            //if ident.is_empty() {
+            //    self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
+            //    break;
+            //}
+            //if st.field.iter().any(|o|o.name==ident) {
+            //    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            //}
+            //self.expect(TokenKind::Colon);
+            //if let Some(ty) = self.type_no_bounds() {
+            //    let obj = Object::new(ident, st.field.len(), false, ty, false);
+            //    st.field.push(obj);
+            //}
+            //if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
+            //    e0008(Rc::clone(&self.errors), self.errorset());
+            //}
+        }
+        ed
     }
 
     fn parse_item_impl(&mut self) -> Impl<'a> {

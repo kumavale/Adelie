@@ -1,5 +1,5 @@
 use crate::builtin::*;
-use crate::class::{Struct, Impl};
+use crate::class::{Struct, Impl, EnumDef};
 use crate::function::Function;
 use crate::keyword::{Keyword, Numeric, Type, RRType};
 use crate::object::{Object, SymbolTable};
@@ -612,6 +612,10 @@ pub enum ItemKind<'a> {
     ///
     /// E.g., `extern {}`.
     ForeignMod(Vec<ForeignItemKind<'a>>),
+    /// An enum definition (`enum`).
+    ///
+    /// E.g., `enum Foo<A, B> { C<A>, D<B> }`.
+    Enum(EnumDef),
     /// A struct definition (`struct`).
     ///
     /// E.g., `struct Foo<A> { x: A }`.
@@ -626,6 +630,7 @@ pub enum ItemKind<'a> {
 pub enum ForeignItemKind<'a> {
     Fn(Function<'a>),
     Mod((String, Vec<(usize, Item<'a>)>)),
+    Enum(EnumDef),
     Struct(Struct<'a>),
     Impl(Impl<'a>),
 }
