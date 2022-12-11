@@ -33,7 +33,7 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
             gen_il_struct(node.token, p, obj.borrow(), field)
         }
         NodeKind::FieldOrProperty { expr, ident } => {
-            gen_il_field(node.token, p, *expr, &ident)
+            gen_il_field_or_property(node.token, p, *expr, &ident)
         }
         NodeKind::Variable { obj } => {
             gen_il_variable(node.token, p, obj.borrow())
@@ -259,22 +259,26 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
     obj.ty.borrow().clone()
 }
 
-fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str) -> Type {
-    let (path, stname, is_mutable) = match gen_il(expr, p) {
-        Type::Struct(_, path, stname, is_mutable) => {
-            (path, stname, is_mutable)
+fn gen_il_field_or_property<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str) -> Type {
+    let parent_ty = gen_il(expr, p);
+    let (path, parent_name, is_mutable) = match parent_ty.clone() {
+        Type::Struct(_, path, name, is_mutable) => {
+            (path, name, is_mutable)
         }
-        Type::_Self(path, stname, is_mutable) => {
+        Type::_Self(path, name, is_mutable) => {
             //println!("\tldarg.0");
-            (path, stname, is_mutable)
+            (path, name, is_mutable)
+        }
+        Type::Class(_, path, name, is_mutable) => {
+            (path, name, is_mutable)
         }
         Type::Ptr(ty) => {
             match &*ty.borrow() {
-                Type::_Self(path, stname, is_mutable) => {
+                Type::_Self(path, name, is_mutable) => {
                     // &self
                     // tmp
                     //println!("\tldarg.0");
-                    (path.to_vec(), stname.clone(), *is_mutable)
+                    (path.to_vec(), name.to_string(), *is_mutable)
                 }
                 _ => {
                     unimplemented!()
@@ -293,15 +297,15 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
         e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
         return Type::Void;
     };
-    if let Some(st) = ns.find_struct(&stname) {
+    if let Some(st) = ns.find_struct(&parent_name) {
         if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
             let ty = field.ty.borrow().clone();
             match ty {
                 Type::Struct(..) => {
-                    println!("\tldflda {} {}::{}", ty.to_ilstr(), stname, ident);
+                    println!("\tldflda {} {}::{}", ty.to_ilstr(), parent_ty.to_ilstr(), ident);
                 }
                 _ => {
-                    println!("\tldfld {} {}::{}", ty.to_ilstr(), stname, ident);
+                    println!("\tldfld {} {}::{}", ty.to_ilstr(), parent_ty.to_ilstr(), ident);
                 }
             }
             if is_mutable {
@@ -309,13 +313,51 @@ fn gen_il_field<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ide
             } else {
                 ty
             }
+        } else if let Some(property) =  st.properties.iter().find(|o|o.name==ident) {
+            // WIP: この下に更に`.foo`と続く場合、`stloc`,`ldloca`する必要がある
+            let method_name = format!("get_{}", ident);
+            println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
+            property.ty.borrow().clone()
         } else {
-            e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &stname);
+            e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name);
+            Type::Void
+        }
+    } else if let Some(cl) = ns.find_class(&parent_name) {
+        if let Some(field) =  cl.field.iter().find(|o|o.name==ident) {
+            let ty = field.ty.borrow().clone();
+            match ty {
+                Type::Struct(..) => {
+                    println!("\tldflda {} {}::{}", ty.to_ilstr(), parent_ty.to_ilstr(), ident);
+                }
+                _ => {
+                    println!("\tldfld {} {}::{}", ty.to_ilstr(), parent_ty.to_ilstr(), ident);
+                }
+            }
+            if is_mutable {
+                ty.into_mutable()
+            } else {
+                ty
+            }
+        } else if let Some(property) =  cl.properties.iter().find(|o|o.name==ident) {
+            let property_ty = property.ty.borrow().clone();
+            let method_name = format!("get_{}", ident);
+            match property_ty {
+                Type::Struct(..) => {
+                    // WIP: この下に更に`.foo`と続く場合、`stloc`,`ldloca`する必要がある
+                    println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
+                }
+                _ => {
+                    println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
+                }
+            }
+            property_ty
+        } else {
+            e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name);
             Type::Void
         }
     } else {
         // unreachable?
-        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &stname);
+        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &parent_name);
         Type::Void
     }
 }
@@ -492,6 +534,19 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
                             println!("\tstfld {} {}::{}", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+                        } else if let Some(property) = st.properties.iter().find(|o|o.name==ident) {
+                            let rty = gen_il(rhs, p);
+                            match (&*property.ty.borrow(), &rty) {
+                                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+                                _ if *property.ty.borrow() == rty => (),
+                                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &property.ty.borrow(), &rty)
+                            }
+                            if !is_mutable {
+                                let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
+                                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                            }
+                            let method_name = format!("set_{}", ident);
+                            println!("\tcall instance void {}::{}({})", parent_ty.to_ilstr(), method_name, property.ty.borrow().to_ilstr());
                         } else {
                             e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                         }

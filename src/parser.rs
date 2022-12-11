@@ -732,13 +732,48 @@ impl<'a> Parser<'a> {
             if st.field.iter().any(|o|o.name==ident) {
                 e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
             }
+
             self.expect(TokenKind::Colon);
-            if let Some(ty) = self.type_no_bounds() {
-                let obj = Object::new(ident, st.field.len(), false, ty, false);
-                st.field.push(obj);
-            }
-            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-                e0008(Rc::clone(&self.errors), self.errorset());
+            let ty = self.type_no_bounds();
+
+            if self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
+                // property
+                if st.properties.iter().any(|o|o.name==ident) {
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                }
+                if self.eat_keyword(Keyword::Set) {
+                    self.expect(TokenKind::Semi);
+                    if self.eat_keyword(Keyword::Get) {
+                        self.expect(TokenKind::Semi);
+                    }
+                } else if self.eat_keyword(Keyword::Get) {
+                    self.expect(TokenKind::Semi);
+                    if self.eat_keyword(Keyword::Set) {
+                        self.expect(TokenKind::Semi);
+                    }
+                } else {
+                }
+                if let Some(ty) = ty {
+                    // TODO: backing fieldの生成
+                    let obj = Object::new(ident, st.field.len(), false, ty.clone(), false);
+                    st.properties.push(obj);
+                    let dummy = Object::new("".to_string(), st.field.len(), false, ty, false);
+                    st.field.push(dummy);
+                }
+                self.expect(TokenKind::CloseDelim(Delimiter::Brace));
+                self.eat(TokenKind::Comma);
+            } else {
+                // field
+                if st.field.iter().any(|o|o.name==ident) {
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                }
+                if let Some(ty) = ty {
+                    let obj = Object::new(ident, st.field.len(), false, ty, false);
+                    st.field.push(obj);
+                }
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
+                    e0008(Rc::clone(&self.errors), self.errorset());
+                }
             }
         }
         st
@@ -841,6 +876,7 @@ impl<'a> Parser<'a> {
                     cl.field.push(dummy);
                 }
                 self.expect(TokenKind::CloseDelim(Delimiter::Brace));
+                self.eat(TokenKind::Comma);
             } else {
                 // field
                 if cl.field.iter().any(|o|o.name==ident) {
@@ -850,9 +886,9 @@ impl<'a> Parser<'a> {
                     let obj = Object::new(ident, cl.field.len(), false, ty, false);
                     cl.field.push(obj);
                 }
-            }
-            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-                e0008(Rc::clone(&self.errors), self.errorset());
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
+                    e0008(Rc::clone(&self.errors), self.errorset());
+                }
             }
         }
         cl
