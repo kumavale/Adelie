@@ -562,10 +562,10 @@ impl<'a> Parser<'a> {
                     e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
                 }
                 self.foreign_reference = None;
-                program.references = item.attrs.iter()
+                program.references.extend_from_slice(&item.attrs.iter()
                     .filter(|attr| attr.find_item("link").is_some())
                     .cloned()
-                    .collect();
+                    .collect::<Vec<Attribute>>());
                 program.enter_namespace("extern");
                 program.current_namespace.borrow_mut().is_foreign = true;
                 foreign_mod_item.into_iter().for_each(|item| match item {
