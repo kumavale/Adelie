@@ -63,7 +63,7 @@ impl fmt::Display for Keyword {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Eq, Hash)]
 pub enum Type {
     Numeric(Numeric),
     Bool,
@@ -79,6 +79,25 @@ pub enum Type {
 
     /// enum, struct or class
     RRIdent(Vec<String>, String),  // (path, name) //pathは将来的には要らないかも
+}
+
+impl PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Type::Numeric(nl), Type::Numeric(nr)) => nl == nr,
+            (Type::Bool, Type::Bool) => true,
+            (Type::Char, Type::Char) => true,
+            (Type::String, Type::String) => true,
+            (Type::Struct(_, pl, nl, _), Type::Struct(_, pr, nr,  _)) => pl == pr && nl == nr,
+            (Type::_Self(..), Type::_Self(..)) => true,
+            (Type::Enum(_, pl, nl), Type::Enum(_, pr, nr)) => pl == pr && nl == nr,
+            (Type::Class(_, pl, nl, _), Type::Class(_, pr, nr,  _)) => pl == pr && nl == nr,
+            (Type::Box(l), Type::Box(r)) => l == r,
+            (Type::Ptr(l), Type::Ptr(r)) => l == r,
+            (Type::Void, Type::Void) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Type {
