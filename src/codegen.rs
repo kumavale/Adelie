@@ -185,11 +185,12 @@ fn gen_il_method<'a>(
             if let Some(_st) = ns.find_struct(st_name) {
                 let func = if let Some(func) = ns
                     .impls
-                    // TODO: trait毎
-                    .first().unwrap()
-                    .functions
                     .iter()
-                    .find(|f|f.name==ident && !f.is_static)
+                    .find_map(|im| im
+                        .functions
+                        .iter()
+                        .find(|f|f.name==ident && !f.is_static)
+                    )
                 {
                     func
                 } else {
@@ -222,11 +223,69 @@ fn gen_il_method<'a>(
                     .map(|p|p.borrow().ty.borrow().to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
-                println!("\tcall instance {} {}::{}({})", func.rettype.borrow().to_ilstr(), st_name, ident, params);
+                println!("\tcall instance {} {}::{}({})", func.rettype.borrow().to_ilstr(), parent_ty.to_ilstr(), ident, params);
                 func.rettype.borrow().clone()
             } else {
                 // unreachable?
                 e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, st_name);
+                Type::Void
+            }
+        }
+        Type::Class(_, ref path, ref cl_name, _) => {
+            let ns = p.namespace.borrow();
+            let ns = if let Some(ns) = ns.find(path) {
+                ns
+            } else {
+                let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                return Type::Void;
+            };
+            if let Some(_cl) = ns.find_class(cl_name) {
+                let func = if let Some(func) = ns
+                    .impls
+                    .iter()
+                    .find_map(|im| im
+                        .functions
+                        .iter()
+                        .find(|f|f.name==ident && !f.is_static)
+                    )
+                {
+                    func
+                } else {
+                    e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, cl_name);
+                    return Type::Void;
+                };
+                let params = &func
+                    .param_symbol_table
+                    .objs
+                    .iter()
+                    .skip(if func.is_static { 0 } else { 1 })
+                    .collect::<Vec<_>>();
+                if params.len() != args.len() {
+                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
+                }
+                for (arg, param) in args.into_iter().zip(params) {
+                    let token = arg.token;
+                    let arg_ty = gen_il(arg, p);
+                    let param = param.borrow();
+                    let param_ty = &param.ty.borrow();
+                    match (&arg_ty, &**param_ty) {
+                        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
+                        _ if arg_ty == **param_ty => (),
+                        _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty)
+                    }
+                }
+                let params = params
+                    .iter()
+                    .map(|p|p.borrow().ty.borrow().to_ilstr())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                println!("\tcall instance {} {}::{}({})", func.rettype.borrow().to_ilstr(), parent_ty.to_ilstr(), ident, params);
+                func.rettype.borrow().clone()
+            } else {
+                // unreachable?
+                e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, cl_name);
                 Type::Void
             }
         }
@@ -337,7 +396,7 @@ fn gen_il_field_or_property<'a>(
                     lvar_symbol_table.borrow().len(),
                     false,
                     RRType::new(parent_ty.clone()),
-                    false);
+                    true);
                 println!("\tstloc {}", obj.offset);
                 println!("\tldloca {}", obj.offset);
                 lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
@@ -371,7 +430,7 @@ fn gen_il_field_or_property<'a>(
                     lvar_symbol_table.borrow().len(),
                     false,
                     RRType::new(parent_ty.clone()),
-                    false);
+                    true);
                 println!("\tstloc {}", obj.offset);
                 println!("\tldloca {}", obj.offset);
                 lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
