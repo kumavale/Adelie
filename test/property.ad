@@ -44,6 +44,6 @@ fn main() {
     form1.Text("Title dayo");
     assert_eq!(form1._form.Text, "Title dayo");
     form1.ClientSize(System::Drawing::Size::.ctor(200, 100));
-    //assert_eq!(form1._form.ClientSize.Width, 200);
-    System::Windows::Forms::Application::Run(form1._form);
+    assert_eq!(form1._form.ClientSize.Width, 200);
+    //System::Windows::Forms::Application::Run(form1._form);
 }

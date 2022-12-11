@@ -125,7 +125,7 @@ impl Type {
             Type::Bool            => "bool".to_string(),
             Type::Char            => "char".to_string(),
             Type::String          => "string".to_string(),
-            Type::_Self(_, n, _)  => n.to_string(),
+            Type::_Self(_, n, _)  => format!("valuetype {}", n),
             Type::Struct(r, p, n, _) |
             Type::Enum(r, p, n)   => {
                 if let Some(r) = r {

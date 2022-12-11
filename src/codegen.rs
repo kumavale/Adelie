@@ -2,12 +2,12 @@ use crate::ast::*;
 use crate::builtin::*;
 use crate::error::*;
 use crate::keyword::{Type, RRType, Numeric, Keyword};
-use crate::object::Object;
+use crate::object::{Object, SymbolTable};
 use crate::program::Program;
 use crate::token::Token;
 use crate::utils::remove_seq;
 use std::rc::Rc;
-use std::cell::Ref;
+use std::cell::{Ref, RefCell};
 
 pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
     match node.kind {
@@ -32,8 +32,8 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
         NodeKind::Struct { obj, field } => {
             gen_il_struct(node.token, p, obj.borrow(), field)
         }
-        NodeKind::FieldOrProperty { expr, ident } => {
-            gen_il_field_or_property(node.token, p, *expr, &ident)
+        NodeKind::FieldOrProperty { lvar_symbol_table, expr, ident } => {
+            gen_il_field_or_property(node.token, p, lvar_symbol_table, *expr, &ident)
         }
         NodeKind::Variable { obj } => {
             gen_il_variable(node.token, p, obj.borrow())
@@ -83,7 +83,7 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
     }
 }
 
-pub fn seq() -> usize {
+pub fn label_seq() -> usize {
     unsafe {
         static mut ID: usize = 0;
         ID += 1;
@@ -162,18 +162,27 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
     }
 }
 
-fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str, args: Vec<Node>) -> Type {
-    match gen_il(expr, p) {
-        Type::Struct(_, path, st_name, _) => {
+fn gen_il_method<'a>(
+    current_token: &[Token],
+    p: &'a Program<'a>,
+    expr: Node,
+    ident: &str,
+    args: Vec<Node>,
+) -> Type {
+    *p.ret_address.borrow_mut() = true;
+    let parent_ty = gen_il(expr, p);
+    *p.ret_address.borrow_mut() = false;
+    match parent_ty {
+        Type::Struct(_, ref path, ref st_name, _) => {
             let ns = p.namespace.borrow();
-            let ns = if let Some(ns) = ns.find(&path) {
+            let ns = if let Some(ns) = ns.find(path) {
                 ns
             } else {
                 let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                 return Type::Void;
             };
-            if let Some(_st) = ns.find_struct(&st_name) {
+            if let Some(_st) = ns.find_struct(st_name) {
                 let func = if let Some(func) = ns
                     .impls
                     // TODO: trait毎
@@ -184,7 +193,7 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                 {
                     func
                 } else {
-                    e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &st_name);
+                    e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, st_name);
                     return Type::Void;
                 };
                 let params = &func
@@ -213,16 +222,16 @@ fn gen_il_method<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, id
                     .map(|p|p.borrow().ty.borrow().to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
-                println!("\tcall instance {} {}::{}({})", func.rettype.borrow().to_ilstr(), &st_name, ident, params);
+                println!("\tcall instance {} {}::{}({})", func.rettype.borrow().to_ilstr(), st_name, ident, params);
                 func.rettype.borrow().clone()
             } else {
                 // unreachable?
-                e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &st_name);
+                e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, st_name);
                 Type::Void
             }
         }
         ty => {
-            unimplemented!("primitive type: {}", ty);
+            unimplemented!("primitive type: {:?}", ty);
         }
     }
 }
@@ -259,7 +268,13 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
     obj.ty.borrow().clone()
 }
 
-fn gen_il_field_or_property<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Node, ident: &str) -> Type {
+fn gen_il_field_or_property<'a>(
+    current_token: &[Token],
+    p: &'a Program<'a>,
+    lvar_symbol_table: Rc<RefCell<SymbolTable>>,
+    expr: Node,
+    ident: &str,
+) -> Type {
     let parent_ty = gen_il(expr, p);
     let (path, parent_name, is_mutable) = match parent_ty.clone() {
         Type::Struct(_, path, name, is_mutable) => {
@@ -286,7 +301,7 @@ fn gen_il_field_or_property<'a>(current_token: &[Token], p: &'a Program<'a>, exp
             }
         }
         ty => {
-            unimplemented!("primitive type: {}", ty);
+            unimplemented!("primitive type: {:?}", ty);
         }
     };
     let ns = p.namespace.borrow();
@@ -298,24 +313,35 @@ fn gen_il_field_or_property<'a>(current_token: &[Token], p: &'a Program<'a>, exp
         return Type::Void;
     };
     if let Some(st) = ns.find_struct(&parent_name) {
-        if let Some(field) =  st.field.iter().find(|o|o.name==ident) {
-            let ty = field.ty.borrow().clone();
-            match ty {
-                Type::Struct(..) => {
-                    println!("\tldflda {} {}::{}", ty.to_ilstr(), parent_ty.to_ilstr(), ident);
-                }
-                _ => {
-                    println!("\tldfld {} {}::{}", ty.to_ilstr(), parent_ty.to_ilstr(), ident);
-                }
+        if let Some(field) = st.field.iter().find(|o|o.name==ident) {
+            if let Type::Class(..) = *field.ty.borrow()  {
+                println!("\tldfld {} {}::{}", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+            } else if *p.ret_address.borrow() {
+                println!("\tldflda {} {}::{}", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+            } else {
+                println!("\tldfld {} {}::{}", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             }
             if is_mutable {
-                ty.into_mutable()
+                field.ty.borrow().clone().into_mutable()
             } else {
-                ty
+                field.ty.borrow().clone()
             }
-        } else if let Some(property) =  st.properties.iter().find(|o|o.name==ident) {
-            // WIP: この下に更に`.foo`と続く場合、`stloc`,`ldloca`する必要がある
+        } else if let Some(property) = st.properties.iter().find(|o|o.name==ident) {
             let method_name = format!("get_{}", ident);
+            if let Type::Struct(..) = parent_ty {
+                // parent_tyを`stloc`するための一意なローカル変数を定義する
+                // スタックのトップには`struct`の'値'が入っている
+                // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
+                let unique_name = format!("{}:{}", parent_ty, crate::seq!());
+                let obj = Object::new(unique_name,
+                    lvar_symbol_table.borrow().len(),
+                    false,
+                    RRType::new(parent_ty.clone()),
+                    false);
+                println!("\tstloc {}", obj.offset);
+                println!("\tldloca {}", obj.offset);
+                lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
+            }
             println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
             property.ty.borrow().clone()
         } else {
@@ -323,34 +349,35 @@ fn gen_il_field_or_property<'a>(current_token: &[Token], p: &'a Program<'a>, exp
             Type::Void
         }
     } else if let Some(cl) = ns.find_class(&parent_name) {
-        if let Some(field) =  cl.field.iter().find(|o|o.name==ident) {
-            let ty = field.ty.borrow().clone();
-            match ty {
-                Type::Struct(..) => {
-                    println!("\tldflda {} {}::{}", ty.to_ilstr(), parent_ty.to_ilstr(), ident);
-                }
-                _ => {
-                    println!("\tldfld {} {}::{}", ty.to_ilstr(), parent_ty.to_ilstr(), ident);
-                }
+        if let Some(field) = cl.field.iter().find(|o|o.name==ident) {
+            if *p.ret_address.borrow() {
+                println!("\tldflda {} {}::{}", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+            } else {
+                println!("\tldfld {} {}::{}", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             }
             if is_mutable {
-                ty.into_mutable()
+                field.ty.borrow().clone().into_mutable()
             } else {
-                ty
+                field.ty.borrow().clone()
             }
-        } else if let Some(property) =  cl.properties.iter().find(|o|o.name==ident) {
-            let property_ty = property.ty.borrow().clone();
+        } else if let Some(property) = cl.properties.iter().find(|o|o.name==ident) {
             let method_name = format!("get_{}", ident);
-            match property_ty {
-                Type::Struct(..) => {
-                    // WIP: この下に更に`.foo`と続く場合、`stloc`,`ldloca`する必要がある
-                    println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
-                }
-                _ => {
-                    println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
-                }
+            if let Type::Struct(..) = parent_ty {
+                // parent_tyを`stloc`するための一意なローカル変数を定義する
+                // スタックのトップには`struct`の'値'が入っている
+                // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
+                let unique_name = format!("{}:{}", parent_ty, crate::seq!());
+                let obj = Object::new(unique_name,
+                    lvar_symbol_table.borrow().len(),
+                    false,
+                    RRType::new(parent_ty.clone()),
+                    false);
+                println!("\tstloc {}", obj.offset);
+                println!("\tldloca {}", obj.offset);
+                lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
             }
-            property_ty
+            println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
+            property.ty.borrow().clone()
         } else {
             e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name);
             Type::Void
@@ -368,15 +395,10 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Ty
     }
     if obj.is_param {
         println!("\tldarg {}", obj.offset);
+    } else if *p.ret_address.borrow() {
+        println!("\tldloca {}", obj.offset);
     } else {
-        match *obj.ty.borrow() {
-            Type::Struct(..) => {
-                println!("\tldloca {}", obj.offset);
-            }
-            _ => {
-                println!("\tldloc {}", obj.offset);
-            }
-        }
+        println!("\tldloc {}", obj.offset);
     }
     if obj.is_mutable() {
         obj.ty.borrow().clone().into_mutable()
@@ -407,7 +429,7 @@ fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: 
     if cond_type != Type::Bool {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type);
     }
-    let seq = seq();
+    let seq = label_seq();
     let else_label = format!("IL_else{}", seq);
     let end_label = format!("IL_end{}", seq);
     println!("\tbrfalse {}", else_label);
@@ -435,7 +457,7 @@ fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: 
 }
 
 fn gen_il_while<'a>(_current_token: &[Token], p: &'a Program<'a>, cond: Node, then: Node, brk_label_seq: usize) -> Type {
-    let begin_label = format!("IL_begin{}", seq());
+    let begin_label = format!("IL_begin{}", label_seq());
     let end_label = format!("IL_break{}", brk_label_seq);
     println!("{}:", begin_label);
     let token = cond.token;
@@ -451,7 +473,7 @@ fn gen_il_while<'a>(_current_token: &[Token], p: &'a Program<'a>, cond: Node, th
 }
 
 fn gen_il_loop<'a>(_current_token: &[Token], p: &'a Program<'a>, then: Node, brk_label_seq: usize) -> Type {
-    let begin_label = format!("IL_begin{}", seq());
+    let begin_label = format!("IL_begin{}", label_seq());
     let end_label = format!("IL_break{}", brk_label_seq);
     println!("{}:", begin_label);
     let then_type = gen_il(then, p);
@@ -508,8 +530,10 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 _ => unimplemented!(),
             }
         }
-        NodeKind::FieldOrProperty { expr, ident } => {
+        NodeKind::FieldOrProperty { lvar_symbol_table: _, expr, ident } => {
+            *p.ret_address.borrow_mut() = true;
             let parent_ty = gen_il(*expr, p);
+            *p.ret_address.borrow_mut() = false;
             match parent_ty {
                 Type::Struct(_, ref path, ref name, is_mutable) |
                 Type::_Self(ref path, ref name, is_mutable) => {
@@ -693,7 +717,10 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
             }
         }
         UnaryOpKind::Deref => {
+            let ret_address = *p.ret_address.borrow();
+            *p.ret_address.borrow_mut() = false;
             let ty = gen_il(expr, p);
+            *p.ret_address.borrow_mut() = ret_address;
             match ty {
                 Type::Ptr(ty) => {
                     let ty = ty.borrow().clone();
@@ -909,7 +936,7 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
 }
 
 fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind: ShortCircuitOpKind, lhs: Node, rhs: Node) -> Type {
-    let end_label  = format!("IL_end{}", seq());
+    let end_label  = format!("IL_end{}", label_seq());
     match kind {
         ShortCircuitOpKind::And => {
             println!("\tldc.i4.0");

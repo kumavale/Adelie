@@ -114,27 +114,6 @@ fn gen_impls<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                 args);
             println!("\t\t.maxstack 32");
 
-            // prepare local variables
-            println!("\t\t.locals init (");
-            let locals = func
-                .lvar_symbol_table
-                .objs
-                .iter()
-                .enumerate()
-                .map(|(i, obj)| {
-                    let obj = obj.borrow();
-                    if let keyword::Type::Struct(.., name, _) = &*obj.ty.borrow() {
-                        use crate::object::FindSymbol;
-                        if namespace.structs.find(name).is_none() {
-                            panic!("cannot find struct, variant or union type `{}` in this scope", name);
-                        }
-                    }
-                    format!("\t\t\t{} V_{}", obj.ty.borrow().to_ilstr(), i)
-                })
-                .collect::<Vec<String>>()
-                .join(",\n");
-            println!("\t\t{})", locals);
-
             let rettype = codegen::gen_il(func.statements.clone(), program);
             match (&rettype, &*func.rettype.borrow()) {
                 (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
@@ -142,8 +121,24 @@ fn gen_impls<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                     panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
                 }
             }
-
             println!("\t\tret");
+
+            // prepare local variables
+            let locals = func
+                .lvar_symbol_table
+                .borrow()
+                .objs
+                .iter()
+                .enumerate()
+                .map(|(i, obj)| format!("\t\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
+                .collect::<Vec<String>>()
+                .join(",\n");
+            if !locals.is_empty() {
+                println!("\t\t.locals init (");
+                println!("{}", locals);
+                println!("\t\t)");
+            }
+
             println!("\t}}");
         }
         println!("}}");
@@ -167,18 +162,6 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
         }
         println!("\t.maxstack 32");
 
-        // prepare local variables
-        println!("\t.locals init (");
-        let locals = func
-            .lvar_symbol_table
-            .objs
-            .iter()
-            .enumerate()
-            .map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
-            .collect::<Vec<String>>()
-            .join(",\n");
-        println!("\t{})", locals);
-
         let rettype = codegen::gen_il(func.statements.clone(), program);
         match (&rettype, &*func.rettype.borrow()) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
@@ -186,8 +169,24 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
                 panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
             }
         }
-
         println!("\tret");
+
+        // prepare local variables
+        let locals = func
+            .lvar_symbol_table
+            .borrow()
+            .objs
+            .iter()
+            .enumerate()
+            .map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
+            .collect::<Vec<String>>()
+            .join(",\n");
+        if !locals.is_empty() {
+            println!("\t.locals init (");
+            println!("{}", locals);
+            println!("\t)");
+        }
+
         println!("}}");
     }
 }

@@ -1003,7 +1003,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_block_expr(&mut self) -> Node<'a> {
-        self.current_fn_mut().lvar_symbol_table.enter_scope();
+        self.current_fn_mut().lvar_symbol_table.borrow_mut().enter_scope();
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
         let begin = self.idx;
@@ -1017,7 +1017,7 @@ impl<'a> Parser<'a> {
         }
         self.close_delimiter(Delimiter::Brace, self.tokens[begin-1].clone());
         self.except_struct_expression = except_struct_expression;
-        self.current_fn_mut().lvar_symbol_table.leave_scope();
+        self.current_fn_mut().lvar_symbol_table.borrow_mut().leave_scope();
         new_block_node(stmts, &self.tokens[begin..self.idx])
     }
 
@@ -1077,7 +1077,7 @@ impl<'a> Parser<'a> {
         let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Void));
         let token = &self.tokens[begin..self.idx];
         let node = new_variable_node_with_let(
-            &mut self.current_fn_mut().lvar_symbol_table,
+            &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
             ident,
             ty,
             token,
@@ -1609,11 +1609,15 @@ impl<'a> Parser<'a> {
                         node,
                         ident,
                         args,
-                        &self.tokens[begin..self.idx]
+                        &self.tokens[begin..self.idx],
                     );
                 } else {
-                    // field or property
-                    node = new_field_node(node, ident, &self.tokens[begin..self.idx]);
+                    node = new_field_or_property_node(
+                        Rc::clone(&self.current_fn().lvar_symbol_table),
+                        node,
+                        ident,
+                        &self.tokens[begin..self.idx],
+                    );
                 }
             } else {
                 return node;
@@ -1701,7 +1705,7 @@ impl<'a> Parser<'a> {
             }
             new_function_call_node(name, args, &self.tokens[begin..self.idx])
         } else if !self.except_struct_expression && self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
-            // struct
+            // struct expression
             let begin = self.idx-2;
             let mut field = vec![];
             while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
@@ -1717,7 +1721,7 @@ impl<'a> Parser<'a> {
             let current_mod = self.current_mod.to_vec();
             let reference = self.foreign_reference.clone();
             new_struct_expr_node(
-                &mut self.current_fn_mut().lvar_symbol_table,
+                &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
                 reference,
                 name,
                 field,
@@ -1726,7 +1730,7 @@ impl<'a> Parser<'a> {
             )
         } else {
             // local variable or parameter
-            if let Some(obj) = self.current_fn().lvar_symbol_table.find(name) {
+            if let Some(obj) = self.current_fn().lvar_symbol_table.borrow().find(name) {
                 new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
             } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
                 new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
