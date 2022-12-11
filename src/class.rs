@@ -9,6 +9,7 @@ pub struct Dummy();
 pub struct Struct<'a> {
     pub name: String,
     pub field: Vec<Object>,
+    pub properties: Vec<Object>,
     pub path: Vec<String>,
     pub reference: Option<String>,
     //pub impls: Vec<Impl<'a>>,  // trait毎
@@ -20,6 +21,7 @@ impl<'a> Struct<'a> {
         Struct {
             name,
             field: vec![],
+            properties: vec![],
             path,
             reference,
             //impls: vec![],
@@ -56,6 +58,7 @@ impl<'a> FindSymbol for Vec<Rc<Struct<'a>>> {
 pub struct Class<'a> {
     pub name: String,
     pub field: Vec<Object>,
+    pub properties: Vec<Object>,
     pub path: Vec<String>,
     pub reference: Option<String>,
     //pub impls: Vec<Impl<'a>>,  // trait毎
@@ -67,6 +70,7 @@ impl<'a> Class<'a> {
         Class {
             name,
             field: vec![],
+            properties: vec![],
             path,
             reference,
             //impls: vec![],

@@ -13,6 +13,7 @@ pub struct Program<'a> {
     pub current_namespace: Rc<RefCell<NameSpace<'a>>>,
     pub errors: Rc<RefCell<Errors>>,
     pub references: Vec<Attribute>,
+    pub ret_address: RefCell<bool>,
 }
 
 impl<'a> Program<'a> {
@@ -25,6 +26,7 @@ impl<'a> Program<'a> {
             current_namespace: namespace,
             errors,
             references: vec![],
+            ret_address: RefCell::new(false),
         }
     }
 

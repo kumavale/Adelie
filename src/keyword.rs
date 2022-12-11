@@ -16,6 +16,7 @@ pub enum Keyword {
     Extern,
     False,
     Fn,
+    Get,
     If,
     Impl,
     Let,
@@ -24,6 +25,7 @@ pub enum Keyword {
     Mut,
     SelfLower,
     SelfUpper,
+    Set,
     Struct,
     True,
     Return,
@@ -43,6 +45,7 @@ impl fmt::Display for Keyword {
             Keyword::Extern    => write!(f, "extern"),
             Keyword::False     => write!(f, "false"),
             Keyword::Fn        => write!(f, "fn"),
+            Keyword::Get       => write!(f, "get"),
             Keyword::If        => write!(f, "if"),
             Keyword::Impl      => write!(f, "impl"),
             Keyword::Let       => write!(f, "let"),
@@ -51,6 +54,7 @@ impl fmt::Display for Keyword {
             Keyword::Mut       => write!(f, "mut"),
             Keyword::SelfLower => write!(f, "self"),
             Keyword::SelfUpper => write!(f, "Self"),
+            Keyword::Set       => write!(f, "set"),
             Keyword::Struct    => write!(f, "struct"),
             Keyword::True      => write!(f, "true"),
             Keyword::Return    => write!(f, "return"),
@@ -121,7 +125,7 @@ impl Type {
             Type::Bool            => "bool".to_string(),
             Type::Char            => "char".to_string(),
             Type::String          => "string".to_string(),
-            Type::_Self(_, n, _)  => n.to_string(),
+            Type::_Self(_, n, _)  => format!("valuetype {}", n),
             Type::Struct(r, p, n, _) |
             Type::Enum(r, p, n)   => {
                 if let Some(r) = r {

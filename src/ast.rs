@@ -78,7 +78,8 @@ pub enum NodeKind<'a> {
         obj: Rc<RefCell<Object>>,
         field: Vec<Node<'a>>,
     },
-    Field {
+    FieldOrProperty {
+        lvar_symbol_table: Rc<RefCell<SymbolTable>>,
         expr: Box<Node<'a>>,
         ident: String,
     },
@@ -388,14 +389,7 @@ pub fn new_struct_expr_node<'a>(
     token: &'a [Token],
     current_mod: Vec<String>,
 ) -> Node<'a> {
-    fn seq() -> usize {
-        unsafe {
-            static mut ID: usize = 0;
-            ID += 1;
-            ID
-        }
-    }
-    let unique_name = format!("{}:{}", name, seq());
+    let unique_name = format!("{}:{}", name, crate::seq!());
     let obj = Rc::new(RefCell::new(
             Object::new(unique_name,
                         symbol_table.len(),
@@ -413,13 +407,15 @@ pub fn new_struct_expr_node<'a>(
     }
 }
 
-pub fn new_field_node<'a>(
+pub fn new_field_or_property_node<'a>(
+    lvar_symbol_table: Rc<RefCell<SymbolTable>>,
     expr: Node<'a>,
     ident: String,
     token: &'a [Token],
 ) -> Node<'a> {
     Node {
-        kind: NodeKind::Field {
+        kind: NodeKind::FieldOrProperty {
+            lvar_symbol_table,
             expr: Box::new(expr),
             ident,
         },

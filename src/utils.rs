@@ -20,3 +20,14 @@ impl Digits for usize {}
 pub fn remove_seq(name: &str) -> String {
     name.split(':').next().unwrap().to_string()
 }
+
+#[macro_export]
+macro_rules! seq {
+    () => {
+        unsafe {
+            static mut ID: usize = 0;
+            ID += 1;
+            ID
+        }
+    };
+}
