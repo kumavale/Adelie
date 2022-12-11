@@ -78,7 +78,7 @@ pub enum NodeKind<'a> {
         obj: Rc<RefCell<Object>>,
         field: Vec<Node<'a>>,
     },
-    Field {
+    FieldOrProperty {
         expr: Box<Node<'a>>,
         ident: String,
     },
@@ -419,7 +419,7 @@ pub fn new_field_node<'a>(
     token: &'a [Token],
 ) -> Node<'a> {
     Node {
-        kind: NodeKind::Field {
+        kind: NodeKind::FieldOrProperty {
             expr: Box::new(expr),
             ident,
         },

@@ -32,7 +32,7 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Type {
         NodeKind::Struct { obj, field } => {
             gen_il_struct(node.token, p, obj.borrow(), field)
         }
-        NodeKind::Field { expr, ident } => {
+        NodeKind::FieldOrProperty { expr, ident } => {
             gen_il_field(node.token, p, *expr, &ident)
         }
         NodeKind::Variable { obj } => {
@@ -466,9 +466,9 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 _ => unimplemented!(),
             }
         }
-        NodeKind::Field { expr, ident } => {
-            let field_ty = gen_il(*expr, p);
-            match field_ty {
+        NodeKind::FieldOrProperty { expr, ident } => {
+            let parent_ty = gen_il(*expr, p);
+            match parent_ty {
                 Type::Struct(_, ref path, ref name, is_mutable) |
                 Type::_Self(ref path, ref name, is_mutable) => {
                     let namespace = p.namespace.borrow();
@@ -491,7 +491,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
-                            println!("\tstfld {} {}::{}", field.ty.borrow().to_ilstr(), field_ty.to_ilstr(), ident);
+                            println!("\tstfld {} {}::{}", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
                         } else {
                             e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                         }
@@ -521,7 +521,20 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
-                            println!("\tstfld {} {}::{}", field.ty.borrow().to_ilstr(), field_ty.to_ilstr(), ident);
+                            println!("\tstfld {} {}::{}", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+                        } else if let Some(property) = cl.properties.iter().find(|o|o.name==ident) {
+                            let rty = gen_il(rhs, p);
+                            match (&*property.ty.borrow(), &rty) {
+                                (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+                                _ if *property.ty.borrow() == rty => (),
+                                _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &property.ty.borrow(), &rty)
+                            }
+                            if !is_mutable {
+                                let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
+                                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                            }
+                            let method_name = format!("set_{}", ident);
+                            println!("\tcall instance void {}::{}({})", parent_ty.to_ilstr(), method_name, property.ty.borrow().to_ilstr());
                         } else {
                             e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                         }

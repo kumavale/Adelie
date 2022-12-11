@@ -812,13 +812,44 @@ impl<'a> Parser<'a> {
                 self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
                 break;
             }
-            if cl.field.iter().any(|o|o.name==ident) {
-                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
-            }
+
             self.expect(TokenKind::Colon);
-            if let Some(ty) = self.type_no_bounds() {
-                let obj = Object::new(ident, cl.field.len(), false, ty, false);
-                cl.field.push(obj);
+            let ty = self.type_no_bounds();
+
+            if self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
+                // property
+                if cl.properties.iter().any(|o|o.name==ident) {
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                }
+                if self.eat_keyword(Keyword::Set) {
+                    self.expect(TokenKind::Semi);
+                    if self.eat_keyword(Keyword::Get) {
+                        self.expect(TokenKind::Semi);
+                    }
+                } else if self.eat_keyword(Keyword::Get) {
+                    self.expect(TokenKind::Semi);
+                    if self.eat_keyword(Keyword::Set) {
+                        self.expect(TokenKind::Semi);
+                    }
+                } else {
+                }
+                if let Some(ty) = ty {
+                    // TODO: backing fieldの生成
+                    let obj = Object::new(ident, cl.field.len(), false, ty.clone(), false);
+                    cl.properties.push(obj);
+                    let dummy = Object::new("".to_string(), cl.field.len(), false, ty, false);
+                    cl.field.push(dummy);
+                }
+                self.expect(TokenKind::CloseDelim(Delimiter::Brace));
+            } else {
+                // field
+                if cl.field.iter().any(|o|o.name==ident) {
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                }
+                if let Some(ty) = ty {
+                    let obj = Object::new(ident, cl.field.len(), false, ty, false);
+                    cl.field.push(obj);
+                }
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
                 e0008(Rc::clone(&self.errors), self.errorset());
@@ -1545,7 +1576,7 @@ impl<'a> Parser<'a> {
                         &self.tokens[begin..self.idx]
                     );
                 } else {
-                    // field
+                    // field or property
                     node = new_field_node(node, ident, &self.tokens[begin..self.idx]);
                 }
             } else {
