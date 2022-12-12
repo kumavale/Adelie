@@ -1,0 +1,9 @@
+fn main() {
+    // should panic
+    //panic!();
+    //panic!("");
+    //panic!(42);
+    //panic!("{}", {let a:i32=42;a});
+
+    println!("ok");
+}

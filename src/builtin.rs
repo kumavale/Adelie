@@ -11,6 +11,7 @@ use std::rc::Rc;
 pub enum Builtin {
     Assert,
     AssertEq,
+    Panic,
     Print,
     Println,
     ReadLine,
@@ -21,6 +22,7 @@ impl fmt::Display for Builtin {
         match self {
             Builtin::Assert   => write!(f, "assert"),
             Builtin::AssertEq => write!(f, "assert_eq"),
+            Builtin::Panic    => write!(f, "panic"),
             Builtin::Print    => write!(f, "print"),
             Builtin::Println  => write!(f, "println"),
             Builtin::ReadLine => write!(f, "read_line"),
@@ -32,6 +34,7 @@ pub fn gen_il_builtin<'a>(token: &[Token], kind: Builtin, args: Vec<Node>, p: &'
     match kind {
         Builtin::Assert   => gen_il_builtin_assert(token, args, p),
         Builtin::AssertEq => gen_il_builtin_assert_eq(token, args, p),
+        Builtin::Panic    => gen_il_builtin_panic(token, args, p),
         Builtin::Print    => gen_il_builtin_print(token, args, p),
         Builtin::Println  => gen_il_builtin_println(token, args, p),
         Builtin::ReadLine => gen_il_builtin_read_line(token, args, p),
@@ -55,6 +58,68 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
     let lhs = args.pop().unwrap();
     gen_il(new_binary_op_node(BinaryOpKind::Eq, lhs, rhs, token), p);
     println!("\tcall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
+    Type::Void
+}
+
+/// panicked at '{msg}', src/main.rs:2:5
+fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
+    println!("\tldstr \"paniced at '\"");
+    println!("\tcall void [mscorlib]System.Console::Write(string)");
+    let argc = args.len();
+    match argc {
+        0 => {
+            println!("\tldstr \"explicit panic\"");
+            println!("\tcall void [mscorlib]System.Console::Write(string)");
+        }
+        1 => {
+            let format = args.drain(..1).next().unwrap();
+            let token = format.token;
+            // check arg counts
+            if format_arg_count(&format) != argc-1 {
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
+            }
+            let ty = gen_il(format_shaping(format), p);
+            println!("\tcall void [mscorlib]System.Console::Write({})",
+                match ty {
+                    Type::Numeric(n) => n.to_ilstr(),
+                    Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
+                    b @ Type::Box(_) => b.to_ilstr(),
+                    _ => unimplemented!()
+                });
+        }
+        _ => {
+            let format = args.drain(..1).next().unwrap();
+            let token = format.token;
+            if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
+                // format argument must be a string literal
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "format argument must be a string literal");
+            }
+            // check arg counts
+            if format_arg_count(&format) != argc-1 {
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
+            }
+            gen_il(format_shaping(format), p);
+            println!("\tldc.i4 {}", argc);
+            println!("\tnewarr object");
+            args.into_iter()
+                .enumerate()
+                .for_each(|(i, arg)| {
+                    println!("\tdup");
+                    println!("\tldc.i4 {}", i);
+                    let ty = gen_il(arg, p);
+                    println!("\tbox {}", ty.to_ilstr());
+                    println!("\tstelem.ref");
+                });
+            println!("\tcall void [mscorlib]System.Console::Write(string, object[])");
+        }
+    }
+    println!("\tldstr \"', {}:{}:{}\"", p.path, token[0].line, token[0].cur);
+    println!("\tcall void [mscorlib]System.Console::WriteLine(string)");
+
+    println!("\tldc.i4 101");
+    println!("\tcall void [mscorlib]System.Environment::Exit(int32)");
+
+    // TODO: Type::Never
     Type::Void
 }
 

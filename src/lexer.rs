@@ -278,6 +278,7 @@ impl<'a> Lexer<'a> {
                 match &*ident {
                     "assert"    => Token::new(TokenKind::Builtin(Builtin::Assert),   self.col, self.line),
                     "assert_eq" => Token::new(TokenKind::Builtin(Builtin::AssertEq), self.col, self.line),
+                    "panic"     => Token::new(TokenKind::Builtin(Builtin::Panic),    self.col, self.line),
                     "print"     => Token::new(TokenKind::Builtin(Builtin::Print),    self.col, self.line),
                     "println"   => Token::new(TokenKind::Builtin(Builtin::Println),  self.col, self.line),
                     "read_line" => Token::new(TokenKind::Builtin(Builtin::ReadLine), self.col, self.line),
