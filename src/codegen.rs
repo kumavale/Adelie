@@ -386,7 +386,6 @@ fn gen_il_field_or_property<'a>(
                 field.ty.borrow().clone()
             }
         } else if let Some(property) = st.properties.iter().find(|o|o.name==ident) {
-            let method_name = format!("get_{}", ident);
             if let Type::Struct(..) = parent_ty {
                 // parent_tyを`stloc`するための一意なローカル変数を定義する
                 // スタックのトップには`struct`の'値'が入っている
@@ -401,8 +400,13 @@ fn gen_il_field_or_property<'a>(
                 println!("\tldloca {}", obj.offset);
                 lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
             }
+            let method_name = format!("get_{}", ident);
             println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
-            property.ty.borrow().clone()
+            if is_mutable {
+                property.ty.borrow().clone().into_mutable()
+            } else {
+                property.ty.borrow().clone()
+            }
         } else {
             e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name);
             Type::Void
@@ -420,7 +424,6 @@ fn gen_il_field_or_property<'a>(
                 field.ty.borrow().clone()
             }
         } else if let Some(property) = cl.properties.iter().find(|o|o.name==ident) {
-            let method_name = format!("get_{}", ident);
             if let Type::Struct(..) = parent_ty {
                 // parent_tyを`stloc`するための一意なローカル変数を定義する
                 // スタックのトップには`struct`の'値'が入っている
@@ -435,8 +438,13 @@ fn gen_il_field_or_property<'a>(
                 println!("\tldloca {}", obj.offset);
                 lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
             }
+            let method_name = format!("get_{}", ident);
             println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
-            property.ty.borrow().clone()
+            if is_mutable {
+                property.ty.borrow().clone().into_mutable()
+            } else {
+                property.ty.borrow().clone()
+            }
         } else {
             e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name);
             Type::Void
