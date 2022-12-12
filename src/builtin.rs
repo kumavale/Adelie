@@ -63,14 +63,9 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
 
 /// panicked at '{msg}', src/main.rs:2:5
 fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
-    println!("\tldstr \"paniced at '\"");
-    println!("\tcall void [mscorlib]System.Console::Write(string)");
     let argc = args.len();
     match argc {
-        0 => {
-            println!("\tldstr \"explicit panic\"");
-            println!("\tcall void [mscorlib]System.Console::Write(string)");
-        }
+        0 => println!("\tldstr \"explicit panic\""),
         1 => {
             let format = args.drain(..1).next().unwrap();
             let token = format.token;
@@ -78,14 +73,10 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
             if format_arg_count(&format) != argc-1 {
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
+            println!("\tldstr \"{{0}}\"");
             let ty = gen_il(format_shaping(format), p);
-            println!("\tcall void [mscorlib]System.Console::Write({})",
-                match ty {
-                    Type::Numeric(n) => n.to_ilstr(),
-                    Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
-                    b @ Type::Box(_) => b.to_ilstr(),
-                    _ => unimplemented!()
-                });
+            println!("\tbox {}", ty.to_ilstr());
+            println!("\tcall string [mscorlib]System.String::Format(string, object)");
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
@@ -110,14 +101,11 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
                     println!("\tbox {}", ty.to_ilstr());
                     println!("\tstelem.ref");
                 });
-            println!("\tcall void [mscorlib]System.Console::Write(string, object[])");
+            println!("\tcall string [mscorlib]System.String::Format(string, object[])");
         }
     }
-    println!("\tldstr \"', {}:{}:{}\"", p.path, token[0].line, token[0].cur);
-    println!("\tcall void [mscorlib]System.Console::WriteLine(string)");
-
-    println!("\tldc.i4 101");
-    println!("\tcall void [mscorlib]System.Environment::Exit(int32)");
+    println!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur);
+    println!("\tcall void '<adelie>panic'(string, string)");
 
     // TODO: Type::Never
     Type::Void
