@@ -34,20 +34,6 @@ extern {
         }
     }
 }
-#[link(name="System.Drawing.Primitives.dll", publickeytoken="B0 3F 5F 7F 11 D5 0A 3A")]
-extern {
-    mod System {
-        mod Drawing {
-            struct Size {
-                Width:  i32 { get; set; },
-                Height: i32 { get; set; },
-            }
-            impl Size {
-                fn .ctor(w: i32, h: i32) {}
-            }
-        }
-    }
-}
 struct Form1 {
     form: System::Windows::Forms::Form,
     button: System::Windows::Forms::Button,
@@ -60,13 +46,12 @@ impl Form1 {
         }
     }
     fn Text(&mut self, text: string) { self.form.Text = text }
-    fn ClientSize(&mut self, size: System::Drawing::Size) { self.form.ClientSize = size }
 }
 fn main() {
+    // class継承、ネストclassのテスト
     let mut form1: Form1 = Form1::new();
     form1.Text("Counter");
     form1.button.Text = "Click Me!";
-    form1.ClientSize(System::Drawing::Size::.ctor(300, 200));
     form1.form.Controls.Add(form1.button);
     //System::Windows::Forms::Application::Run(form1.form);
     println!("ok");
