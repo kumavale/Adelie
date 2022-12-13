@@ -492,8 +492,13 @@ impl<'a> Parser<'a> {
                 Some(tmp_ty)
             }
         } else if self.eat_keyword(Keyword::SelfUpper) {
-            self.current_fn_mut().is_static = false;
-            Some(RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false)))
+            if self.current_impl.is_none() {
+                let message = "`Self` is only available in impls";
+                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), message);
+                None
+            } else {
+                Some(RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false)))
+            }
         } else {
             e0002(Rc::clone(&self.errors), self.errorset());
             None
