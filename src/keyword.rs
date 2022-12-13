@@ -70,10 +70,12 @@ pub enum Type {
     Bool,
     Char,
     String,
+    // TODO: Rc<RefCell<Struct<'a>>>を持たせることを検討
     Struct(Option<String>, Vec<String>, String, bool),  // (dll, path, name, is_mutable)
     _Self(Vec<String>, String, bool),   // (path, name, is_mutable)
     Enum(Option<String>, Vec<String>, String),  // (dll, path, name)
-    Class(Option<String>, Vec<String>, String, Option<RRType>, bool),  // (dll, path, name, base, is_mutable)
+    // TODO: Rc<RefCell<Class<'a>>>を持たせることを検討
+    Class(Option<String>, Vec<String>, String, Option<RRType>, Option<String>, bool),  // (dll, path, name, base, parent_name, is_mutable)
     Box(RRType),
     Ptr(RRType),
     Void,
@@ -104,9 +106,9 @@ impl PartialEq for Type {
 impl Type {
     pub fn into_mutable(self) -> Type {
         match self {
-            Type::Struct(r, p, n, _)   => Type::Struct(r, p, n, true),
-            Type::_Self(p, n, _)       => Type::_Self(p, n, true),
-            Type::Class(r, p, n, b, _) => Type::Class(r, p, n, b, true),
+            Type::Struct(r, p, n, _)       => Type::Struct(r, p, n, true),
+            Type::_Self(p, n, _)           => Type::_Self(p, n, true),
+            Type::Class(r, p, n, b, pn, _) => Type::Class(r, p, n, b, pn, true),
             t => t,
         }
     }
@@ -129,7 +131,7 @@ impl fmt::Display for Type {
             Type::Struct(.., n, _)   => write!(f, "{}", n),
             Type::_Self(_, n, _)     => write!(f, "{}", n),
             Type::Enum(_, _, n)      => write!(f, "{}", n),
-            Type::Class(.., n, _, _) => write!(f, "{}", n),
+            Type::Class(_, _, n, ..) => write!(f, "{}", n),
             Type::Box(t)             => write!(f, "Box<{}>", t.borrow()),
             Type::Ptr(t)             => write!(f, "&{}", t.borrow()),
             Type::Void               => write!(f, "void"),
@@ -154,9 +156,13 @@ impl Type {
                     format!("valuetype {}", n)
                 }
             }
-            Type::Class(r, p, n, ..) => {
+            Type::Class(r, p, n, _, pn, _) => {
                 if let Some(r) = r {
-                    format!("class [{}]{}.{}", r, p.join("."), n)
+                    if let Some(pn) = pn {
+                        format!("class [{}]{}.{}/{}", r, p.join("."), pn, n)
+                    } else {
+                        format!("class [{}]{}.{}", r, p.join("."), n)
+                    }
                 } else {
                     format!("class {}", n)
                 }

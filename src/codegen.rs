@@ -231,7 +231,7 @@ fn gen_il_method<'a>(
                 Type::Void
             }
         }
-        Type::Class(_, ref path, ref cl_name, ref cl_base, _) => {
+        Type::Class(_, ref path, ref cl_name, ref cl_base, _, _) => {
             let ns = p.namespace.borrow();
             let ns = if let Some(ns) = ns.find(path) {
                 ns
@@ -273,7 +273,7 @@ fn gen_il_method<'a>(
                         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                         _ if arg_ty == **param_ty => (),
-                        (Type::Class(.., base, _), Type::Class(..)) => {
+                        (Type::Class(.., base, _, _), Type::Class(..)) => {
                             // TODO: 再帰
                             if let Some(base) = &base {
                                 if *base.borrow() != **param_ty {
@@ -354,7 +354,7 @@ fn gen_il_field_or_property<'a>(
             //println!("\tldarg.0");
             (path, name, None, is_mutable)
         }
-        Type::Class(_, path, name, base, is_mutable) => {
+        Type::Class(_, path, name, base, _, is_mutable) => {
             (path, name, base, is_mutable)
         }
         Type::Ptr(ty) => {
@@ -702,7 +702,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
                     }
                 }
-                Type::Class(_, ref path, ref name, ref base, is_mutable) => {
+                Type::Class(_, ref path, ref name, ref base, _, is_mutable) => {
                     let namespace = p.namespace.borrow();
                     let ns = if let Some(ns) = namespace.find(path) {
                         ns

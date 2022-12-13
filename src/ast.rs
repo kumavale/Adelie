@@ -42,13 +42,13 @@ pub enum ShortCircuitOpKind {
     Or,   // ||
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Node<'a> {
     pub kind: NodeKind<'a>,
     pub token: &'a [Token],
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind<'a> {
     Integer {
         ty: Type,
