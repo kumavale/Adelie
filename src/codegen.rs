@@ -231,7 +231,7 @@ fn gen_il_method<'a>(
                 Type::Void
             }
         }
-        Type::Class(_, ref path, ref cl_name, ref cl_base, _, _) => {
+        Type::Class(_, ref path, ref cl_name, _, _, _) => {
             let ns = p.namespace.borrow();
             let ns = if let Some(ns) = ns.find(path) {
                 ns
@@ -716,7 +716,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
                     }
                 }
-                Type::Class(_, ref path, ref name, ref base, _, is_mutable) => {
+                Type::Class(_, ref path, ref name, _, _, is_mutable) => {
                     let namespace = p.namespace.borrow();
                     let ns = if let Some(ns) = namespace.find(path) {
                         ns
