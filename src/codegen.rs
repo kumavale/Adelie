@@ -273,13 +273,21 @@ fn gen_il_method<'a>(
                         (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
                         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
                         _ if arg_ty == **param_ty => (),
-                        (Type::Class(.., base, _, _), Type::Class(..)) => {
-                            // TODO: 再帰
-                            if let Some(base) = &base {
-                                if *base.borrow() != **param_ty {
-                                    e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty);
+                        (Type::Class(.., base_ty, _, _), Type::Class(..)) => {
+                            fn check_base(base_ty: &Option<RRType>, param_ty: &Type) -> Result<(), ()> {
+                                if let Some(base_ty) = base_ty {
+                                    if *base_ty.borrow() != *param_ty {
+                                        let base_ty = base_ty.borrow();
+                                        let base_ty = if let Type::Class(.., b, _, _) = &*base_ty { b } else { unreachable!() };
+                                        check_base(base_ty, param_ty)
+                                    } else {
+                                        Ok(())
+                                    }
+                                } else {
+                                    Err(())
                                 }
-                            } else {
+                            }
+                            if check_base(base_ty, param_ty).is_err() {
                                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty);
                             }
                         }
@@ -458,52 +466,58 @@ fn gen_il_field_or_property<'a>(
             }
         } else {
             // baseクラスから検索
-            // TODO: 再帰
-            if let Some(base) = base {
-                let ns = p.namespace.borrow();
-                let base_ty = base.borrow();
-                let (path, name)  = if let Type::Class(_, p, n, ..) = &*base_ty { (p, n) } else { unreachable!() };
-                if let Some(ns) = ns.find(path) {
-                    if let Some(cl) = ns.find_class(name) {
-                        if let Some(field) = cl.field.iter().find(|o|o.name==ident) {
-                            if *p.ret_address.borrow() {
-                                println!("\tldflda {} {}::{}", field.ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
-                            } else {
-                                println!("\tldfld {} {}::{}", field.ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
-                            }
-                            if is_mutable {
-                                return field.ty.borrow().clone().into_mutable();
-                            } else {
-                                return field.ty.borrow().clone();
-                            }
-                        } else if let Some(property) = cl.properties.iter().find(|o|o.name==ident) {
-                            if let Type::Struct(..) = parent_ty {
-                                // parent_tyを`stloc`するための一意なローカル変数を定義する
-                                // スタックのトップには`struct`の'値'が入っている
-                                // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
-                                let unique_name = format!("{}:{}", base_ty, crate::seq!());
-                                let obj = Object::new(unique_name,
-                                    lvar_symbol_table.borrow().len(),
-                                    false,
-                                    RRType::new(base_ty.clone()),
-                                    true);
-                                println!("\tstloc {}", obj.offset);
-                                println!("\tldloca {}", obj.offset);
-                                lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
-                            }
-                            let method_name = format!("get_{}", ident);
-                            println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), base_ty.to_ilstr(), method_name);
-                            if is_mutable {
-                                return property.ty.borrow().clone().into_mutable();
-                            } else {
-                                return property.ty.borrow().clone();
+            fn search_from_base(base_ty: Option<RRType>, parent_ty: &Type, p: &Program, lvar_symbol_table: Rc<RefCell<SymbolTable>>, ident: &str, is_mutable: bool) -> Result<Type, ()> {
+                if let Some(base_ty) = base_ty {
+                    let ns = p.namespace.borrow();
+                    let base_ty = base_ty.borrow();
+                    let (path, name, base)  = if let Type::Class(_, p, n, b, ..) = &*base_ty { (p, n, b) } else { unreachable!() };
+                    if let Some(ns) = ns.find(path) {
+                        if let Some(cl) = ns.find_class(name) {
+                            if let Some(field) = cl.field.iter().find(|o|o.name==ident) {
+                                if *p.ret_address.borrow() {
+                                    println!("\tldflda {} {}::{}", field.ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
+                                } else {
+                                    println!("\tldfld {} {}::{}", field.ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
+                                }
+                                if is_mutable {
+                                    return Ok(field.ty.borrow().clone().into_mutable());
+                                } else {
+                                    return Ok(field.ty.borrow().clone());
+                                }
+                            } else if let Some(property) = cl.properties.iter().find(|o|o.name==ident) {
+                                if let Type::Struct(..) = *parent_ty {
+                                    // parent_tyを`stloc`するための一意なローカル変数を定義する
+                                    // スタックのトップには`struct`の'値'が入っている
+                                    // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
+                                    let unique_name = format!("{}:{}", base_ty, crate::seq!());
+                                    let obj = Object::new(unique_name,
+                                        lvar_symbol_table.borrow().len(),
+                                        false,
+                                        RRType::new(base_ty.clone()),
+                                        true);
+                                    println!("\tstloc {}", obj.offset);
+                                    println!("\tldloca {}", obj.offset);
+                                    lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
+                                }
+                                let method_name = format!("get_{}", ident);
+                                println!("\tcall instance {} {}::{}()", property.ty.borrow().to_ilstr(), base_ty.to_ilstr(), method_name);
+                                if is_mutable {
+                                    return Ok(property.ty.borrow().clone().into_mutable());
+                                } else {
+                                    return Ok(property.ty.borrow().clone());
+                                }
                             }
                         }
                     }
+                    return search_from_base(base.clone(), parent_ty, p, Rc::clone(&lvar_symbol_table), ident, is_mutable);
                 }
+                Err(())
             }
-            e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name);
-            Type::Void
+            search_from_base(base, &parent_ty, p, Rc::clone(&lvar_symbol_table), ident, is_mutable)
+                .unwrap_or_else(|()| {
+                    e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name);
+                    Type::Void
+                })
         }
     } else {
         // unreachable?
