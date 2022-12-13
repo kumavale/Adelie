@@ -5,5 +5,9 @@ fn main() {
     //panic!(42);
     //panic!("{}", {let a:i32=42;a});
 
+    // should panic
+    assert!({let a:bool=false;a});
+    //assert_eq!({let a:i32=1;a}, 2);
+
     println!("ok");
 }
