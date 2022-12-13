@@ -79,7 +79,7 @@ impl fmt::Display for LiteralKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             LiteralKind::Char(c)    => write!(f, "'{}'", c),
-            LiteralKind::String(s)  => write!(f, "\"{}\"", s),
+            LiteralKind::String(s)  => write!(f, "\\\"{}\\\"", s),
             LiteralKind::Integer(i) => write!(f, "{}", i),
         }
     }

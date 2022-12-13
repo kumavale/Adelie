@@ -63,6 +63,7 @@ impl fmt::Display for Keyword {
     }
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 #[derive(Clone, Debug, Eq, Hash)]
 pub enum Type {
     Numeric(Numeric),

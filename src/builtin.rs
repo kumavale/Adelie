@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::codegen::*;
 use crate::error::*;
-use crate::keyword::Type;
+use crate::keyword::{Type, Numeric};
 use crate::program::Program;
 use crate::token::{LiteralKind, Token, TokenKind};
 use std::fmt;
@@ -41,24 +41,87 @@ pub fn gen_il_builtin<'a>(token: &[Token], kind: Builtin, args: Vec<Node>, p: &'
     }
 }
 
-fn gen_il_builtin_assert<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
+/// assertion failed: {arg}
+fn gen_il_builtin_assert<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
     if args.len() != 1 {
-        todo!();
+        e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 1, args.len());
+        return Type::Void;
     }
-    gen_il(args.pop().unwrap(), p);
-    println!("\tcall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
+    let arg = args.pop().unwrap();
+    let stringizing_arg = arg.token.iter().map(|t|format!("{}",t.kind)).collect::<Vec<_>>().join(" ");
+    let ty = gen_il(arg, p);
+    if ty != Type::Bool {
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ty);
+    }
+    let end_label = format!("\tIL_assert_end{}", crate::seq!());
+    println!("\tbrtrue {}", end_label);
+    println!("\tldstr \"assertion failed: {stringizing_arg}\"");
+    println!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur);
+    println!("\tcall void '<adelie>panic'(string, string)");
+    println!("{}:", end_label);
     Type::Void
 }
 
 fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Type {
     if args.len() != 2 {
-        todo!();
+        e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 2, args.len());
+        return Type::Void;
     }
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
-    gen_il(new_binary_op_node(BinaryOpKind::Eq, lhs, rhs, token), p);
-    println!("\tcall void [System.Diagnostics.Debug]System.Diagnostics.Debug::Assert(bool)");
+    let stringizing_left  = lhs.token.iter().map(|t|format!("{}",t.kind)).collect::<Vec<_>>().join(" ");
+    let stringizing_right = rhs.token.iter().map(|t|format!("{}",t.kind)).collect::<Vec<_>>().join(" ");
+    let lty = gen_il(lhs, p);
+    let rty = gen_il(rhs, p);
+    match (&lty, &rty) {
+        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+        _ if lty == rty => (),
+        _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty, &rty)
+    }
+    println!("    ceq");
+    let end_label = format!("\tIL_assert_eq_end{}", crate::seq!());
+    println!("    brtrue {}", end_label);
+    println!("    ldstr \"assertion failed: `(left == right)`\\n\"");
+    println!("    ldstr \"  left: `{stringizing_left}`\\n\"");
+    println!("    ldstr \" right: `{stringizing_right}`\"");
+    println!("    call string [mscorlib]System.String::Concat(string, string, string)");
+    println!("    ldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur);
+    println!("    call void '<adelie>panic'(string, string)");
+    println!("{}:", end_label);
     Type::Void
+    // MEMO
+    //($left:expr, $right:expr) => {
+    //    let left  = $left;
+    //    let right = $right;
+    //    if !(left == right) {
+    //        ldloc left
+    //        ldloc right
+    //        ldloc locate
+    //        call void '<adelie>assert_failed'(left, right, locate);
+    //    }
+    //};
+    //println!(".method public static hidebysig specialname void '<adelie>assert_eq'(object left, object right, string locate) cil managed {{");
+    //println!("    .maxstack 4");
+    //println!("    ldarg 0");
+    //println!("    unbox.any 型が分からない");
+    //println!("    ldarg 1");
+    //println!("    unbox.any 型が分からない");
+    //println!("    ceq");
+    //let end_label = format!("\tIL_assert_eq_end{}", crate::seq!());
+    //println!("    brtrue {}", end_label);
+    //println!("    ldstr \"assertion failed: `(left == right)`\\n\"");
+    //println!("    ldstr \"  left: `{{0}}`\\n\"");
+    //println!("    ldarg 0");
+    //println!("    call string [mscorlib]System.String::Format(string, object)");
+    //println!("    ldstr \" right: `{{0}}`\"");
+    //println!("    ldarg 1");
+    //println!("    call string [mscorlib]System.String::Format(string, object)");
+    //println!("    call string [mscorlib]System.String::Concat(string, string, string)");
+    //println!("    call void '<adelie>panic'(string, string)");
+    //println!("{}:", end_label);
+    //println!("    ret");
+    //println!("}}");
 }
 
 /// panicked at '{msg}', src/main.rs:2:5
