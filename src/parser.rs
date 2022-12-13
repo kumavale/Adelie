@@ -826,6 +826,13 @@ impl<'a> Parser<'a> {
         }
         let name = self.expect_ident();
         let mut cl = Class::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
+
+        if self.eat(TokenKind::Colon) {
+            // クラスの継承
+            let base_class = self.type_no_bounds();
+            cl.base = base_class;
+        }
+
         if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), cl.name.to_string())) {
             // replace
             let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
@@ -833,12 +840,13 @@ impl<'a> Parser<'a> {
             } else {
                 unreachable!();
             };
-            *ty.borrow_mut() = Type::Class(self.foreign_reference.clone(), path, name, false);
+            *ty.borrow_mut() = Type::Class(self.foreign_reference.clone(), path, name, cl.base.clone(), false);
         } else {
             // insert
-            let ty = RRType::new(Type::Class(self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string(), false));
+            let ty = RRType::new(Type::Class(self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string(), cl.base.clone(), false));
             self.ident_types.insert((self.current_mod.to_vec(), cl.name.to_string()), ty);
         }
+
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let start_brace = self.idx-1;
         while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {

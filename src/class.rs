@@ -1,4 +1,5 @@
 use crate::function::Function;
+use crate::keyword::RRType;
 use crate::object::{Object, FindSymbol};
 use std::rc::Rc;
 
@@ -62,6 +63,8 @@ pub struct Class<'a> {
     pub path: Vec<String>,
     pub reference: Option<String>,
     //pub impls: Vec<Impl<'a>>,  // trait毎
+    /// 継承元クラス
+    pub base: Option<RRType>,
     pub _dummy: &'a Dummy,
 }
 
@@ -74,6 +77,7 @@ impl<'a> Class<'a> {
             path,
             reference,
             //impls: vec![],
+            base: None,
             _dummy: &Dummy(),
         }
     }
