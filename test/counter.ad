@@ -1,0 +1,73 @@
+#[link(name="System.Windows.Forms.dll", publickeytoken="B7 7A 5C 56 19 34 E0 89")]
+extern {
+    mod System {
+        mod Windows {
+            mod Forms {
+                class Control {
+                    class ControlCollection {}
+                    impl ControlCollection {
+                        fn Add(&self, value: Control) {}
+                    }
+                    Controls: ControlCollection { get; },
+                }
+                class ScrollableControl : Control {}
+                class ContainerControl : ScrollableControl {}
+                class Form : ContainerControl {
+                    Text: string { get; set; },
+                    ClientSize: System::Drawing::Size { set; get; },
+                }
+                impl Form {
+                    fn .ctor() {}
+                }
+                class ButtonBase : Control {}
+                class Button : ButtonBase {
+                    Text: string { get; set; },
+                }
+                impl Button {
+                    fn .ctor() {}
+                }
+                class Application {}
+                impl Application {
+                    fn Run(_: Form) {}
+                }
+            }
+        }
+    }
+}
+#[link(name="System.Drawing.Primitives.dll", publickeytoken="B0 3F 5F 7F 11 D5 0A 3A")]
+extern {
+    mod System {
+        mod Drawing {
+            struct Size {
+                Width:  i32 { get; set; },
+                Height: i32 { get; set; },
+            }
+            impl Size {
+                fn .ctor(w: i32, h: i32) {}
+            }
+        }
+    }
+}
+struct Form1 {
+    form: System::Windows::Forms::Form,
+    button: System::Windows::Forms::Button,
+}
+impl Form1 {
+    fn new() -> Form1 {
+        Form1 {
+            System::Windows::Forms::Form::.ctor(),
+            System::Windows::Forms::Button::.ctor(),
+        }
+    }
+    fn Text(&mut self, text: string) { self.form.Text = text }
+    fn ClientSize(&mut self, size: System::Drawing::Size) { self.form.ClientSize = size }
+}
+fn main() {
+    let mut form1: Form1 = Form1::new();
+    form1.Text("Counter");
+    form1.button.Text = "Click Me!";
+    form1.ClientSize(System::Drawing::Size::.ctor(300, 200));
+    form1.form.Controls.Add(form1.button);
+    //System::Windows::Forms::Application::Run(form1.form);
+    println!("ok");
+}

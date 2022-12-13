@@ -4,7 +4,7 @@ use crate::object::{FindSymbol, SymbolTable};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Function<'a> {
     pub name: String,
     pub rettype: RRType,

@@ -534,6 +534,15 @@ impl<'a> Parser<'a> {
                 program.current_namespace.borrow_mut().push_struct(st);
             }
             ItemKind::Class(cl) => {
+                for nested_class in &cl.nested_class {
+                    if program.current_namespace.borrow().find_class(&nested_class.name).is_some() {
+                        e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &nested_class.name);
+                    }
+                    program.current_namespace.borrow_mut().push_class(nested_class.clone());
+                }
+                for nested_impl in &cl.nested_impl {
+                    program.current_namespace.borrow_mut().push_impl(nested_impl.clone());
+                }
                 if program.current_namespace.borrow().find_class(&cl.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &cl.name);
                 }
@@ -605,7 +614,7 @@ impl<'a> Parser<'a> {
             let st = self.parse_item_struct();
             ItemKind::Struct(st)
         } else if self.eat_keyword(Keyword::Class) {
-            let class = self.parse_item_class();
+            let class = self.parse_item_class(None);
             ItemKind::Class(class)
         } else if self.eat_keyword(Keyword::Enum) {
             let enum_item = self.parse_item_enum();
@@ -820,12 +829,19 @@ impl<'a> Parser<'a> {
         ed
     }
 
-    fn parse_item_class(&mut self) -> Class<'a> {
+    fn parse_item_class(&mut self, parent_name: Option<String>) -> Class<'a> {
         if !self.is_foreign {
             e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]), "`class` must be inside an extern block");
         }
         let name = self.expect_ident();
         let mut cl = Class::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
+
+        if self.eat(TokenKind::Colon) {
+            // クラスの継承
+            let base_class = self.type_no_bounds();
+            cl.base = base_class;
+        }
+
         if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), cl.name.to_string())) {
             // replace
             let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
@@ -833,61 +849,76 @@ impl<'a> Parser<'a> {
             } else {
                 unreachable!();
             };
-            *ty.borrow_mut() = Type::Class(self.foreign_reference.clone(), path, name, false);
+            *ty.borrow_mut() = Type::Class(self.foreign_reference.clone(), path, name, cl.base.clone(), parent_name, false);
         } else {
             // insert
-            let ty = RRType::new(Type::Class(self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string(), false));
+            let ty = RRType::new(Type::Class(self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string(), cl.base.clone(), parent_name, false));
             self.ident_types.insert((self.current_mod.to_vec(), cl.name.to_string()), ty);
         }
+
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let start_brace = self.idx-1;
         while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
-            let ident = self.expect_ident();
-            if ident.is_empty() {
-                self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
-                break;
-            }
-
-            self.expect(TokenKind::Colon);
-            let ty = self.type_no_bounds();
-
-            if self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
-                // property
-                if cl.properties.iter().any(|o|o.name==ident) {
-                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
-                }
-                if self.eat_keyword(Keyword::Set) {
-                    self.expect(TokenKind::Semi);
-                    if self.eat_keyword(Keyword::Get) {
-                        self.expect(TokenKind::Semi);
-                    }
-                } else if self.eat_keyword(Keyword::Get) {
-                    self.expect(TokenKind::Semi);
-                    if self.eat_keyword(Keyword::Set) {
-                        self.expect(TokenKind::Semi);
-                    }
-                } else {
-                }
-                if let Some(ty) = ty {
-                    // TODO: backing fieldの生成
-                    let obj = Object::new(ident, cl.field.len(), false, ty.clone(), false);
-                    cl.properties.push(obj);
-                    let dummy = Object::new("".to_string(), cl.field.len(), false, ty, false);
-                    cl.field.push(dummy);
-                }
-                self.expect(TokenKind::CloseDelim(Delimiter::Brace));
+            if self.eat_keyword(Keyword::Class) {
+                // nested class
+                let mut class = self.parse_item_class(Some(cl.name.to_string()));
+                class.parent = Some(cl.name.to_string());
+                cl.nested_class.push(class);
+                self.eat(TokenKind::Comma);
+            } else if self.eat_keyword(Keyword::Impl) {
+                // impl of nested class
+                let impl_item = self.parse_item_impl();
+                cl.nested_impl.push(impl_item);
                 self.eat(TokenKind::Comma);
             } else {
-                // field
-                if cl.field.iter().any(|o|o.name==ident) {
-                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                // field or property
+                let ident = self.expect_ident();
+                if ident.is_empty() {
+                    self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
+                    break;
                 }
-                if let Some(ty) = ty {
-                    let obj = Object::new(ident, cl.field.len(), false, ty, false);
-                    cl.field.push(obj);
-                }
-                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-                    e0008(Rc::clone(&self.errors), self.errorset());
+
+                self.expect(TokenKind::Colon);
+                let ty = self.type_no_bounds();
+
+                if self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
+                    // property
+                    if cl.properties.iter().any(|o|o.name==ident) {
+                        e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                    }
+                    if self.eat_keyword(Keyword::Set) {
+                        self.expect(TokenKind::Semi);
+                        if self.eat_keyword(Keyword::Get) {
+                            self.expect(TokenKind::Semi);
+                        }
+                    } else if self.eat_keyword(Keyword::Get) {
+                        self.expect(TokenKind::Semi);
+                        if self.eat_keyword(Keyword::Set) {
+                            self.expect(TokenKind::Semi);
+                        }
+                    } else {
+                    }
+                    if let Some(ty) = ty {
+                        // TODO: backing fieldの生成
+                        let obj = Object::new(ident, cl.field.len(), false, ty.clone(), false);
+                        cl.properties.push(obj);
+                        let dummy = Object::new("".to_string(), cl.field.len(), false, ty, false);
+                        cl.field.push(dummy);
+                    }
+                    self.expect(TokenKind::CloseDelim(Delimiter::Brace));
+                    self.eat(TokenKind::Comma);
+                } else {
+                    // field
+                    if cl.field.iter().any(|o|o.name==ident) {
+                        e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                    }
+                    if let Some(ty) = ty {
+                        let obj = Object::new(ident, cl.field.len(), false, ty, false);
+                        cl.field.push(obj);
+                    }
+                    if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
+                        e0008(Rc::clone(&self.errors), self.errorset());
+                    }
                 }
             }
         }
