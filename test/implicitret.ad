@@ -2,8 +2,12 @@ fn a() -> i32 { 42 }
 fn b() -> bool { true }
 fn c() -> char { 'a' }
 fn d() -> string { "d" }
+fn expect_void() { 1; 2; 3; 4; }
 fn main() {
     assert!(a()==42 && b() && c()=='a' && d()=="d");
+
+    // should compile error
+    //let a: i32 = expect_void();
 
     println!("ok")
 }
