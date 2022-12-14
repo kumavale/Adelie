@@ -194,7 +194,11 @@ pub fn e0012(
     expect: &Type,
     actual: &Type,
 ){
-    let message = format!("expect `{}`, found `{}`", expect, actual);
+    let message = if cfg!(debug_assertions) {
+        format!("expect `{:?}`, found `{:?}`", expect, actual)
+    } else {
+        format!("expect `{}`, found `{}`", expect, actual)
+    };
     let aderr = AdError::new(Some(12), message, nearby(path, lines, token).unwrap_or_default());
     errors.borrow_mut().push(aderr);
 }

@@ -65,6 +65,16 @@ fn gen_il_builtin_assert<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Progra
 }
 
 fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Result<Type> {
+    fn check_type(lty: &Type, rty: &Type) -> std::result::Result<(), ()> {
+        match (&lty, &rty) {
+            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
+            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
+            (Type::Box(l), Type::Box(r)) |
+            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
+            _ if lty == rty => Ok(()),
+            _ => Err(())
+        }
+    }
     if args.len() != 2 {
         e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 2, args.len());
         return Err(());
@@ -75,11 +85,8 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
     let stringizing_right = rhs.token.iter().map(|t|format!("{}",t.kind)).collect::<Vec<_>>().join(" ");
     let lty = gen_il(lhs, p)?;
     let rty = gen_il(rhs, p)?;
-    match (&lty, &rty) {
-        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
-        _ if lty == rty => (),
-        _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty, &rty)
+    if check_type(&lty, &rty).is_err() {
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty, &rty);
     }
     println!("    ceq");
     let end_label = format!("\tIL_assert_eq_end{}", crate::seq!());
