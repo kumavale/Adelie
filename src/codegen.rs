@@ -1110,7 +1110,7 @@ fn gen_il_semi<'a>(_current_token: &[Token], p: &'a Program<'a>, expr: Node) -> 
     if ty != Type::Void {
         println!("\tpop");
     }
-    Ok(ty)
+    Ok(Type::Void)
 }
 
 // WIP
