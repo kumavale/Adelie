@@ -131,11 +131,12 @@ fn gen_impls<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                 args);
             println!("\t\t.maxstack 32");
 
-            let rettype = codegen::gen_il(func.statements.clone(), program);
-            match (&rettype, &*func.rettype.borrow()) {
-                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-                _ => if rettype != *func.rettype.borrow() {
-                    panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+            if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
+                match (&rettype, &*func.rettype.borrow()) {
+                    (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                    _ => if rettype != *func.rettype.borrow() {
+                        panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+                    }
                 }
             }
             println!("\t\tret");
@@ -179,11 +180,12 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
         }
         println!("\t.maxstack 32");
 
-        let rettype = codegen::gen_il(func.statements.clone(), program);
-        match (&rettype, &*func.rettype.borrow()) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-            _ => if rettype != *func.rettype.borrow() {
-                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+        if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
+            match (&rettype, &*func.rettype.borrow()) {
+                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                _ => if rettype != *func.rettype.borrow() {
+                    panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+                }
             }
         }
         println!("\tret");
