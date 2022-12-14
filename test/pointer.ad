@@ -12,5 +12,9 @@ fn main() {
     assert_eq!(3, { let x:i32=3; let y:i32=5; swap(&x, &y); y });
     assert_eq!(5, { let x:i32=3; let y:i32=5; swap(&x, &y); x });
 
+    assert_eq!(&1, &1);
+    let a: &i32 = &1;
+    assert_eq!(a, &1);
+
     println!("ok");
 }

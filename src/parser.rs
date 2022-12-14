@@ -497,7 +497,16 @@ impl<'a> Parser<'a> {
                 e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), message);
                 None
             } else {
-                Some(RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false)))
+                let org_name = self.current_impl.as_ref().unwrap().name.to_string();
+                if let Some(ty) = self.ident_types.get(&(self.current_mod.to_vec(), org_name.to_string())) {
+                    // known ident
+                    Some(RRType::clone(ty))
+                } else {
+                    // insert
+                    let tmp_ty = RRType::new(Type::RRIdent(self.current_mod.to_vec(), org_name.to_string()));
+                    self.ident_types.insert((self.current_mod.to_vec(), org_name), RRType::clone(&tmp_ty));
+                    Some(tmp_ty)
+                }
             }
         } else {
             e0002(Rc::clone(&self.errors), self.errorset());

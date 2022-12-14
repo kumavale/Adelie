@@ -1,5 +1,10 @@
 struct Foo { a: i32 }
-impl Foo { fn b(&self) -> i32 { self.a } }
+impl Foo {
+    fn a(&self, a: Box<i32>) -> i32 { *a }
+    fn b(&self) -> i32 { self.a }
+    fn c(&self, c: i32) -> i32 { c }
+}
+fn bar(a: Box<i32>) -> i32 { *a }
 fn main() {
     let a: Box<i32> = Box::new(42); assert_eq!(42, *a);
     let a: Box<i32>=Box::new({let i:i32=42;i}); assert_eq!(42, *a);
@@ -8,6 +13,13 @@ fn main() {
     let f: Box<Foo> = Box::new(Foo { 42 }); assert_eq!(42, (*f).a);
     let f: Box<Foo> = Box::new(Foo { 42 }); assert_eq!(42, (*f).b());
     let f: Box<Box<Foo>> = Box::new(Box::new(Foo { 42 })); assert_eq!(42, (**f).b());
+
+    assert_eq!(*Box::new(42), *Box::new(42));
+    assert_eq!(*Box::new(42), *{let a:i32=42;Box::new(a)});
+    assert_eq!(42, bar(Box::new(42)));
+    let foo: Foo = Foo{0};
+    assert_eq!(42, foo.a(Box::new(42)));
+    assert_eq!(42, ({let foo: Foo = Foo{0}; foo}).a(Box::new(42)));
 
     // should compile error
     //let a: Box<i32> = Box::a;
