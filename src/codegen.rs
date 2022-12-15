@@ -324,6 +324,11 @@ fn gen_il_method<'a>(
                 Err(())
             }
         }
+        // 仮実装
+        Type::Numeric(Numeric::I32) if ident == "to_string" => {
+            println!("\tcall instance string {}::ToString()", parent_ty.to_ilstr());
+            Ok(Type::String)
+        }
         ty => {
             p.errors.borrow().display();
             unimplemented!("primitive type: {:?}", ty);
@@ -337,8 +342,8 @@ fn gen_il_lambda<'a>(
     ty: Type,
     ident: &str,
 ) -> Result<Type> {
+    println!("\tldc.i4.0");  // 本当は`sender`のobjectをロードする必要がある？
     //println!("\tldftn instance void '{}'()", ident);  // インターナルclass内に定義していないから`instance`は要らない
-    println!("\tldc.i4.0");  // 本当は`sender`のobjectをロードする必要がある
     println!("\tldftn void '{}'()", ident);
     println!("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
     Ok(ty)
@@ -557,6 +562,7 @@ fn gen_il_field_or_property<'a>(
 
 fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Result<Type> {
     if !obj.assigned {
+        // TODO: objのis_assignedを再帰的にtrueにする必要がある
         e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
     }
     if obj.is_param {

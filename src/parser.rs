@@ -318,6 +318,7 @@ pub struct Parser<'a> {
     lines: Vec<&'a str>,
     g_symbol_table: &'a mut SymbolTable,  // global symbol table
     current_fn: Option<Function<'a>>,
+    current_local_fn: Option<Function<'a>>,
     current_impl: Option<Impl<'a>>,
     tokens: &'a [Token],
     idx: usize,
@@ -345,6 +346,7 @@ impl<'a> Parser<'a> {
             lines: input.lines().collect(),
             g_symbol_table,
             current_fn: None,
+            current_local_fn: None,
             current_impl: None,
             tokens,
             idx: 0,
@@ -615,12 +617,6 @@ impl<'a> Parser<'a> {
                 program.leave_namespace();
             }
             ItemKind::Fn(f) => {
-                //for local_f in &f.local_funcs {
-                //    if program.current_namespace.borrow().find_fn(&local_f.name).is_some() {
-                //        e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &local_f.name);
-                //    }
-                //    program.current_namespace.borrow_mut().push_fn(local_f.clone());
-                //}
                 if program.current_namespace.borrow().find_fn(&f.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &f.name);
                 }
@@ -1145,13 +1141,23 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Colon);
         let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Void));
         let token = &self.tokens[begin..self.idx];
-        let node = new_variable_node_with_let(
-            &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
-            ident,
-            ty,
-            token,
-            is_mutable,
-        );
+        let node = if let Some(local_fn) = &self.current_local_fn {
+            new_variable_node_with_let(
+                &mut local_fn.lvar_symbol_table.borrow_mut(),
+                ident,
+                ty,
+                token,
+                is_mutable,
+            )
+        } else {
+            new_variable_node_with_let(
+                &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
+                ident,
+                ty,
+                token,
+                is_mutable,
+            )
+        };
         if self.eat(TokenKind::Assign) {
             let node = new_assign_node(
                 node,
@@ -1231,8 +1237,10 @@ impl<'a> Parser<'a> {
         let begin = self.idx - 1;
         let ident = format!("<{}>lambda{}", self.current_fn().name, crate::seq!());
         let ty = Type::Class(Some("System.Runtime".to_string()), vec!["System".to_string()], "EventHandler".to_string(), None, None, false);
-        let mut lambda = Function::new(&ident, false);
-        lambda.statements = self.parse_expr();
+        self.current_local_fn = Some(Function::new(&ident, false));
+        let stmts = self.parse_expr();
+        let mut lambda = self.current_local_fn.take().unwrap();
+        lambda.statements = stmts;
         self.current_fn_mut().local_funcs.push(lambda);
         new_lambda_node(ty, ident, &self.tokens[begin..self.idx])
     }
@@ -1815,13 +1823,24 @@ impl<'a> Parser<'a> {
             )
         } else {
             // local variable or parameter
-            if let Some(obj) = self.current_fn().lvar_symbol_table.borrow().find(name) {
-                new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-            } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
-                new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+            if let Some(local_fn) = &self.current_local_fn {
+                if let Some(obj) = local_fn.lvar_symbol_table.borrow().find(name) {
+                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                } else if let Some(obj) = local_fn.param_symbol_table.find(name) {
+                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                } else {
+                    e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
+                    new_empty_node()
+                }
             } else {
-                e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
-                new_empty_node()
+                if let Some(obj) = self.current_fn().lvar_symbol_table.borrow().find(name) {
+                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
+                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                } else {
+                    e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
+                    new_empty_node()
+                }
             }
         }
     }

@@ -9,7 +9,6 @@ extern {
                         fn Add(&self, value: Control) {}
                     }
                     Controls: ControlCollection { get; },
-                    //Click: EventHandler { add; }
                 }
                 impl Control {
                     fn add_Click(&self, event: System::EventHandler) {}
@@ -23,9 +22,17 @@ extern {
                 impl Form {
                     fn .ctor() {}
                 }
+                class Label : Control {
+                    Text: string { get; set; },
+                    Location: System::Drawing::Point { get; set; }
+                }
+                impl Label {
+                    fn .ctor() {}
+                }
                 class ButtonBase : Control {}
                 class Button : ButtonBase {
                     Text: string { get; set; },
+                    Location: System::Drawing::Point { get; set; }
                 }
                 impl Button {
                     fn .ctor() {}
@@ -59,6 +66,13 @@ extern {
 extern {
     mod System {
         mod Drawing {
+            struct Point {
+                X: i32 { get; set; },
+                Y: i32 { get; set; },
+            }
+            impl Point {
+                fn .ctor(x: i32, y: i32) {}
+            }
             struct Size {
                 Width:  i32 { get; set; },
                 Height: i32 { get; set; },
@@ -71,12 +85,14 @@ extern {
 }
 struct Form1 {
     form: System::Windows::Forms::Form,
+    label: System::Windows::Forms::Label,
     button: System::Windows::Forms::Button,
 }
 impl Form1 {
     fn new() -> Form1 {
         Form1 {
             System::Windows::Forms::Form::.ctor(),
+            System::Windows::Forms::Label::.ctor(),
             System::Windows::Forms::Button::.ctor(),
         }
     }
@@ -86,11 +102,19 @@ impl Form1 {
 fn main() {
     let mut form1: Form1 = Form1::new();
     form1.Text("Counter");
+    form1.label.Text = "1";
+    form1.label.Location = System::Drawing::Point::.ctor(150, 50);
     form1.button.Text = "Click Me!";
+    form1.button.Location = System::Drawing::Point::.ctor(115, 100);
     form1.ClientSize(System::Drawing::Size::.ctor(300, 200));
-    let eh: System::EventHandler = || { System::Console::Beep(); };
-    //form1.button.Click += || { System::Console::Beep(); };
-    form1.button.add_Click(|| { System::Console::Beep(); });
+    form1.button.add_Click(|| {
+        let mut count: i32 = 1;
+        //form1.label.Text = count.to_string();
+        count += 1;
+        println!(count);
+        System::Console::Beep();
+    });
+    form1.form.Controls.Add(form1.label);
     form1.form.Controls.Add(form1.button);
     System::Windows::Forms::Application::Run(form1.form);
     println!("ok");
