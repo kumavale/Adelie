@@ -147,24 +147,24 @@ impl Type {
             Type::Bool            => "bool".to_string(),
             Type::Char            => "char".to_string(),
             Type::String          => "string".to_string(),
-            Type::_Self(_, n, _)  => format!("valuetype {}", n),
+            Type::_Self(_, n, _)  => format!("valuetype '{}'", n),
             Type::Struct(r, p, n, _) |
             Type::Enum(r, p, n)   => {
                 if let Some(r) = r {
-                    format!("valuetype [{}]{}.{}", r, p.join("."), n)
+                    format!("valuetype [{}]{}.'{}'", r, p.join("."), n)
                 } else {
-                    format!("valuetype {}", n)
+                    format!("valuetype '{}'", n)
                 }
             }
             Type::Class(r, p, n, _, pn, _) => {
                 if let Some(r) = r {
                     if let Some(pn) = pn {
-                        format!("class [{}]{}.{}/{}", r, p.join("."), pn, n)
+                        format!("class [{}]{}.'{}'/'{}'", r, p.join("."), pn, n)
                     } else {
-                        format!("class [{}]{}.{}", r, p.join("."), n)
+                        format!("class [{}]{}.'{}'", r, p.join("."), n)
                     }
                 } else {
-                    format!("class {}", n)
+                    format!("class '{}'", n)
                 }
             }
             Type::Box(_)          => "object".to_string(),
