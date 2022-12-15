@@ -102,10 +102,10 @@ fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
 
 fn gen_structs<'a, 'b>(_program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     for st in &namespace.structs {
-        println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", st.name);
+        println!(".class private sequential auto sealed beforefieldinit '{}' extends System.ValueType", st.name);
         println!("{{");
         for value in &st.field {
-            println!("\t.field public {} {}", value.ty.borrow().to_ilstr(), value.name);
+            println!("\t.field public {} '{}'", value.ty.borrow().to_ilstr(), value.name);
         }
         println!("}}");
     }
@@ -113,7 +113,7 @@ fn gen_structs<'a, 'b>(_program: &'a Program<'a>, namespace: &'b NameSpace<'a>) 
 
 fn gen_impls<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     for im in &namespace.impls {
-        println!(".class private sequential auto sealed beforefieldinit {} extends System.ValueType", im.name);
+        println!(".class private sequential auto sealed beforefieldinit '{}' extends System.ValueType", im.name);
         println!("{{");
         for func in &im.functions {
             let args = func
@@ -121,10 +121,10 @@ fn gen_impls<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                 .objs
                 .iter()
                 .skip(if func.is_static { 0 } else { 1 })
-                .map(|o|format!("{} {}", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
+                .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
                 .collect::<Vec<String>>()
                 .join(", ");
-            println!("\t.method public {} {} {}({}) cil managed {{",
+            println!("\t.method public {} {} '{}'({}) cil managed {{",
                 if func.is_static {"static"} else {"instance"},
                 func.rettype.borrow().to_ilstr(),
                 func.name,
@@ -173,10 +173,10 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
                 .param_symbol_table
                 .objs
                 .iter()
-                .map(|o|format!("{} {}", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
+                .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
                 .collect::<Vec<String>>()
                 .join(", ");
-            println!(".method static {} {}({}) cil managed {{", func.rettype.borrow().to_ilstr(), func.name, args);
+            println!(".method static {} '{}'({}) cil managed {{", func.rettype.borrow().to_ilstr(), func.name, args);
         }
         println!("\t.maxstack 32");
 
