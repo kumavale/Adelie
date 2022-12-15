@@ -454,11 +454,19 @@ impl<'a> Parser<'a> {
     }
 
     fn current_fn(&self) -> &Function {
-        self.current_fn.as_ref().unwrap()
+        if let Some(local_fn) = self.current_local_fn.as_ref() {
+            local_fn
+        } else {
+            self.current_fn.as_ref().unwrap()
+        }
     }
 
     fn current_fn_mut(&mut self) -> &mut Function<'a> {
-        self.current_fn.as_mut().unwrap()
+        if let Some(local_fn) = self.current_local_fn.as_mut() {
+            local_fn
+        } else {
+            self.current_fn.as_mut().unwrap()
+        }
     }
 
     fn type_no_bounds(&mut self) -> Option<RRType> {
@@ -1141,23 +1149,13 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Colon);
         let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Void));
         let token = &self.tokens[begin..self.idx];
-        let node = if let Some(local_fn) = &self.current_local_fn {
-            new_variable_node_with_let(
-                &mut local_fn.lvar_symbol_table.borrow_mut(),
-                ident,
-                ty,
-                token,
-                is_mutable,
-            )
-        } else {
-            new_variable_node_with_let(
-                &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
-                ident,
-                ty,
-                token,
-                is_mutable,
-            )
-        };
+        let node = new_variable_node_with_let(
+            &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
+            ident,
+            ty,
+            token,
+            is_mutable,
+        );
         if self.eat(TokenKind::Assign) {
             let node = new_assign_node(
                 node,
@@ -1823,24 +1821,13 @@ impl<'a> Parser<'a> {
             )
         } else {
             // local variable or parameter
-            if let Some(local_fn) = &self.current_local_fn {
-                if let Some(obj) = local_fn.lvar_symbol_table.borrow().find(name) {
-                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-                } else if let Some(obj) = local_fn.param_symbol_table.find(name) {
-                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-                } else {
-                    e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
-                    new_empty_node()
-                }
+            if let Some(obj) = self.current_fn().lvar_symbol_table.borrow().find(name) {
+                new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+            } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
+                new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
             } else {
-                if let Some(obj) = self.current_fn().lvar_symbol_table.borrow().find(name) {
-                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-                } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
-                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-                } else {
-                    e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
-                    new_empty_node()
-                }
+                e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
+                new_empty_node()
             }
         }
     }
