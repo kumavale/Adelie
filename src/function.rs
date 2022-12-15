@@ -13,6 +13,7 @@ pub struct Function<'a> {
     pub param_symbol_table: SymbolTable,
     pub is_static: bool,
     pub is_ctor: bool,
+    pub local_funcs: Vec<Function<'a>>,
 }
 
 impl<'a> Function<'a> {
@@ -25,6 +26,7 @@ impl<'a> Function<'a> {
             param_symbol_table: SymbolTable::new(),
             is_static: true,
             is_ctor,
+            local_funcs: vec![],
         }
     }
 }

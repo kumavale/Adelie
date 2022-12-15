@@ -74,6 +74,11 @@ pub enum NodeKind<'a> {
         ident: String,
         args: Vec<Node<'a>>,
     },
+    Lambda {
+        ty: Type,
+        ident: String,
+        // args: Vec<Node<'a>>,
+    },
     Struct {
         obj: Rc<RefCell<Object>>,
         field: Vec<Node<'a>>,
@@ -434,6 +439,22 @@ pub fn new_method_call_node<'a>(
             expr: Box::new(expr),
             ident,
             args,
+        },
+        token,
+    }
+}
+
+pub fn new_lambda_node<'a>(
+    ty: Type,
+    ident: String,
+    // args: Vec<Node<'a>>,
+    token: &'a [Token],
+) -> Node<'a> {
+    Node {
+        kind: NodeKind::Lambda {
+            ty,
+            ident,
+            // args,
         },
         token,
     }

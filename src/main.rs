@@ -14,6 +14,7 @@ mod token;
 mod utils;
 
 use crate::error::Errors;
+use crate::function::Function;
 use crate::keyword::{Type, Numeric};
 use crate::namespace::NameSpace;
 use crate::program::Program;
@@ -165,49 +166,56 @@ fn gen_impls<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
 
 fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     for func in &namespace.functions {
-        if func.name == "main" {
-            println!(".method static void Main() cil managed {{");
-            println!("\t.entrypoint");
-        } else {
-            let args = func
-                .param_symbol_table
-                .objs
-                .iter()
-                .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
-                .collect::<Vec<String>>()
-                .join(", ");
-            println!(".method static {} '{}'({}) cil managed {{", func.rettype.borrow().to_ilstr(), func.name, args);
+        for local_func in &func.local_funcs {
+            gen_function(program, local_func);
         }
-        println!("\t.maxstack 32");
+        gen_function(program, func);
+    }
+}
 
-        if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
-            match (&rettype, &*func.rettype.borrow()) {
-                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-                _ => if rettype != *func.rettype.borrow() {
-                    panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
-                }
-            }
-        }
-        println!("\tret");
-
-        // prepare local variables
-        let locals = func
-            .lvar_symbol_table
-            .borrow()
+fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
+    if func.name == "main" {
+        println!(".method static void Main() cil managed {{");
+        println!("\t.entrypoint");
+    } else {
+        let args = func
+            .param_symbol_table
             .objs
             .iter()
-            .enumerate()
-            .map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
+            .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
             .collect::<Vec<String>>()
-            .join(",\n");
-        if !locals.is_empty() {
-            println!("\t.locals init (");
-            println!("{}", locals);
-            println!("\t)");
-        }
-
-        println!("}}");
+            .join(", ");
+        println!(".method static {} '{}'({}) cil managed {{", func.rettype.borrow().to_ilstr(), func.name, args);
     }
+    println!("\t.maxstack 32");
+
+    if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
+        match (&rettype, &*func.rettype.borrow()) {
+            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+            _ => if rettype != *func.rettype.borrow() {
+                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+            }
+        }
+    }
+    println!("\tret");
+
+    // prepare local variables
+    let locals = func
+        .lvar_symbol_table
+        .borrow()
+        .objs
+        .iter()
+        .enumerate()
+        .map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
+        .collect::<Vec<String>>()
+        .join(",\n");
+    if !locals.is_empty() {
+        println!("\t.locals init (");
+        println!("{}", locals);
+        println!("\t)");
+    }
+
+    println!("}}");
 }
 
 fn disp_errors(program: &Program) {

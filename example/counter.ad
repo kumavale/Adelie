@@ -9,6 +9,10 @@ extern {
                         fn Add(&self, value: Control) {}
                     }
                     Controls: ControlCollection { get; },
+                    //Click: EventHandler { add; }
+                }
+                impl Control {
+                    fn add_Click(&self, event: System::EventHandler) {}
                 }
                 class ScrollableControl : Control {}
                 class ContainerControl : ScrollableControl {}
@@ -31,6 +35,23 @@ extern {
                     fn Run(_: Form) {}
                 }
             }
+        }
+    }
+}
+#[link(name="System.Runtime.dll", publickeytoken="B0 3F 5F 7F 11 D5 0A 3A")]
+extern {
+    mod System {
+        class EventArgs {}
+        class EventHandler {}
+        //EventHandler: fn(object, EventArgs);
+    }
+}
+#[link(name="System.Console.dll", publickeytoken="B0 3F 5F 7F 11 D5 0A 3A")]
+extern {
+    mod System {
+        class Console {}
+        impl Console {
+            fn Beep() {}
         }
     }
 }
@@ -67,6 +88,9 @@ fn main() {
     form1.Text("Counter");
     form1.button.Text = "Click Me!";
     form1.ClientSize(System::Drawing::Size::.ctor(300, 200));
+    let eh: System::EventHandler = || { System::Console::Beep(); };
+    //form1.button.Click += || { System::Console::Beep(); };
+    form1.button.add_Click(|| { System::Console::Beep(); });
     form1.form.Controls.Add(form1.button);
     System::Windows::Forms::Application::Run(form1.form);
     println!("ok");

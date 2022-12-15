@@ -31,6 +31,9 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Result<Type> {
         NodeKind::Method { expr, ident, args } => {
             gen_il_method(node.token, p, *expr, &ident, args)
         }
+        NodeKind::Lambda { ty, ident } => {
+            gen_il_lambda(node.token, p, ty, &ident)
+        }
         NodeKind::Struct { obj, field } => {
             gen_il_struct(node.token, p, obj.borrow(), field)
         }
@@ -326,6 +329,19 @@ fn gen_il_method<'a>(
             unimplemented!("primitive type: {:?}", ty);
         }
     }
+}
+
+fn gen_il_lambda<'a>(
+    current_token: &[Token],
+    p: &'a Program<'a>,
+    ty: Type,
+    ident: &str,
+) -> Result<Type> {
+    //println!("\tldftn instance void '{}'()", ident);  // インターナルclass内に定義していないから`instance`は要らない
+    println!("\tldc.i4.0");  // 本当は`sender`のobjectをロードする必要がある
+    println!("\tldftn void '{}'()", ident);
+    println!("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
+    Ok(ty)
 }
 
 fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Result<Type> {

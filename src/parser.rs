@@ -93,6 +93,7 @@ use std::rc::Rc;
 //   | CallExpression
 //   | FieldExpression
 //   | ReturnExpression
+//   | LambdaExpression
 // ExpressionWithBlock :
 //     BlockExpression
 //   | LoopExpression
@@ -137,6 +138,10 @@ use std::rc::Rc;
 //
 // ReturnExpression :
 //     `return` Expression ?
+//
+// LambdaExpression :
+//     `||` FunctionReturnType ? Expression
+//   | (`|` FunctionParam ( `,` FunctionParam ) * `|`) FunctionReturnType ? Expression
 //
 // LoopExpression :
 //     InfiniteLoopExpression
@@ -610,6 +615,12 @@ impl<'a> Parser<'a> {
                 program.leave_namespace();
             }
             ItemKind::Fn(f) => {
+                //for local_f in &f.local_funcs {
+                //    if program.current_namespace.borrow().find_fn(&local_f.name).is_some() {
+                //        e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &local_f.name);
+                //    }
+                //    program.current_namespace.borrow_mut().push_fn(local_f.clone());
+                //}
                 if program.current_namespace.borrow().find_fn(&f.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &f.name);
                 }
@@ -776,6 +787,12 @@ impl<'a> Parser<'a> {
                     }
                 } else {
                 }
+                // TODO
+                if let Some(ident) = self.eat_ident() {
+                    if ident == "add" {
+                        self.expect(TokenKind::Semi);
+                    }
+                }
                 if let Some(ty) = ty {
                     // TODO: backing fieldの生成
                     let obj = Object::new(ident, st.field.len(), false, ty.clone(), false);
@@ -900,6 +917,7 @@ impl<'a> Parser<'a> {
                     if cl.properties.iter().any(|o|o.name==ident) {
                         e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
                     }
+                    // TODO
                     if self.eat_keyword(Keyword::Set) {
                         self.expect(TokenKind::Semi);
                         if self.eat_keyword(Keyword::Get) {
@@ -911,6 +929,12 @@ impl<'a> Parser<'a> {
                             self.expect(TokenKind::Semi);
                         }
                     } else {
+                    }
+                    // TODO
+                    if let Some(ident) = self.eat_ident() {
+                        if ident == "add" {
+                            self.expect(TokenKind::Semi);
+                        }
                     }
                     if let Some(ty) = ty {
                         // TODO: backing fieldの生成
@@ -1151,6 +1175,9 @@ impl<'a> Parser<'a> {
             self.parse_infinite_loop_expr()
         } else if self.eat_keyword(Keyword::While) {
             self.parse_predicate_loop_expr()
+        } else if self.eat(TokenKind::OrOr) {
+            // WIP: とりあえず引数なしのクロージャのみ実装
+            self.parse_lambda_expr(None)
         } else {
             self.parse_assign()
         }
@@ -1195,6 +1222,19 @@ impl<'a> Parser<'a> {
         self.loop_count -= 1;
         self.brk_label_seq = tmp;
         new_while_node(cond, then, brk_label_seq, &self.tokens[begin..self.idx])
+    }
+
+    // WIP
+    fn parse_lambda_expr(&mut self, _args: Option<Rc<RefCell<Object>>>) -> Node<'a> {
+        // とりあえず引数も戻り値もなし
+        // とりあえず型をSystem.EventHandlerにしてしまう
+        let begin = self.idx - 1;
+        let ident = format!("<{}>lambda{}", self.current_fn().name, crate::seq!());
+        let ty = Type::Class(Some("System.Runtime".to_string()), vec!["System".to_string()], "EventHandler".to_string(), None, None, false);
+        let mut lambda = Function::new(&ident, false);
+        lambda.statements = self.parse_expr();
+        self.current_fn_mut().local_funcs.push(lambda);
+        new_lambda_node(ty, ident, &self.tokens[begin..self.idx])
     }
 
     fn parse_cond(&mut self) -> Node<'a> {
