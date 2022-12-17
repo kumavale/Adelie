@@ -347,7 +347,7 @@ fn gen_il_lambda<'a>(
     // めっちゃ強引に書いているだけ
     //println!("\tldftn void Form1/'<>c__DisplayClass0_0'::'{}'()", ident);
     println!("\tldloc '{}'", format!("<main>nested_class"));
-    println!("\tldftn void '<Module>'/'<>c__DisplayClass0_0'::'{}'()", ident);
+    println!("\tldftn void '{}'/'<>c__DisplayClass0_0'::'{}'()", p.name, ident);
     println!("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
     Ok(ty)
 }
