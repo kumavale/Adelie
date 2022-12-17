@@ -910,7 +910,7 @@ impl<'a> Parser<'a> {
             if self.eat_keyword(Keyword::Class) {
                 // nested class
                 let mut class = self.parse_item_class(Some(cl.name.to_string()));
-                class.parent = Some(cl.name.to_string());
+                class.kind = ClassKind::NestedClass(cl.name.to_string());
                 cl.nested_class.push(class);
                 self.eat(TokenKind::Comma);
             } else if self.eat_keyword(Keyword::Impl) {

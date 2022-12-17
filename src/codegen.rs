@@ -203,6 +203,7 @@ fn gen_il_method<'a>(
                 return Err(());
             };
             if let Some(_st) = ns.find_struct(st_name) {
+                // TODO: 継承元のimplも確認
                 let func = if let Some(func) = ns
                     .find_impl(st_name)
                     .and_then(|im| im.functions.find(ident).map(Rc::clone))
@@ -255,6 +256,7 @@ fn gen_il_method<'a>(
                 return Err(());
             };
             if let Some(_cl) = ns.find_class(cl_name) {
+                // TODO: 継承元のimplも確認
                 let func = if let Some(func) = ns
                     .find_impl(cl_name)
                     .and_then(|im| im.functions.find(ident).map(Rc::clone))

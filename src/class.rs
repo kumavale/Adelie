@@ -8,7 +8,7 @@ use std::rc::Rc;
 pub enum ClassKind {
     Struct,
     Class,
-    NestedClass,
+    NestedClass(String),  // parent name
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -72,7 +72,6 @@ pub struct Class<'a> {
     /// 継承元クラス
     pub base: Option<RRType>,
     pub nested_class: Vec<Class<'a>>,
-    pub parent: Option<String>,  // if nested
 }
 
 impl<'a> Class<'a> {
@@ -87,7 +86,6 @@ impl<'a> Class<'a> {
             impls: vec![],
             base: None,
             nested_class: vec![],
-            parent: None,
         }
     }
 }
