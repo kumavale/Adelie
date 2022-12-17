@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::builtin::*;
 use crate::error::*;
 use crate::keyword::{Type, RRType, Numeric, Keyword};
-use crate::object::{Object, ObjectKind, SymbolTable};
+use crate::object::{FindSymbol, Object, ObjectKind, SymbolTable};
 use crate::program::Program;
 use crate::token::Token;
 use crate::utils::remove_seq;
@@ -204,13 +204,9 @@ fn gen_il_method<'a>(
             };
             if let Some(_st) = ns.find_struct(st_name) {
                 let func = if let Some(func) = ns
-                    .impls
-                    .iter()
-                    .find_map(|im| im
-                        .functions
-                        .iter()
-                        .find(|f|f.name==ident && !f.is_static)
-                    )
+                    .find_impl(st_name)
+                    .and_then(|im| im.functions.find(ident).map(Rc::clone))
+                    .and_then(|f| (!f.is_static).then_some(f))
                 {
                     func
                 } else {
@@ -241,7 +237,8 @@ fn gen_il_method<'a>(
                     .collect::<Vec<String>>()
                     .join(", ");
                 println!("\tcall instance {} {}::'{}'({})", func.rettype.borrow().to_ilstr(), parent_ty.to_ilstr(), ident, params);
-                Ok(func.rettype.borrow().clone())
+                let x = Ok(func.rettype.borrow().clone());
+                x
             } else {
                 // unreachable?
                 e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, st_name);
@@ -259,13 +256,9 @@ fn gen_il_method<'a>(
             };
             if let Some(_cl) = ns.find_class(cl_name) {
                 let func = if let Some(func) = ns
-                    .impls
-                    .iter()
-                    .find_map(|im| im
-                        .functions
-                        .iter()
-                        .find(|f|f.name==ident && !f.is_static)
-                    )
+                    .find_impl(cl_name)
+                    .and_then(|im| im.functions.find(ident).map(Rc::clone))
+                    .and_then(|f| (!f.is_static).then_some(f))
                 {
                     func
                 } else {
@@ -317,7 +310,8 @@ fn gen_il_method<'a>(
                     .collect::<Vec<String>>()
                     .join(", ");
                 println!("\tcall instance {} {}::'{}'({})", func.rettype.borrow().to_ilstr(), parent_ty.to_ilstr(), ident, params);
-                Ok(func.rettype.borrow().clone())
+                let x = Ok(func.rettype.borrow().clone());
+                x
             } else {
                 // unreachable?
                 e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, cl_name);
@@ -367,12 +361,12 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         return Err(());
     };
     if let Some(st) = ns.find_struct(&name) {
-        if field.len() != st.field.len() {
-            e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &st.name);
+        if field.len() != st.borrow().field.len() {
+            e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &st.borrow().name);
         }
         println!("\tldloca {}", obj.offset);
         println!("\tinitobj {}", obj.ty.borrow());
-        for (field_expr, field_dec) in field.into_iter().zip(&st.field) {
+        for (field_expr, field_dec) in field.into_iter().zip(&st.borrow().field) {
             println!("\tldloca {}", obj.offset);
             gen_il(field_expr, p)?;
             println!("\tstfld {} {}::'{}'", field_dec.borrow().ty.borrow().to_ilstr(), obj.ty.borrow(), field_dec.borrow().name);
@@ -429,7 +423,7 @@ fn gen_il_field_or_property<'a>(
         return Err(());
     };
     if let Some(st) = ns.find_struct(&parent_name) {
-        if let Some(field) = st.field.iter().find(|o|o.borrow().name==ident) {
+        if let Some(field) = st.borrow().field.iter().find(|o|o.borrow().name==ident) {
             if let Type::Class(..) = *field.borrow().ty.borrow()  {
                 println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             } else if *p.ret_address.borrow() {
@@ -442,7 +436,7 @@ fn gen_il_field_or_property<'a>(
             } else {
                 Ok(field.borrow().ty.borrow().clone())
             }
-        } else if let Some(property) = st.properties.iter().find(|o|o.name==ident) {
+        } else if let Some(property) = st.borrow().properties.iter().find(|o|o.name==ident) {
             if let Type::Struct(..) = parent_ty {
                 // parent_tyを`stloc`するための一意なローカル変数を定義する
                 // スタックのトップには`struct`の'値'が入っている
@@ -469,7 +463,7 @@ fn gen_il_field_or_property<'a>(
             Err(())
         }
     } else if let Some(cl) = ns.find_class(&parent_name) {
-        if let Some(field) = cl.field.iter().find(|o|o.name==ident) {
+        if let Some(field) = cl.borrow().field.iter().find(|o|o.name==ident) {
             if *p.ret_address.borrow() {
                 println!("\tldflda {} {}::'{}'", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             } else {
@@ -480,7 +474,7 @@ fn gen_il_field_or_property<'a>(
             } else {
                 Ok(field.ty.borrow().clone())
             }
-        } else if let Some(property) = cl.properties.iter().find(|o|o.name==ident) {
+        } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
             if let Type::Struct(..) = parent_ty {
                 // parent_tyを`stloc`するための一意なローカル変数を定義する
                 // スタックのトップには`struct`の'値'が入っている
@@ -511,7 +505,7 @@ fn gen_il_field_or_property<'a>(
                     let (path, name, base)  = if let Type::Class(_, p, n, b, ..) = &*base_ty { (p, n, b) } else { unreachable!() };
                     if let Some(ns) = ns.find(path) {
                         if let Some(cl) = ns.find_class(name) {
-                            if let Some(field) = cl.field.iter().find(|o|o.name==ident) {
+                            if let Some(field) = cl.borrow().field.iter().find(|o|o.name==ident) {
                                 if *p.ret_address.borrow() {
                                     println!("\tldflda {} {}::'{}'", field.ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
                                 } else {
@@ -522,7 +516,7 @@ fn gen_il_field_or_property<'a>(
                                 } else {
                                     return Ok(field.ty.borrow().clone());
                                 }
-                            } else if let Some(property) = cl.properties.iter().find(|o|o.name==ident) {
+                            } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
                                 if let Type::Struct(..) = *parent_ty {
                                     // parent_tyを`stloc`するための一意なローカル変数を定義する
                                     // スタックのトップには`struct`の'値'が入っている
@@ -727,7 +721,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         return Err(());
                     };
                     if let Some(st) = ns.find_struct(name) {
-                        if let Some(field) = st.field.iter().find(|o|o.borrow().name==ident) {
+                        if let Some(field) = st.borrow().field.iter().find(|o|o.borrow().name==ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&field.borrow().ty.borrow(), &rty).is_err() {
                                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty);
@@ -737,7 +731,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
                             println!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
-                        } else if let Some(property) = st.properties.iter().find(|o|o.name==ident) {
+                        } else if let Some(property) = st.borrow().properties.iter().find(|o|o.name==ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&property.ty.borrow(), &rty).is_err() {
                                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &property.ty.borrow(), &rty);
@@ -766,7 +760,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         return Err(());
                     };
                     if let Some(cl) = ns.find_class(name) {
-                        if let Some(field) = cl.field.iter().find(|o|o.name==ident) {
+                        if let Some(field) = cl.borrow().field.iter().find(|o|o.name==ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&field.ty.borrow(), &rty).is_err() {
                                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.ty.borrow(), &rty);
@@ -776,7 +770,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
                             println!("\tstfld {} {}::'{}'", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
-                        } else if let Some(property) = cl.properties.iter().find(|o|o.name==ident) {
+                        } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&property.ty.borrow(), &rty).is_err() {
                                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &property.ty.borrow(), &rty);

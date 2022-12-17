@@ -45,3 +45,15 @@ impl<'a> FindSymbol for [Function<'a>] {
         self.iter_mut().find(|f|f.name == name)
     }
 }
+
+impl<'a> FindSymbol for [Rc<Function<'a>>] {
+    type Item = Rc<Function<'a>>;
+
+    fn find(&self, name: &str) -> Option<&Self::Item> {
+        self.iter().find(|f|f.name == name)
+    }
+
+    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
+        self.iter_mut().find(|f|f.name == name)
+    }
+}

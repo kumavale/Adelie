@@ -89,82 +89,75 @@ fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         return;
     }
     gen_structs(program, namespace);
-    gen_impls(program, namespace);
     gen_functions(program, namespace);
     for child in &namespace.children {
         gen_items(program, &child.borrow());
     }
 }
 
-fn gen_structs<'a, 'b>(_program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
+fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     for st in &namespace.structs {
-        println!(".class private sequential auto sealed beforefieldinit '{}' extends [System.Runtime]System.ValueType", st.name);
+        println!(".class private sequential auto sealed beforefieldinit '{}' extends [System.Runtime]System.ValueType", st.borrow().name);
         println!("{{");
-        for value in &st.field {
+        for value in &st.borrow().field {
             println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
         }
-        println!("}}");
-    }
-}
-
-fn gen_impls<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
-    for im in &namespace.impls {
-        println!(".class private sequential auto sealed beforefieldinit '{}' extends [System.Runtime]System.ValueType", im.name);
-        println!("{{");
-        for func in &im.functions {
-            if let Some(nested_class) = &func.nested_class {
-                println!(".class nested private auto ansi sealed beforefieldinit '<>c__DisplayClass0_0' extends [System.Runtime]System.Object {{");
-                for value in &nested_class.field {
-                    println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
+        for im in &st.borrow().impls {
+            for func in &im.functions {
+                if let Some(nested_class) = &func.nested_class {
+                    println!(".class nested private auto ansi sealed beforefieldinit '<>c__DisplayClass0_0' extends [System.Runtime]System.Object {{");
+                    for value in &nested_class.field {
+                        println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
+                    }
+                    for local_func in &func.local_funcs {
+                        gen_local_function(program, local_func);
+                    }
+                    println!("}}");
                 }
-                for local_func in &func.local_funcs {
-                    gen_local_function(program, local_func);
-                }
-                println!("}}");
-            }
-            let args = func
-                .param_symbol_table
-                .objs
-                .iter()
-                .skip(if func.is_static { 0 } else { 1 })
-                .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
-                .collect::<Vec<String>>()
-                .join(", ");
-            println!("\t.method public {} {} '{}'({}) cil managed {{",
-                if func.is_static {"static"} else {"instance"},
-                func.rettype.borrow().to_ilstr(),
-                func.name,
-                args);
-            println!("\t\t.maxstack 32");
+                let args = func
+                    .param_symbol_table
+                    .objs
+                    .iter()
+                    .skip(if func.is_static { 0 } else { 1 })
+                    .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                println!("\t.method public {} {} '{}'({}) cil managed {{",
+                    if func.is_static {"static"} else {"instance"},
+                    func.rettype.borrow().to_ilstr(),
+                    func.name,
+                    args);
+                println!("\t\t.maxstack 32");
 
-            if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
-                match (&rettype, &*func.rettype.borrow()) {
-                    (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-                    _ => if rettype != *func.rettype.borrow() {
-                        panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+                if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
+                    match (&rettype, &*func.rettype.borrow()) {
+                        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                        _ => if rettype != *func.rettype.borrow() {
+                            panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+                        }
                     }
                 }
-            }
-            println!("\t\tret");
+                println!("\t\tret");
 
-            // prepare local variables
-            let locals = func
-                .lvar_symbol_table
-                .borrow()
-                .objs
-                .iter()
-                .enumerate()
-                //.map(|(i, obj)| format!("\t\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
-                .map(|(_, obj)| format!("\t\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
-                .collect::<Vec<String>>()
-                .join(",\n");
-            if !locals.is_empty() {
-                println!("\t\t.locals init (");
-                println!("{}", locals);
-                println!("\t\t)");
-            }
+                // prepare local variables
+                let locals = func
+                    .lvar_symbol_table
+                    .borrow()
+                    .objs
+                    .iter()
+                    .enumerate()
+                    //.map(|(i, obj)| format!("\t\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
+                    .map(|(_, obj)| format!("\t\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+                    .collect::<Vec<String>>()
+                    .join(",\n");
+                if !locals.is_empty() {
+                    println!("\t\t.locals init (");
+                    println!("{}", locals);
+                    println!("\t\t)");
+                }
 
-            println!("\t}}");
+                println!("\t}}");
+            }
         }
         println!("}}");
     }

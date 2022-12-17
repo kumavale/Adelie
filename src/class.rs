@@ -14,7 +14,7 @@ pub struct Struct<'a> {
     pub properties: Vec<Object>,
     pub path: Vec<String>,
     pub reference: Option<String>,
-    //pub impls: Vec<Impl<'a>>,  // trait毎
+    pub impls: Vec<Rc<Impl<'a>>>,
     pub _dummy: &'a Dummy,
 }
 
@@ -26,7 +26,7 @@ impl<'a> Struct<'a> {
             properties: vec![],
             path,
             reference,
-            //impls: vec![],
+            impls: vec![],
             _dummy: &Dummy(),
         }
     }
@@ -63,11 +63,10 @@ pub struct Class<'a> {
     pub properties: Vec<Object>,
     pub path: Vec<String>,
     pub reference: Option<String>,
-    //pub impls: Vec<Impl<'a>>,  // trait毎
+    pub impls: Vec<Rc<Impl<'a>>>,
     /// 継承元クラス
     pub base: Option<RRType>,
     pub nested_class: Vec<Class<'a>>,
-    pub nested_impl: Vec<Impl<'a>>,
     pub parent: Option<String>,  // if nested
     pub _dummy: &'a Dummy,
 }
@@ -80,10 +79,9 @@ impl<'a> Class<'a> {
             properties: vec![],
             path,
             reference,
-            //impls: vec![],
+            impls: vec![],
             base: None,
             nested_class: vec![],
-            nested_impl: vec![],
             parent: None,
             _dummy: &Dummy(),
         }

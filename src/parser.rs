@@ -569,9 +569,6 @@ impl<'a> Parser<'a> {
                     }
                     program.current_namespace.borrow_mut().push_class(nested_class.clone());
                 }
-                for nested_impl in &cl.nested_impl {
-                    program.current_namespace.borrow_mut().push_impl(nested_impl.clone());
-                }
                 if program.current_namespace.borrow().find_class(&cl.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &cl.name);
                 }
@@ -584,7 +581,14 @@ impl<'a> Parser<'a> {
                 program.current_namespace.borrow_mut().push_enum(ed);
             }
             ItemKind::Impl(impl_item) => {
-                program.current_namespace.borrow_mut().push_impl(impl_item);
+                if let Some(st) = program.current_namespace.borrow().find_struct(&impl_item.name) {
+                    st.borrow_mut().impls.push(Rc::new(impl_item));
+                } else if let Some(cl) = program.current_namespace.borrow().find_class(&impl_item.name) {
+                    cl.borrow_mut().impls.push(Rc::new(impl_item));
+                } else {
+                    // TODO: クラス定義より先にimplしても大丈夫なように
+                    e0000(Rc::clone(&self.errors), self.errorset(), "TODO");
+                }
             }
             ItemKind::Mod(mod_item) => {
                 program.enter_namespace(&mod_item.0);
@@ -611,7 +615,16 @@ impl<'a> Parser<'a> {
                         ForeignItemKind::Struct(s) => program.current_namespace.borrow_mut().push_struct(s),
                         ForeignItemKind::Enum(e)   => program.current_namespace.borrow_mut().push_enum(e),
                         ForeignItemKind::Class(c)  => program.current_namespace.borrow_mut().push_class(c),
-                        ForeignItemKind::Impl(i)   => program.current_namespace.borrow_mut().push_impl(i),
+                        ForeignItemKind::Impl(i)   => {
+                            if let Some(st) = program.current_namespace.borrow().find_struct(&i.name) {
+                                st.borrow_mut().impls.push(Rc::new(i));
+                            } else if let Some(cl) = program.current_namespace.borrow().find_class(&i.name) {
+                                cl.borrow_mut().impls.push(Rc::new(i));
+                            } else {
+                                // TODO: クラス定義より先にimplしても大丈夫なように
+                                e0000(Rc::clone(&self.errors), self.errorset(), "TODO");
+                            }
+                        }
                         ForeignItemKind::Mod((ident, items)) => {
                             program.enter_namespace(&ident);
                             program.current_namespace.borrow_mut().is_foreign = true;
@@ -903,7 +916,12 @@ impl<'a> Parser<'a> {
             } else if self.eat_keyword(Keyword::Impl) {
                 // impl of nested class
                 let impl_item = self.parse_item_impl();
-                cl.nested_impl.push(impl_item);
+                if let Some(cl) = cl.nested_class.find_mut(&impl_item.name) {
+                    cl.impls.push(Rc::new(impl_item));
+                } else {
+                    // TODO: クラス定義より先にimplしても大丈夫なように
+                    e0000(Rc::clone(&self.errors), self.errorset(), "TODO");
+                }
                 self.eat(TokenKind::Comma);
             } else {
                 // field or property
