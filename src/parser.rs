@@ -4,7 +4,7 @@ use crate::class::{Struct, Class, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Keyword};
-use crate::object::{Object, FindSymbol, SymbolTable};
+use crate::object::{Object, ObjectKind, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
@@ -318,7 +318,7 @@ pub struct Parser<'a> {
     lines: Vec<&'a str>,
     g_symbol_table: &'a mut SymbolTable,  // global symbol table
     current_fn: Option<Function<'a>>,
-    current_local_fn: Option<Function<'a>>,
+    current_lambda: Option<Function<'a>>,
     current_impl: Option<Impl<'a>>,
     tokens: &'a [Token],
     idx: usize,
@@ -346,7 +346,7 @@ impl<'a> Parser<'a> {
             lines: input.lines().collect(),
             g_symbol_table,
             current_fn: None,
-            current_local_fn: None,
+            current_lambda: None,
             current_impl: None,
             tokens,
             idx: 0,
@@ -454,7 +454,7 @@ impl<'a> Parser<'a> {
     }
 
     fn current_fn(&self) -> &Function {
-        if let Some(local_fn) = self.current_local_fn.as_ref() {
+        if let Some(local_fn) = self.current_lambda.as_ref() {
             local_fn
         } else {
             self.current_fn.as_ref().unwrap()
@@ -462,7 +462,7 @@ impl<'a> Parser<'a> {
     }
 
     fn current_fn_mut(&mut self) -> &mut Function<'a> {
-        if let Some(local_fn) = self.current_local_fn.as_mut() {
+        if let Some(local_fn) = self.current_lambda.as_mut() {
             local_fn
         } else {
             self.current_fn.as_mut().unwrap()
@@ -767,7 +767,7 @@ impl<'a> Parser<'a> {
                 self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
                 break;
             }
-            if st.field.iter().any(|o|o.name==ident) {
+            if st.field.iter().any(|o|o.borrow().name==ident) {
                 e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
             }
 
@@ -799,21 +799,21 @@ impl<'a> Parser<'a> {
                 }
                 if let Some(ty) = ty {
                     // TODO: backing fieldの生成
-                    let obj = Object::new(ident, st.field.len(), false, ty.clone(), false);
+                    let obj = Object::new(ident, st.field.len(), ObjectKind::Local, ty.clone(), false);
                     st.properties.push(obj);
-                    let dummy = Object::new("".to_string(), st.field.len(), false, ty, false);
-                    st.field.push(dummy);
+                    let dummy = Object::new("".to_string(), st.field.len(), ObjectKind::Local, ty, false);
+                    st.field.push(Rc::new(RefCell::new(dummy)));
                 }
                 self.expect(TokenKind::CloseDelim(Delimiter::Brace));
                 self.eat(TokenKind::Comma);
             } else {
                 // field
-                if st.field.iter().any(|o|o.name==ident) {
+                if st.field.iter().any(|o|o.borrow().name==ident) {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
                 }
                 if let Some(ty) = ty {
-                    let obj = Object::new(ident, st.field.len(), false, ty, false);
-                    st.field.push(obj);
+                    let obj = Object::new(ident, st.field.len(), ObjectKind::Field, ty, false);
+                    st.field.push(Rc::new(RefCell::new(obj)));
                 }
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
                     e0008(Rc::clone(&self.errors), self.errorset());
@@ -942,9 +942,9 @@ impl<'a> Parser<'a> {
                     }
                     if let Some(ty) = ty {
                         // TODO: backing fieldの生成
-                        let obj = Object::new(ident, cl.field.len(), false, ty.clone(), false);
+                        let obj = Object::new(ident, cl.field.len(), ObjectKind::Local, ty.clone(), false);
                         cl.properties.push(obj);
-                        let dummy = Object::new("".to_string(), cl.field.len(), false, ty, false);
+                        let dummy = Object::new("".to_string(), cl.field.len(), ObjectKind::Local, ty, false);
                         cl.field.push(dummy);
                     }
                     self.expect(TokenKind::CloseDelim(Delimiter::Brace));
@@ -955,7 +955,7 @@ impl<'a> Parser<'a> {
                         e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
                     }
                     if let Some(ty) = ty {
-                        let obj = Object::new(ident, cl.field.len(), false, ty, false);
+                        let obj = Object::new(ident, cl.field.len(), ObjectKind::Local, ty, false);
                         cl.field.push(obj);
                     }
                     if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
@@ -987,7 +987,7 @@ impl<'a> Parser<'a> {
         } else {
             (self.expect_ident(), false)
         };
-        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), false, RRType::new(Type::Void), false)));
+        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), ObjectKind::Local, RRType::new(Type::Void), false)));
         self.g_symbol_table.push(Rc::clone(&obj));
         self.current_fn = Some(Function::new(&ident, is_ctor));
 
@@ -1013,7 +1013,7 @@ impl<'a> Parser<'a> {
                     self.current_fn_mut().is_static = false;
                     let ident = "self".to_string();
                     let ty = RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false));
-                    let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
+                    let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), ObjectKind::Param, ty, is_mutable)));
                     obj.borrow_mut().assigned = true;
                     self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
                     if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
@@ -1063,7 +1063,7 @@ impl<'a> Parser<'a> {
         }
         self.expect(TokenKind::Colon);
         if let Some(ty) = self.type_no_bounds() {
-            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), true, ty, is_mutable)));
+            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.len(), ObjectKind::Param, ty, is_mutable)));
             obj.borrow_mut().assigned = true;
             self.current_fn_mut().param_symbol_table.push(Rc::clone(&obj));
         }
@@ -1233,11 +1233,25 @@ impl<'a> Parser<'a> {
         // とりあえず引数も戻り値もなし
         // とりあえず型をSystem.EventHandlerにしてしまう
         let begin = self.idx - 1;
-        let ident = format!("<{}>lambda{}", self.current_fn().name, crate::seq!());
+        let ident = format!("<{}>lambda_{}", self.current_fn().name, crate::seq!());
         let ty = Type::Class(Some("System.Runtime".to_string()), vec!["System".to_string()], "EventHandler".to_string(), None, None, false);
-        self.current_local_fn = Some(Function::new(&ident, false));
+        let current_fn_name = self.current_fn().name.to_string();
+        if self.current_fn().nested_class.is_none() {
+            // nestedクラスを初期化
+            self.current_fn_mut().nested_class
+                = Some(Struct::new("<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None));
+            let ty = Type::Class(None, vec![], "<>c__DisplayClass0_0".to_string(), None, None, true);
+            let _nested_class_instance = new_variable_node_with_let(
+                &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
+                format!("<{}>nested_class", current_fn_name),
+                RRType::new(ty),
+                &[],
+                true,
+            );
+        }
+        self.current_lambda = Some(Function::new(&ident, false));
         let stmts = self.parse_expr();
-        let mut lambda = self.current_local_fn.take().unwrap();
+        let mut lambda = self.current_lambda.take().unwrap();
         lambda.statements = stmts;
         self.current_fn_mut().local_funcs.push(lambda);
         new_lambda_node(ty, ident, &self.tokens[begin..self.idx])
@@ -1821,13 +1835,34 @@ impl<'a> Parser<'a> {
             )
         } else {
             // local variable or parameter
-            if let Some(obj) = self.current_fn().lvar_symbol_table.borrow().find(name) {
-                new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-            } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
-                new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+            if let Some(local_fn) = &self.current_lambda {
+                if let Some(obj) = local_fn.lvar_symbol_table.borrow().find(name) {
+                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                } else if let Some(obj) = local_fn.param_symbol_table.find(name) {
+                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                } else {
+                    let current_fn = self.current_fn.as_mut().unwrap();
+                    if let Some(obj) = current_fn.lvar_symbol_table.borrow().find(name) {
+                        // TODO: 親メソッド内のローカル変数をnestedクラスのフィールド変数に置き換え
+                        current_fn.nested_class.as_mut().unwrap().field.push(Rc::clone(&obj));
+                        new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                    } else if let Some(obj) = current_fn.param_symbol_table.find(name) {
+                        // TODO 親メソッドのarg
+                        new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                    } else {
+                        e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
+                        new_empty_node()
+                    }
+                }
             } else {
-                e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
-                new_empty_node()
+                if let Some(obj) = self.current_fn().lvar_symbol_table.borrow().find(name) {
+                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                } else if let Some(obj) = self.current_fn().param_symbol_table.find(name) {
+                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                } else {
+                    e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
+                    new_empty_node()
+                }
             }
         }
     }

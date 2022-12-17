@@ -87,6 +87,7 @@ struct Form1 {
     form: System::Windows::Forms::Form,
     label: System::Windows::Forms::Label,
     button: System::Windows::Forms::Button,
+    //_count: i32,
 }
 impl Form1 {
     fn new() -> Form1 {
@@ -94,10 +95,17 @@ impl Form1 {
             System::Windows::Forms::Form::.ctor(),
             System::Windows::Forms::Label::.ctor(),
             System::Windows::Forms::Button::.ctor(),
+            //0,
         }
     }
     fn Text(&mut self, text: string) { self.form.Text = text }
     fn ClientSize(&mut self, size: System::Drawing::Size) { self.form.ClientSize = size }
+    //fn CountUp(&mut self) {
+    //    self.button.add_Click(|| {
+    //        self.label.Text = self._count.to_string();
+    //        self._count += 1;
+    //    });
+    //}
 }
 fn main() {
     let mut form1: Form1 = Form1::new();
@@ -107,13 +115,14 @@ fn main() {
     form1.button.Text = "Click Me!";
     form1.button.Location = System::Drawing::Point::.ctor(115, 100);
     form1.ClientSize(System::Drawing::Size::.ctor(300, 200));
+    let mut count: i32 = 0;
     form1.button.add_Click(|| {
-        let mut count: i32 = 1;
         //form1.label.Text = count.to_string();
-        count += 1;
-        println!(count);
+        //count += 1;
+        //println!(count);
         System::Console::Beep();
     });
+    //form1.CountUp();
     form1.form.Controls.Add(form1.label);
     form1.form.Controls.Add(form1.button);
     System::Windows::Forms::Application::Run(form1.form);

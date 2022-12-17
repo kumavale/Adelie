@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::class::Struct;
 use crate::keyword::{Type, RRType};
 use crate::object::{FindSymbol, SymbolTable};
 use std::cell::RefCell;
@@ -13,6 +14,7 @@ pub struct Function<'a> {
     pub param_symbol_table: SymbolTable,
     pub is_static: bool,
     pub is_ctor: bool,
+    pub nested_class: Option<Struct<'a>>,
     pub local_funcs: Vec<Function<'a>>,
 }
 
@@ -26,6 +28,7 @@ impl<'a> Function<'a> {
             param_symbol_table: SymbolTable::new(),
             is_static: true,
             is_ctor,
+            nested_class: None,
             local_funcs: vec![],
         }
     }

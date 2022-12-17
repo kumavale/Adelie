@@ -3,21 +3,28 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ObjectKind {
+    Field,
+    Local,
+    Param,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Object {
     pub name: String,
+    pub kind: ObjectKind,
     pub offset: usize,
-    pub is_param: bool,
     pub ty: RRType,
     pub assigned: bool,
     pub mutable: bool,
 }
 
 impl Object {
-    pub fn new(name: String, offset: usize, is_param: bool, ty: RRType, mutable: bool) -> Self {
+    pub fn new(name: String, offset: usize, kind: ObjectKind, ty: RRType, mutable: bool) -> Self {
         Object {
             name,
+            kind,
             offset,
-            is_param,
             ty,
             assigned: false,
             mutable,
@@ -33,7 +40,7 @@ impl Object {
     }
 
     pub fn is_param(&self) -> bool {
-        self.is_param
+        self.kind == ObjectKind::Param
     }
 }
 

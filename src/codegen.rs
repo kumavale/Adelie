@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::builtin::*;
 use crate::error::*;
 use crate::keyword::{Type, RRType, Numeric, Keyword};
-use crate::object::{Object, SymbolTable};
+use crate::object::{Object, ObjectKind, SymbolTable};
 use crate::program::Program;
 use crate::token::Token;
 use crate::utils::remove_seq;
@@ -165,7 +165,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
             .map(|p|p.borrow().ty.borrow().to_ilstr())
             .collect::<Vec<String>>()
             .join(", ");
-        println!("\tcall {} '{}'({})", func.rettype.borrow().to_ilstr(), name, params);
+        println!("\tcall {} '{}'::'{}'({})", func.rettype.borrow().to_ilstr(), p.name, name, params);
         Ok(func.rettype.borrow().clone())
     } else {
         e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
@@ -344,7 +344,10 @@ fn gen_il_lambda<'a>(
 ) -> Result<Type> {
     println!("\tldc.i4.0");  // 本当は`sender`のobjectをロードする必要がある？
     //println!("\tldftn instance void '{}'()", ident);  // インターナルclass内に定義していないから`instance`は要らない
-    println!("\tldftn void '{}'()", ident);
+    // めっちゃ強引に書いているだけ
+    //println!("\tldftn void Form1/'<>c__DisplayClass0_0'::'{}'()", ident);
+    println!("\tldloc '{}'", format!("<main>nested_class"));
+    println!("\tldftn void '<Module>'/'<>c__DisplayClass0_0'::'{}'()", ident);
     println!("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
     Ok(ty)
 }
@@ -372,7 +375,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         for (field_expr, field_dec) in field.into_iter().zip(&st.field) {
             println!("\tldloca {}", obj.offset);
             gen_il(field_expr, p)?;
-            println!("\tstfld {} {}::'{}'", field_dec.ty.borrow().to_ilstr(), obj.ty.borrow(), field_dec.name);
+            println!("\tstfld {} {}::'{}'", field_dec.borrow().ty.borrow().to_ilstr(), obj.ty.borrow(), field_dec.borrow().name);
         }
         println!("\tldloc {}", obj.offset);
     } else {
@@ -426,18 +429,18 @@ fn gen_il_field_or_property<'a>(
         return Err(());
     };
     if let Some(st) = ns.find_struct(&parent_name) {
-        if let Some(field) = st.field.iter().find(|o|o.name==ident) {
-            if let Type::Class(..) = *field.ty.borrow()  {
-                println!("\tldfld {} {}::'{}'", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+        if let Some(field) = st.field.iter().find(|o|o.borrow().name==ident) {
+            if let Type::Class(..) = *field.borrow().ty.borrow()  {
+                println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             } else if *p.ret_address.borrow() {
-                println!("\tldflda {} {}::'{}'", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+                println!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             } else {
-                println!("\tldfld {} {}::'{}'", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+                println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             }
             if is_mutable {
-                Ok(field.ty.borrow().clone().into_mutable())
+                Ok(field.borrow().ty.borrow().clone().into_mutable())
             } else {
-                Ok(field.ty.borrow().clone())
+                Ok(field.borrow().ty.borrow().clone())
             }
         } else if let Some(property) = st.properties.iter().find(|o|o.name==ident) {
             if let Type::Struct(..) = parent_ty {
@@ -447,7 +450,7 @@ fn gen_il_field_or_property<'a>(
                 let unique_name = format!("{}:{}", parent_ty, crate::seq!());
                 let obj = Object::new(unique_name,
                     lvar_symbol_table.borrow().len(),
-                    false,
+                    ObjectKind::Local,
                     RRType::new(parent_ty.clone()),
                     true);
                 println!("\tstloc {}", obj.offset);
@@ -485,7 +488,7 @@ fn gen_il_field_or_property<'a>(
                 let unique_name = format!("{}:{}", parent_ty, crate::seq!());
                 let obj = Object::new(unique_name,
                     lvar_symbol_table.borrow().len(),
-                    false,
+                    ObjectKind::Local,
                     RRType::new(parent_ty.clone()),
                     true);
                 println!("\tstloc {}", obj.offset);
@@ -527,7 +530,7 @@ fn gen_il_field_or_property<'a>(
                                     let unique_name = format!("{}:{}", base_ty, crate::seq!());
                                     let obj = Object::new(unique_name,
                                         lvar_symbol_table.borrow().len(),
-                                        false,
+                                        ObjectKind::Local,
                                         RRType::new(base_ty.clone()),
                                         true);
                                     println!("\tstloc {}", obj.offset);
@@ -565,7 +568,7 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Re
         // TODO: objのis_assignedを再帰的にtrueにする必要がある
         e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
     }
-    if obj.is_param {
+    if obj.is_param() {
         println!("\tldarg {}", obj.offset);
     } else if *p.ret_address.borrow() {
         println!("\tldloca {}", obj.offset);
@@ -724,16 +727,16 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         return Err(());
                     };
                     if let Some(st) = ns.find_struct(name) {
-                        if let Some(field) = st.field.iter().find(|o|o.name==ident) {
+                        if let Some(field) = st.field.iter().find(|o|o.borrow().name==ident) {
                             let rty = gen_il(rhs, p)?;
-                            if check_type(&field.ty.borrow(), &rty).is_err() {
-                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.ty.borrow(), &rty);
+                            if check_type(&field.borrow().ty.borrow(), &rty).is_err() {
+                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty);
                             }
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
-                            println!("\tstfld {} {}::'{}'", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+                            println!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
                         } else if let Some(property) = st.properties.iter().find(|o|o.name==ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&property.ty.borrow(), &rty).is_err() {
@@ -875,7 +878,7 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
         UnaryOpKind::Ref => {
             if let NodeKind::Variable { obj } = expr.kind {
                 let obj = obj.borrow();
-                if obj.is_param {
+                if obj.is_param() {
                     println!("\tldarga {}", obj.offset);
                 } else {
                     println!("\tldloca {}", obj.offset);

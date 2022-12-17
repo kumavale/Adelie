@@ -2,7 +2,7 @@ use crate::builtin::*;
 use crate::class::{Struct, Class, Impl, EnumDef};
 use crate::function::Function;
 use crate::keyword::{Keyword, Numeric, Type, RRType};
-use crate::object::{Object, SymbolTable};
+use crate::object::{Object, ObjectKind, SymbolTable};
 use crate::token::Token;
 use std::cell::RefCell;
 use std::fmt;
@@ -398,7 +398,7 @@ pub fn new_struct_expr_node<'a>(
     let obj = Rc::new(RefCell::new(
             Object::new(unique_name,
                         symbol_table.len(),
-                        false,
+                        ObjectKind::Local,
                         RRType::new(Type::Struct(reference, current_mod, name.to_string(), false)),
                         false)));
     obj.borrow_mut().assigned = true;
@@ -479,7 +479,7 @@ pub fn new_variable_node_with_let<'a>(
     token: &'a [Token],
     mutable: bool,
 ) -> Node<'a> {
-    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.len(), false, ty, mutable)));
+    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.len(), ObjectKind::Local, ty, mutable)));
     symbol_table.push(Rc::clone(&obj));
     Node {
         kind: NodeKind::Variable {

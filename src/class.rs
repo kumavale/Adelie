@@ -1,6 +1,7 @@
 use crate::function::Function;
 use crate::keyword::RRType;
 use crate::object::{Object, FindSymbol};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -9,7 +10,7 @@ pub struct Dummy();
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Struct<'a> {
     pub name: String,
-    pub field: Vec<Object>,
+    pub field: Vec<Rc<RefCell<Object>>>,
     pub properties: Vec<Object>,
     pub path: Vec<String>,
     pub reference: Option<String>,

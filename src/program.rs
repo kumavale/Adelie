@@ -2,11 +2,13 @@ use crate::ast::Attribute;
 use crate::error::Errors;
 use crate::namespace::NameSpace;
 use std::cell::RefCell;
+use std::path::Path;
 use std::rc::{Rc, Weak};
 
 #[derive(Clone)]
 pub struct Program<'a> {
     // TODO: Files { path, lines }
+    pub name: String,
     pub path: &'a str,
     pub lines: Vec<&'a str>,
     pub namespace: Rc<RefCell<NameSpace<'a>>>,
@@ -20,6 +22,11 @@ impl<'a> Program<'a> {
     pub fn new(path: &'a str, input: &'a str, errors: Rc<RefCell<Errors>>) -> Self {
         let namespace = Rc::new(RefCell::new(NameSpace::new("crate", None)));
         Program {
+            name: Path::new(&path)
+                .file_stem()
+                .and_then(|n|n.to_str())
+                .and_then(|n|Some(n.to_string()))
+                .unwrap_or_default(),
             path,
             lines: input.lines().collect(),
             namespace: Rc::clone(&namespace),
