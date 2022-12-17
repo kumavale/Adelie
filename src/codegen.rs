@@ -463,16 +463,16 @@ fn gen_il_field_or_property<'a>(
             Err(())
         }
     } else if let Some(cl) = ns.find_class(&parent_name) {
-        if let Some(field) = cl.borrow().field.iter().find(|o|o.name==ident) {
+        if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
             if *p.ret_address.borrow() {
-                println!("\tldflda {} {}::'{}'", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+                println!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             } else {
-                println!("\tldfld {} {}::'{}'", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+                println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             }
             if is_mutable {
-                Ok(field.ty.borrow().clone().into_mutable())
+                Ok(field.borrow().ty.borrow().clone().into_mutable())
             } else {
-                Ok(field.ty.borrow().clone())
+                Ok(field.borrow().ty.borrow().clone())
             }
         } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
             if let Type::Struct(..) = parent_ty {
@@ -505,16 +505,16 @@ fn gen_il_field_or_property<'a>(
                     let (path, name, base)  = if let Type::Class(_, p, n, b, ..) = &*base_ty { (p, n, b) } else { unreachable!() };
                     if let Some(ns) = ns.find(path) {
                         if let Some(cl) = ns.find_class(name) {
-                            if let Some(field) = cl.borrow().field.iter().find(|o|o.name==ident) {
+                            if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
                                 if *p.ret_address.borrow() {
-                                    println!("\tldflda {} {}::'{}'", field.ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
+                                    println!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
                                 } else {
-                                    println!("\tldfld {} {}::'{}'", field.ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
+                                    println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
                                 }
                                 if is_mutable {
-                                    return Ok(field.ty.borrow().clone().into_mutable());
+                                    return Ok(field.borrow().ty.borrow().clone().into_mutable());
                                 } else {
-                                    return Ok(field.ty.borrow().clone());
+                                    return Ok(field.borrow().ty.borrow().clone());
                                 }
                             } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
                                 if let Type::Struct(..) = *parent_ty {
@@ -760,16 +760,16 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         return Err(());
                     };
                     if let Some(cl) = ns.find_class(name) {
-                        if let Some(field) = cl.borrow().field.iter().find(|o|o.name==ident) {
+                        if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
                             let rty = gen_il(rhs, p)?;
-                            if check_type(&field.ty.borrow(), &rty).is_err() {
-                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.ty.borrow(), &rty);
+                            if check_type(&field.borrow().ty.borrow(), &rty).is_err() {
+                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty);
                             }
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
-                            println!("\tstfld {} {}::'{}'", field.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+                            println!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
                         } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&property.ty.borrow(), &rty).is_err() {

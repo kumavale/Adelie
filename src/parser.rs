@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::builtin::*;
-use crate::class::{Struct, Class, Impl, EnumDef};
+use crate::class::{ClassKind, Struct, Class, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Keyword};
@@ -758,7 +758,7 @@ impl<'a> Parser<'a> {
 
     fn parse_item_struct(&mut self) -> Struct<'a> {
         let name = self.expect_ident();
-        let mut st = Struct::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
+        let mut st = Struct::new(ClassKind::Struct, name, self.current_mod.to_vec(), self.foreign_reference.clone());
         if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), st.name.to_string())) {
             // replace
             let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
@@ -882,7 +882,7 @@ impl<'a> Parser<'a> {
             e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]), "`class` must be inside an extern block");
         }
         let name = self.expect_ident();
-        let mut cl = Class::new(name, self.current_mod.to_vec(), self.foreign_reference.clone());
+        let mut cl = Class::new(ClassKind::Class, name, self.current_mod.to_vec(), self.foreign_reference.clone());
 
         if self.eat(TokenKind::Colon) {
             // クラスの継承
@@ -963,18 +963,18 @@ impl<'a> Parser<'a> {
                         let obj = Object::new(ident, cl.field.len(), ObjectKind::Local, ty.clone(), false);
                         cl.properties.push(obj);
                         let dummy = Object::new("".to_string(), cl.field.len(), ObjectKind::Local, ty, false);
-                        cl.field.push(dummy);
+                        cl.field.push(Rc::new(RefCell::new(dummy)));
                     }
                     self.expect(TokenKind::CloseDelim(Delimiter::Brace));
                     self.eat(TokenKind::Comma);
                 } else {
                     // field
-                    if cl.field.iter().any(|o|o.name==ident) {
+                    if cl.field.iter().any(|o|o.borrow().name==ident) {
                         e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
                     }
                     if let Some(ty) = ty {
                         let obj = Object::new(ident, cl.field.len(), ObjectKind::Local, ty, false);
-                        cl.field.push(obj);
+                        cl.field.push(Rc::new(RefCell::new(obj)));
                     }
                     if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
                         e0008(Rc::clone(&self.errors), self.errorset());
@@ -1257,7 +1257,7 @@ impl<'a> Parser<'a> {
         if self.current_fn().nested_class.is_none() {
             // nestedクラスを初期化
             self.current_fn_mut().nested_class
-                = Some(Struct::new("<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None));
+                = Some(Class::new(ClassKind::Class, "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None));
             let ty = Type::Class(None, vec![], "<>c__DisplayClass0_0".to_string(), None, None, true);
             let _nested_class_instance = new_variable_node_with_let(
                 &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),

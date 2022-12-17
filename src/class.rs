@@ -5,29 +5,33 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Dummy();
+pub enum ClassKind {
+    Struct,
+    Class,
+    NestedClass,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Struct<'a> {
+    pub kind: ClassKind,
     pub name: String,
     pub field: Vec<Rc<RefCell<Object>>>,
     pub properties: Vec<Object>,
     pub path: Vec<String>,
     pub reference: Option<String>,
     pub impls: Vec<Rc<Impl<'a>>>,
-    pub _dummy: &'a Dummy,
 }
 
 impl<'a> Struct<'a> {
-    pub fn new(name: String, path: Vec<String>, reference: Option<String>) -> Self {
+    pub fn new(kind: ClassKind, name: String, path: Vec<String>, reference: Option<String>) -> Self {
         Struct {
+            kind,
             name,
             field: vec![],
             properties: vec![],
             path,
             reference,
             impls: vec![],
-            _dummy: &Dummy(),
         }
     }
 }
@@ -58,8 +62,9 @@ impl<'a> FindSymbol for Vec<Rc<Struct<'a>>> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Class<'a> {
+    pub kind: ClassKind,
     pub name: String,
-    pub field: Vec<Object>,
+    pub field: Vec<Rc<RefCell<Object>>>,
     pub properties: Vec<Object>,
     pub path: Vec<String>,
     pub reference: Option<String>,
@@ -68,12 +73,12 @@ pub struct Class<'a> {
     pub base: Option<RRType>,
     pub nested_class: Vec<Class<'a>>,
     pub parent: Option<String>,  // if nested
-    pub _dummy: &'a Dummy,
 }
 
 impl<'a> Class<'a> {
-    pub fn new(name: String, path: Vec<String>, reference: Option<String>) -> Self {
+    pub fn new(kind: ClassKind, name: String, path: Vec<String>, reference: Option<String>) -> Self {
         Class {
+            kind,
             name,
             field: vec![],
             properties: vec![],
@@ -83,7 +88,6 @@ impl<'a> Class<'a> {
             base: None,
             nested_class: vec![],
             parent: None,
-            _dummy: &Dummy(),
         }
     }
 }
