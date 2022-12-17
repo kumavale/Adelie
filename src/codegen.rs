@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::builtin::*;
+use crate::class::ClassKind;
 use crate::error::*;
 use crate::keyword::{Type, RRType, Numeric, Keyword};
 use crate::object::{FindSymbol, Object, ObjectKind, SymbolTable};
@@ -180,12 +181,28 @@ fn gen_il_method<'a>(
     ident: &str,
     args: Vec<Node>,
 ) -> Result<Type> {
-    fn check_type(arg: &Type, param: &Type) -> Result<()> {
-        match (arg, param) {
+    fn check_type(arg_ty: &Type, param_ty: &Type) -> Result<()> {
+        match (arg_ty, param_ty) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if arg == param => Ok(()),
+            _ if arg_ty == param_ty => Ok(()),
+            (Type::Class(.., base_ty, _), Type::Class(..)) => {
+                fn check_base(base_ty: &Option<RRType>, param_ty: &Type) -> std::result::Result<(), ()> {
+                    if let Some(base_ty) = base_ty {
+                        if *base_ty.borrow() != *param_ty {
+                            let base_ty = base_ty.borrow();
+                            let base_ty = if let Type::Class(.., b, _) = &*base_ty { b } else { unreachable!() };
+                            check_base(base_ty, param_ty)
+                        } else {
+                            Ok(())
+                        }
+                    } else {
+                        Err(())
+                    }
+                }
+                check_base(base_ty, param_ty)
+            }
             _ => Err(())
         }
     }
@@ -193,60 +210,7 @@ fn gen_il_method<'a>(
     let parent_ty = gen_il(expr, p)?;
     *p.ret_address.borrow_mut() = false;
     match parent_ty {
-        Type::Struct(_, ref path, ref st_name, _) => {
-            let ns = p.namespace.borrow();
-            let ns = if let Some(ns) = ns.find(path) {
-                ns
-            } else {
-                let message = format!("failed to resolve: use of undeclared type `{}`", path.join("::"));
-                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
-                return Err(());
-            };
-            if let Some(_st) = ns.find_struct(st_name) {
-                // TODO: 継承元のimplも確認
-                let func = if let Some(func) = ns
-                    .find_impl(st_name)
-                    .and_then(|im| im.functions.find(ident).map(Rc::clone))
-                    .and_then(|f| (!f.is_static).then_some(f))
-                {
-                    func
-                } else {
-                    e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, st_name);
-                    return Err(());
-                };
-                let params = &func
-                    .param_symbol_table
-                    .objs
-                    .iter()
-                    .skip(if func.is_static { 0 } else { 1 })
-                    .collect::<Vec<_>>();
-                if params.len() != args.len() {
-                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
-                }
-                for (arg, param) in args.into_iter().zip(params) {
-                    let token = arg.token;
-                    let arg_ty = gen_il(arg, p)?;
-                    let param = param.borrow();
-                    let param_ty = &param.ty.borrow();
-                    if check_type(&arg_ty, param_ty).is_err() {
-                        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty);
-                    }
-                }
-                let params = params
-                    .iter()
-                    .map(|p|p.borrow().ty.borrow().to_ilstr())
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                println!("\tcall instance {} {}::'{}'({})", func.rettype.borrow().to_ilstr(), parent_ty.to_ilstr(), ident, params);
-                let x = Ok(func.rettype.borrow().clone());
-                x
-            } else {
-                // unreachable?
-                e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, st_name);
-                Err(())
-            }
-        }
-        Type::Class(_, ref path, ref cl_name, _, _, _) => {
+        Type::Class(_, _, ref path, ref cl_name, _, _) => {
             let ns = p.namespace.borrow();
             let ns = if let Some(ns) = ns.find(path) {
                 ns
@@ -281,29 +245,8 @@ fn gen_il_method<'a>(
                     let arg_ty = gen_il(arg, p)?;
                     let param = param.borrow();
                     let param_ty = &param.ty.borrow();
-                    match (&arg_ty, &**param_ty) {
-                        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-                        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => unreachable!(),
-                        _ if arg_ty == **param_ty => (),
-                        (Type::Class(.., base_ty, _, _), Type::Class(..)) => {
-                            fn check_base(base_ty: &Option<RRType>, param_ty: &Type) -> std::result::Result<(), ()> {
-                                if let Some(base_ty) = base_ty {
-                                    if *base_ty.borrow() != *param_ty {
-                                        let base_ty = base_ty.borrow();
-                                        let base_ty = if let Type::Class(.., b, _, _) = &*base_ty { b } else { unreachable!() };
-                                        check_base(base_ty, param_ty)
-                                    } else {
-                                        Ok(())
-                                    }
-                                } else {
-                                    Err(())
-                                }
-                            }
-                            if check_base(base_ty, param_ty).is_err() {
-                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty);
-                            }
-                        }
-                        _ => e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty),
+                    if check_type(&arg_ty, param_ty).is_err() {
+                        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty);
                     }
                 }
                 let params = params
@@ -350,7 +293,7 @@ fn gen_il_lambda<'a>(
 
 fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Result<Type> {
     let ns = p.namespace.borrow();
-    let (ns, name) = if let Type::Struct(_, path, name, _) = &*obj.ty.borrow() {
+    let (ns, name) = if let Type::Class(ClassKind::Struct, _, path, name, ..) = &*obj.ty.borrow() {
         if let Some(ns) = ns.find(path) {
             (ns, name.to_string())
         } else {
@@ -389,14 +332,11 @@ fn gen_il_field_or_property<'a>(
 ) -> Result<Type> {
     let parent_ty = gen_il(expr, p)?;
     let (path, parent_name, base, is_mutable) = match parent_ty.clone() {
-        Type::Struct(_, path, name, is_mutable) => {
-            (path, name, None, is_mutable)
-        }
         Type::_Self(path, name, is_mutable) => {
             //println!("\tldarg.0");
             (path, name, None, is_mutable)
         }
-        Type::Class(_, path, name, base, _, is_mutable) => {
+        Type::Class(_, _, path, name, base, is_mutable) => {
             (path, name, base, is_mutable)
         }
         Type::Ptr(ty) => {
@@ -424,9 +364,9 @@ fn gen_il_field_or_property<'a>(
         e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
         return Err(());
     };
-    if let Some(st) = ns.find_struct(&parent_name) {
-        if let Some(field) = st.borrow().field.iter().find(|o|o.borrow().name==ident) {
-            if let Type::Class(..) = *field.borrow().ty.borrow()  {
+    if let Some(cl) = ns.find_class(&parent_name) {
+        if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
+            if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
                 println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
             } else if *p.ret_address.borrow() {
                 println!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
@@ -438,46 +378,8 @@ fn gen_il_field_or_property<'a>(
             } else {
                 Ok(field.borrow().ty.borrow().clone())
             }
-        } else if let Some(property) = st.borrow().properties.iter().find(|o|o.name==ident) {
-            if let Type::Struct(..) = parent_ty {
-                // parent_tyを`stloc`するための一意なローカル変数を定義する
-                // スタックのトップには`struct`の'値'が入っている
-                // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
-                let unique_name = format!("{}:{}", parent_ty, crate::seq!());
-                let obj = Object::new(unique_name,
-                    lvar_symbol_table.borrow().len(),
-                    ObjectKind::Local,
-                    RRType::new(parent_ty.clone()),
-                    true);
-                println!("\tstloc {}", obj.offset);
-                println!("\tldloca {}", obj.offset);
-                lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
-            }
-            let method_name = format!("get_{}", ident);
-            println!("\tcall instance {} {}::'{}'()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name);
-            if is_mutable {
-                Ok(property.ty.borrow().clone().into_mutable())
-            } else {
-                Ok(property.ty.borrow().clone())
-            }
-        } else {
-            e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name);
-            Err(())
-        }
-    } else if let Some(cl) = ns.find_class(&parent_name) {
-        if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
-            if *p.ret_address.borrow() {
-                println!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
-            } else {
-                println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
-            }
-            if is_mutable {
-                Ok(field.borrow().ty.borrow().clone().into_mutable())
-            } else {
-                Ok(field.borrow().ty.borrow().clone())
-            }
         } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
-            if let Type::Struct(..) = parent_ty {
+            if let Type::Class(ClassKind::Struct, ..) = parent_ty {
                 // parent_tyを`stloc`するための一意なローカル変数を定義する
                 // スタックのトップには`struct`の'値'が入っている
                 // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
@@ -504,11 +406,13 @@ fn gen_il_field_or_property<'a>(
                 if let Some(base_ty) = base_ty {
                     let ns = p.namespace.borrow();
                     let base_ty = base_ty.borrow();
-                    let (path, name, base)  = if let Type::Class(_, p, n, b, ..) = &*base_ty { (p, n, b) } else { unreachable!() };
+                    let (path, name, base)  = if let Type::Class(_, _, p, n, b, ..) = &*base_ty { (p, n, b) } else { unreachable!() };
                     if let Some(ns) = ns.find(path) {
                         if let Some(cl) = ns.find_class(name) {
                             if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
-                                if *p.ret_address.borrow() {
+                                if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
+                                    println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
+                                } else if *p.ret_address.borrow() {
                                     println!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
                                 } else {
                                     println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident);
@@ -519,7 +423,7 @@ fn gen_il_field_or_property<'a>(
                                     return Ok(field.borrow().ty.borrow().clone());
                                 }
                             } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
-                                if let Type::Struct(..) = *parent_ty {
+                                if let Type::Class(ClassKind::Struct, ..) = *parent_ty {
                                     // parent_tyを`stloc`するための一意なローカル変数を定義する
                                     // スタックのトップには`struct`の'値'が入っている
                                     // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
@@ -548,9 +452,7 @@ fn gen_il_field_or_property<'a>(
                 Err(())
             }
             search_from_base(base, &parent_ty, p, Rc::clone(&lvar_symbol_table), ident, is_mutable)
-                .map_err(|()| {
-                    e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name);
-                })
+                .map_err(|()| e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name))
         }
     } else {
         // unreachable?
@@ -712,7 +614,6 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             let parent_ty = gen_il(*expr, p)?;
             *p.ret_address.borrow_mut() = false;
             match parent_ty {
-                Type::Struct(_, ref path, ref name, is_mutable) |
                 Type::_Self(ref path, ref name, is_mutable) => {
                     let namespace = p.namespace.borrow();
                     let ns = if let Some(ns) = namespace.find(path) {
@@ -752,7 +653,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
                     }
                 }
-                Type::Class(_, ref path, ref name, _, _, is_mutable) => {
+                Type::Class(_, _, ref path, ref name, _, is_mutable) => {
                     let namespace = p.namespace.borrow();
                     let ns = if let Some(ns) = namespace.find(path) {
                         ns
@@ -903,7 +804,7 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                 Type::Box(ty) => {
                     let ty = ty.borrow().clone();
                     match ty {
-                        Type::Struct(..) => println!("\tunbox {}", ty.to_ilstr()),
+                        Type::Class(ClassKind::Struct, ..) => println!("\tunbox {}", ty.to_ilstr()),
                         _ => println!("\tunbox.any {}", ty.to_ilstr()),
                     }
                     Ok(ty)

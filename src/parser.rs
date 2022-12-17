@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::builtin::*;
-use crate::class::{ClassKind, Struct, Class, Impl, EnumDef};
+use crate::class::{ClassKind, Class, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Keyword};
@@ -556,12 +556,6 @@ impl<'a> Parser<'a> {
 
     fn parse_program(&mut self, program: &mut Program<'a>, begin: usize, item: Item<'a>) {
         match item.kind {
-            ItemKind::Struct(st) => {
-                if program.current_namespace.borrow().find_struct(&st.name).is_some() {
-                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &st.name);
-                }
-                program.current_namespace.borrow_mut().push_struct(st);
-            }
             ItemKind::Class(cl) => {
                 for nested_class in &cl.nested_class {
                     if program.current_namespace.borrow().find_class(&nested_class.name).is_some() {
@@ -612,7 +606,6 @@ impl<'a> Parser<'a> {
                 program.current_namespace.borrow_mut().is_foreign = true;
                 foreign_mod_item.into_iter().for_each(|item| match item {
                         ForeignItemKind::Fn(f)     => program.current_namespace.borrow_mut().push_fn(f),
-                        ForeignItemKind::Struct(s) => program.current_namespace.borrow_mut().push_struct(s),
                         ForeignItemKind::Enum(e)   => program.current_namespace.borrow_mut().push_enum(e),
                         ForeignItemKind::Class(c)  => program.current_namespace.borrow_mut().push_class(c),
                         ForeignItemKind::Impl(i)   => {
@@ -653,10 +646,10 @@ impl<'a> Parser<'a> {
         }
         let begin = self.idx;
         let kind = if self.eat_keyword(Keyword::Struct) {
-            let st = self.parse_item_struct();
-            ItemKind::Struct(st)
+            let st = self.parse_item_class(ClassKind::Struct);
+            ItemKind::Class(st)
         } else if self.eat_keyword(Keyword::Class) {
-            let class = self.parse_item_class(None);
+            let class = self.parse_item_class(ClassKind::Class);
             ItemKind::Class(class)
         } else if self.eat_keyword(Keyword::Enum) {
             let enum_item = self.parse_item_enum();
@@ -740,7 +733,6 @@ impl<'a> Parser<'a> {
             let item = match item.1.kind {
                 ItemKind::Fn(f)     => ForeignItemKind::Fn(f),
                 ItemKind::Mod(m)    => ForeignItemKind::Mod(m),
-                ItemKind::Struct(s) => ForeignItemKind::Struct(s),
                 ItemKind::Class(c)  => ForeignItemKind::Class(c),
                 ItemKind::Impl(i)   => ForeignItemKind::Impl(i),
                 ItemKind::Enum(e)   => ForeignItemKind::Enum(e),
@@ -754,86 +746,6 @@ impl<'a> Parser<'a> {
         }
         self.expect(TokenKind::CloseDelim(Delimiter::Brace));
         foreign_items
-    }
-
-    fn parse_item_struct(&mut self) -> Struct<'a> {
-        let name = self.expect_ident();
-        let mut st = Struct::new(ClassKind::Struct, name, self.current_mod.to_vec(), self.foreign_reference.clone());
-        if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), st.name.to_string())) {
-            // replace
-            let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
-                (path.to_vec(), name.to_string())
-            } else {
-                unreachable!();
-            };
-            *ty.borrow_mut() = Type::Struct(self.foreign_reference.clone(), path, name, false);
-        } else {
-            // insert
-            let ty = RRType::new(Type::Struct(self.foreign_reference.clone(), self.current_mod.to_vec(), st.name.to_string(), false));
-            self.ident_types.insert((self.current_mod.to_vec(), st.name.to_string()), ty);
-        }
-        self.expect(TokenKind::OpenDelim(Delimiter::Brace));
-        let start_brace = self.idx-1;
-        while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
-            let ident = self.expect_ident();
-            if ident.is_empty() {
-                self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
-                break;
-            }
-            if st.field.iter().any(|o|o.borrow().name==ident) {
-                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
-            }
-
-            self.expect(TokenKind::Colon);
-            let ty = self.type_no_bounds();
-
-            if self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
-                // property
-                if st.properties.iter().any(|o|o.name==ident) {
-                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
-                }
-                if self.eat_keyword(Keyword::Set) {
-                    self.expect(TokenKind::Semi);
-                    if self.eat_keyword(Keyword::Get) {
-                        self.expect(TokenKind::Semi);
-                    }
-                } else if self.eat_keyword(Keyword::Get) {
-                    self.expect(TokenKind::Semi);
-                    if self.eat_keyword(Keyword::Set) {
-                        self.expect(TokenKind::Semi);
-                    }
-                } else {
-                }
-                // TODO
-                if let Some(ident) = self.eat_ident() {
-                    if ident == "add" {
-                        self.expect(TokenKind::Semi);
-                    }
-                }
-                if let Some(ty) = ty {
-                    // TODO: backing fieldの生成
-                    let obj = Object::new(ident, st.field.len(), ObjectKind::Local, ty.clone(), false);
-                    st.properties.push(obj);
-                    let dummy = Object::new("".to_string(), st.field.len(), ObjectKind::Local, ty, false);
-                    st.field.push(Rc::new(RefCell::new(dummy)));
-                }
-                self.expect(TokenKind::CloseDelim(Delimiter::Brace));
-                self.eat(TokenKind::Comma);
-            } else {
-                // field
-                if st.field.iter().any(|o|o.borrow().name==ident) {
-                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
-                }
-                if let Some(ty) = ty {
-                    let obj = Object::new(ident, st.field.len(), ObjectKind::Field, ty, false);
-                    st.field.push(Rc::new(RefCell::new(obj)));
-                }
-                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-                    e0008(Rc::clone(&self.errors), self.errorset());
-                }
-            }
-        }
-        st
     }
 
     fn parse_item_enum(&mut self) -> EnumDef {
@@ -877,12 +789,12 @@ impl<'a> Parser<'a> {
         ed
     }
 
-    fn parse_item_class(&mut self, parent_name: Option<String>) -> Class<'a> {
-        if !self.is_foreign {
+    fn parse_item_class(&mut self, kind: ClassKind) -> Class<'a> {
+        if !self.is_foreign && matches!(kind, ClassKind::Class | ClassKind::NestedClass(_)) {
             e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]), "`class` must be inside an extern block");
         }
         let name = self.expect_ident();
-        let mut cl = Class::new(ClassKind::Class, name, self.current_mod.to_vec(), self.foreign_reference.clone());
+        let mut cl = Class::new(kind.clone(), name, self.current_mod.to_vec(), self.foreign_reference.clone());
 
         if self.eat(TokenKind::Colon) {
             // クラスの継承
@@ -897,10 +809,10 @@ impl<'a> Parser<'a> {
             } else {
                 unreachable!();
             };
-            *ty.borrow_mut() = Type::Class(self.foreign_reference.clone(), path, name, cl.base.clone(), parent_name, false);
+            *ty.borrow_mut() = Type::Class(kind, self.foreign_reference.clone(), path, name, cl.base.clone(), false);
         } else {
             // insert
-            let ty = RRType::new(Type::Class(self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string(), cl.base.clone(), parent_name, false));
+            let ty = RRType::new(Type::Class(kind, self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string(), cl.base.clone(), false));
             self.ident_types.insert((self.current_mod.to_vec(), cl.name.to_string()), ty);
         }
 
@@ -909,8 +821,7 @@ impl<'a> Parser<'a> {
         while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
             if self.eat_keyword(Keyword::Class) {
                 // nested class
-                let mut class = self.parse_item_class(Some(cl.name.to_string()));
-                class.kind = ClassKind::NestedClass(cl.name.to_string());
+                let class = self.parse_item_class(ClassKind::NestedClass(cl.name.to_string()));
                 cl.nested_class.push(class);
                 self.eat(TokenKind::Comma);
             } else if self.eat_keyword(Keyword::Impl) {
@@ -973,7 +884,7 @@ impl<'a> Parser<'a> {
                         e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
                     }
                     if let Some(ty) = ty {
-                        let obj = Object::new(ident, cl.field.len(), ObjectKind::Local, ty, false);
+                        let obj = Object::new(ident, cl.field.len(), ObjectKind::Field, ty, false);
                         cl.field.push(Rc::new(RefCell::new(obj)));
                     }
                     if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
@@ -1252,13 +1163,13 @@ impl<'a> Parser<'a> {
         // とりあえず型をSystem.EventHandlerにしてしまう
         let begin = self.idx - 1;
         let ident = format!("<{}>lambda_{}", self.current_fn().name, crate::seq!());
-        let ty = Type::Class(Some("System.Runtime".to_string()), vec!["System".to_string()], "EventHandler".to_string(), None, None, false);
+        let ty = Type::Class(ClassKind::Class, Some("System.Runtime".to_string()), vec!["System".to_string()], "EventHandler".to_string(), None, false);
         let current_fn_name = self.current_fn().name.to_string();
         if self.current_fn().nested_class.is_none() {
             // nestedクラスを初期化
             self.current_fn_mut().nested_class
                 = Some(Class::new(ClassKind::Class, "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None));
-            let ty = Type::Class(None, vec![], "<>c__DisplayClass0_0".to_string(), None, None, true);
+            let ty = Type::Class(ClassKind::NestedClass(current_fn_name.to_string()), None, vec![], "<>c__DisplayClass0_0".to_string(), None, true);
             let _nested_class_instance = new_variable_node_with_let(
                 &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
                 format!("<{}>nested_class", current_fn_name),

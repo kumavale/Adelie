@@ -13,6 +13,7 @@ mod program;
 mod token;
 mod utils;
 
+use crate::class::ClassKind;
 use crate::error::Errors;
 use crate::function::Function;
 use crate::keyword::{Type, Numeric};
@@ -96,7 +97,10 @@ fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
 }
 
 fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
-    for st in &namespace.structs {
+    for st in &namespace.classes {
+        if st.borrow().kind != ClassKind::Struct {
+            continue;
+        }
         println!(".class private sequential auto sealed beforefieldinit '{}' extends [System.Runtime]System.ValueType", st.borrow().name);
         println!("{{");
         for value in &st.borrow().field {

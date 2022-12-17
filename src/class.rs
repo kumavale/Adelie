@@ -4,60 +4,11 @@ use crate::object::{Object, FindSymbol};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ClassKind {
     Struct,
     Class,
     NestedClass(String),  // parent name
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Struct<'a> {
-    pub kind: ClassKind,
-    pub name: String,
-    pub field: Vec<Rc<RefCell<Object>>>,
-    pub properties: Vec<Object>,
-    pub path: Vec<String>,
-    pub reference: Option<String>,
-    pub impls: Vec<Rc<Impl<'a>>>,
-}
-
-impl<'a> Struct<'a> {
-    pub fn new(kind: ClassKind, name: String, path: Vec<String>, reference: Option<String>) -> Self {
-        Struct {
-            kind,
-            name,
-            field: vec![],
-            properties: vec![],
-            path,
-            reference,
-            impls: vec![],
-        }
-    }
-}
-
-impl<'a> FindSymbol for [Struct<'a>] {
-    type Item = Struct<'a>;
-
-    fn find(&self, name: &str) -> Option<&Self::Item> {
-        self.iter().find(|s|s.name == name)
-    }
-
-    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
-        self.iter_mut().find(|s|s.name == name)
-    }
-}
-
-impl<'a> FindSymbol for Vec<Rc<Struct<'a>>> {
-    type Item = Rc<Struct<'a>>;
-
-    fn find(&self, name: &str) -> Option<&Self::Item> {
-        self.iter().find(|s|s.name == name)
-    }
-
-    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
-        self.iter_mut().find(|s|s.name == name)
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -1,3 +1,4 @@
+use crate::class::ClassKind;
 use std::cell::{Ref, RefMut, RefCell};
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -71,11 +72,10 @@ pub enum Type {
     Char,
     String,
     // TODO: Rc<RefCell<Struct<'a>>>を持たせることを検討
-    Struct(Option<String>, Vec<String>, String, bool),  // (dll, path, name, is_mutable)
     _Self(Vec<String>, String, bool),   // (path, name, is_mutable)
     Enum(Option<String>, Vec<String>, String),  // (dll, path, name)
     // TODO: Rc<RefCell<Class<'a>>>を持たせることを検討
-    Class(Option<String>, Vec<String>, String, Option<RRType>, Option<String>, bool),  // (dll, path, name, base, parent_name, is_mutable)
+    Class(ClassKind, Option<String>, Vec<String>, String, Option<RRType>, bool),  // (kind, dll, path, name, base, is_mutable)
     Box(RRType),
     Ptr(RRType),
     Void,
@@ -91,10 +91,9 @@ impl PartialEq for Type {
             (Type::Bool, Type::Bool) => true,
             (Type::Char, Type::Char) => true,
             (Type::String, Type::String) => true,
-            (Type::Struct(_, pl, nl, _), Type::Struct(_, pr, nr,  _)) => pl == pr && nl == nr,
             (Type::_Self(..), Type::_Self(..)) => true,
             (Type::Enum(_, pl, nl), Type::Enum(_, pr, nr)) => pl == pr && nl == nr,
-            (Type::Class(_, pl, nl, ..), Type::Class(_, pr, nr, ..)) => pl == pr && nl == nr,
+            (Type::Class(kl, _, pl, nl, ..), Type::Class(kr, _, pr, nr, ..)) => kl == kr && pl == pr && nl == nr,
             (Type::Box(l), Type::Box(r)) => l == r,
             (Type::Ptr(l), Type::Ptr(r)) => l == r,
             (Type::Void, Type::Void) => true,
@@ -106,9 +105,8 @@ impl PartialEq for Type {
 impl Type {
     pub fn into_mutable(self) -> Type {
         match self {
-            Type::Struct(r, p, n, _)       => Type::Struct(r, p, n, true),
-            Type::_Self(p, n, _)           => Type::_Self(p, n, true),
-            Type::Class(r, p, n, b, pn, _) => Type::Class(r, p, n, b, pn, true),
+            Type::_Self(p, n, _)          => Type::_Self(p, n, true),
+            Type::Class(k, r, p, n, b, _) => Type::Class(k, r, p, n, b, true),
             t => t,
         }
     }
@@ -125,17 +123,16 @@ impl fmt::Display for Type {
         match self {
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
             Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
-            Type::Bool               => write!(f, "bool"),
-            Type::Char               => write!(f, "char"),
-            Type::String             => write!(f, "string"),
-            Type::Struct(.., n, _)   => write!(f, "{}", n),
-            Type::_Self(_, n, _)     => write!(f, "{}", n),
-            Type::Enum(_, _, n)      => write!(f, "{}", n),
-            Type::Class(_, _, n, ..) => write!(f, "{}", n),
-            Type::Box(t)             => write!(f, "Box<{}>", t.borrow()),
-            Type::Ptr(t)             => write!(f, "&{}", t.borrow()),
-            Type::Void               => write!(f, "void"),
-            Type::RRIdent(_, n)      => write!(f, "RRIdent<{}>", n),
+            Type::Bool                  => write!(f, "bool"),
+            Type::Char                  => write!(f, "char"),
+            Type::String                => write!(f, "string"),
+            Type::_Self(_, n, _)        => write!(f, "{}", n),
+            Type::Enum(_, _, n)         => write!(f, "{}", n),
+            Type::Class(_, _, _, n, ..) => write!(f, "{}", n),
+            Type::Box(t)                => write!(f, "Box<{}>", t.borrow()),
+            Type::Ptr(t)                => write!(f, "&{}", t.borrow()),
+            Type::Void                  => write!(f, "void"),
+            Type::RRIdent(_, n)         => write!(f, "RRIdent<{}>", n),
         }
     }
 }
@@ -148,7 +145,6 @@ impl Type {
             Type::Char            => "char".to_string(),
             Type::String          => "string".to_string(),
             Type::_Self(_, n, _)  => format!("valuetype '{}'", n),
-            Type::Struct(r, p, n, _) |
             Type::Enum(r, p, n)   => {
                 if let Some(r) = r {
                     format!("valuetype [{}]{}.'{}'", r, p.join("."), n)
@@ -156,15 +152,30 @@ impl Type {
                     format!("valuetype '{}'", n)
                 }
             }
-            Type::Class(r, p, n, _, pn, _) => {
-                if let Some(r) = r {
-                    if let Some(pn) = pn {
-                        format!("class [{}]{}.'{}'/'{}'", r, p.join("."), pn, n)
-                    } else {
-                        format!("class [{}]{}.'{}'", r, p.join("."), n)
+            Type::Class(k, r, p, n, _, _) => {
+                match k {
+                    ClassKind::Struct => {
+                        if let Some(r) = r {
+                            format!("valuetype [{}]{}.'{}'", r, p.join("."), n)
+                        } else {
+                            format!("valuetype '{}'", n)
+                        }
                     }
-                } else {
-                    format!("class '{}'", n)
+                    ClassKind::Class => {
+                        if let Some(r) = r {
+                            format!("class [{}]{}.'{}'", r, p.join("."), n)
+                        } else {
+                            format!("class '{}'", n)
+                        }
+                    }
+                    ClassKind::NestedClass(name) => {
+                        if let Some(r) = r {
+                            format!("class [{}]{}.'{}'/'{}'", r, p.join("."), name, n)
+                        } else {
+                            //format!("class {}.'{}'", p.join("."), n)
+                            format!("class '{}'/'{}''", name, n)
+                        }
+                    }
                 }
             }
             Type::Box(_)          => "object".to_string(),

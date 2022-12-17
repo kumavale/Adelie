@@ -1,5 +1,5 @@
 use crate::builtin::*;
-use crate::class::{Struct, Class, Impl, EnumDef};
+use crate::class::{Class, ClassKind, Impl, EnumDef};
 use crate::function::Function;
 use crate::keyword::{Keyword, Numeric, Type, RRType};
 use crate::object::{Object, ObjectKind, SymbolTable};
@@ -399,7 +399,7 @@ pub fn new_struct_expr_node<'a>(
             Object::new(unique_name,
                         symbol_table.len(),
                         ObjectKind::Local,
-                        RRType::new(Type::Struct(reference, current_mod, name.to_string(), false)),
+                        RRType::new(Type::Class(ClassKind::Struct, reference, current_mod, name.to_string(), None, false)),
                         false)));
     obj.borrow_mut().assigned = true;
     symbol_table.push(Rc::clone(&obj));
@@ -640,11 +640,6 @@ pub enum ItemKind<'a> {
     /// A struct definition (`struct`).
     ///
     /// E.g., `struct Foo<A> { x: A }`.
-    Struct(Struct<'a>),
-    /// A class definition (`class`).
-    /// must be inside an extern block.
-    ///
-    /// E.g., `class Foo<A> { x: A }`.
     Class(Class<'a>),
     /// An implementation.
     ///
@@ -658,6 +653,5 @@ pub enum ForeignItemKind<'a> {
     Mod((String, Vec<(usize, Item<'a>)>)),
     Enum(EnumDef),
     Class(Class<'a>),
-    Struct(Struct<'a>),
     Impl(Impl<'a>),
 }
