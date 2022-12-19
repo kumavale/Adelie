@@ -2,7 +2,9 @@ use crate::ast::*;
 use crate::builtin::*;
 use crate::class::ClassKind;
 use crate::error::*;
+use crate::function::Function;
 use crate::keyword::{Type, RRType, Numeric, Keyword};
+use crate::namespace::NameSpace;
 use crate::object::{FindSymbol, Object, ObjectKind, SymbolTable};
 use crate::program::Program;
 use crate::token::Token;
@@ -219,13 +221,33 @@ fn gen_il_method<'a>(
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                 return Err(());
             };
-            if let Some(_cl) = ns.find_class(cl_name) {
+            if let Some(cl) = ns.find_class(|_|true, cl_name) {
                 // TODO: 継承元のimplも確認
+                fn find_func_recursive<'a>(ns: &'a NameSpace, base: &Option<RRType>, ident: &str) -> Option<Rc<Function<'a>>> {
+                    if let Some(base) = base {
+                        if let Type::Class(.., name, base, _) = &*base.borrow() {
+                            if let Some(func) = ns
+                                .find_impl(&name)
+                                .and_then(|im| im.functions.find(ident).map(Rc::clone))
+                                .and_then(|f| (!f.is_static).then_some(f)) {
+                                    Some(func)
+                            } else {
+                                find_func_recursive(ns, &base, ident)
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
                 let func = if let Some(func) = ns
                     .find_impl(cl_name)
                     .and_then(|im| im.functions.find(ident).map(Rc::clone))
                     .and_then(|f| (!f.is_static).then_some(f))
                 {
+                    func
+                } else if let Some(func) = find_func_recursive(ns, &cl.borrow().base, ident) {
                     func
                 } else {
                     e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, cl_name);
@@ -305,7 +327,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.name));
         return Err(());
     };
-    if let Some(st) = ns.find_struct(&name) {
+    if let Some(st) = ns.find_class(|k|k==&ClassKind::Struct, &name) {
         if field.len() != st.borrow().field.len() {
             e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &st.borrow().name);
         }
@@ -364,7 +386,7 @@ fn gen_il_field_or_property<'a>(
         e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
         return Err(());
     };
-    if let Some(cl) = ns.find_class(&parent_name) {
+    if let Some(cl) = ns.find_class(|_|true, &parent_name) {
         if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
             if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
                 println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
@@ -408,7 +430,7 @@ fn gen_il_field_or_property<'a>(
                     let base_ty = base_ty.borrow();
                     let (path, name, base)  = if let Type::Class(_, _, p, n, b, ..) = &*base_ty { (p, n, b) } else { unreachable!() };
                     if let Some(ns) = ns.find(path) {
-                        if let Some(cl) = ns.find_class(name) {
+                        if let Some(cl) = ns.find_class(|_|true, name) {
                             if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
                                 if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
                                     println!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident);
@@ -623,7 +645,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                         return Err(());
                     };
-                    if let Some(st) = ns.find_struct(name) {
+                    if let Some(st) = ns.find_class(|k|k==&ClassKind::Struct, name) {
                         if let Some(field) = st.borrow().field.iter().find(|o|o.borrow().name==ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&field.borrow().ty.borrow(), &rty).is_err() {
@@ -662,7 +684,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                         return Err(());
                     };
-                    if let Some(cl) = ns.find_class(name) {
+                    if let Some(cl) = ns.find_class(|_|true, name) {
                         if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&field.borrow().ty.borrow(), &rty).is_err() {

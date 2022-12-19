@@ -109,7 +109,7 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         for im in &st.borrow().impls {
             for func in &im.functions {
                 if let Some(nested_class) = &func.nested_class {
-                    println!(".class nested private auto ansi sealed beforefieldinit '<>c__DisplayClass0_0' extends [System.Runtime]System.Object {{");
+                    println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.name);
                     for value in &nested_class.field {
                         println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
                     }
@@ -171,7 +171,7 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
     println!(".class private auto ansi abstract sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", program.name);
     for func in &namespace.functions {
         if let Some(nested_class) = &func.nested_class {
-            println!(".class nested private auto ansi sealed beforefieldinit '<>c__DisplayClass0_0' extends [System.Runtime]System.Object {{");
+            println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.name);
             for value in &nested_class.field {
                 println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
             }

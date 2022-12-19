@@ -71,7 +71,7 @@ pub enum Type {
     Bool,
     Char,
     String,
-    // TODO: Rc<RefCell<Struct<'a>>>を持たせることを検討
+    // TODO: Classにする
     _Self(Vec<String>, String, bool),   // (path, name, is_mutable)
     Enum(Option<String>, Vec<String>, String),  // (dll, path, name)
     // TODO: Rc<RefCell<Class<'a>>>を持たせることを検討
@@ -173,7 +173,7 @@ impl Type {
                             format!("class [{}]{}.'{}'/'{}'", r, p.join("."), name, n)
                         } else {
                             //format!("class {}.'{}'", p.join("."), n)
-                            format!("class '{}'/'{}''", name, n)
+                            format!("class '{}'/'{}'", name, n)
                         }
                     }
                 }

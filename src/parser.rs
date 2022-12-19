@@ -320,6 +320,7 @@ pub struct Parser<'a> {
     current_fn: Option<Function<'a>>,
     current_lambda: Option<Function<'a>>,
     current_impl: Option<Impl<'a>>,
+    current_class: Vec<String>,
     tokens: &'a [Token],
     idx: usize,
     except_struct_expression: bool,
@@ -348,6 +349,7 @@ impl<'a> Parser<'a> {
             current_fn: None,
             current_lambda: None,
             current_impl: None,
+            current_class: vec![],
             tokens,
             idx: 0,
             except_struct_expression: false,
@@ -548,6 +550,7 @@ impl<'a> Parser<'a> {
 
     fn program(&mut self) -> Program<'a> {
         let mut program = Program::new(self.path, self.input, Rc::clone(&self.errors));
+        self.current_class.push(program.name.to_string());
         while let Some(item) = self.parse_item_with_attrs() {
             self.parse_program(&mut program, item.0, item.1);
         }
@@ -558,12 +561,12 @@ impl<'a> Parser<'a> {
         match item.kind {
             ItemKind::Class(cl) => {
                 for nested_class in &cl.nested_class {
-                    if program.current_namespace.borrow().find_class(&nested_class.name).is_some() {
+                    if program.current_namespace.borrow().find_class(|k|matches!(k,ClassKind::NestedClass(_)), &nested_class.name).is_some() {
                         e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &nested_class.name);
                     }
                     program.current_namespace.borrow_mut().push_class(nested_class.clone());
                 }
-                if program.current_namespace.borrow().find_class(&cl.name).is_some() {
+                if program.current_namespace.borrow().find_class(|k|matches!(k,ClassKind::Struct|ClassKind::Class), &cl.name).is_some() {
                     e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &cl.name);
                 }
                 program.current_namespace.borrow_mut().push_class(cl);
@@ -575,9 +578,7 @@ impl<'a> Parser<'a> {
                 program.current_namespace.borrow_mut().push_enum(ed);
             }
             ItemKind::Impl(impl_item) => {
-                if let Some(st) = program.current_namespace.borrow().find_struct(&impl_item.name) {
-                    st.borrow_mut().impls.push(Rc::new(impl_item));
-                } else if let Some(cl) = program.current_namespace.borrow().find_class(&impl_item.name) {
+                if let Some(cl) = program.current_namespace.borrow().find_class(|_|true, &impl_item.name) {
                     cl.borrow_mut().impls.push(Rc::new(impl_item));
                 } else {
                     // TODO: クラス定義より先にimplしても大丈夫なように
@@ -609,9 +610,7 @@ impl<'a> Parser<'a> {
                         ForeignItemKind::Enum(e)   => program.current_namespace.borrow_mut().push_enum(e),
                         ForeignItemKind::Class(c)  => program.current_namespace.borrow_mut().push_class(c),
                         ForeignItemKind::Impl(i)   => {
-                            if let Some(st) = program.current_namespace.borrow().find_struct(&i.name) {
-                                st.borrow_mut().impls.push(Rc::new(i));
-                            } else if let Some(cl) = program.current_namespace.borrow().find_class(&i.name) {
+                            if let Some(cl) = program.current_namespace.borrow().find_class(|_|true, &i.name) {
                                 cl.borrow_mut().impls.push(Rc::new(i));
                             } else {
                                 // TODO: クラス定義より先にimplしても大丈夫なように
@@ -794,6 +793,7 @@ impl<'a> Parser<'a> {
             e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]), "`class` must be inside an extern block");
         }
         let name = self.expect_ident();
+        self.current_class.push(name.to_string());
         let mut cl = Class::new(kind.clone(), name, self.current_mod.to_vec(), self.foreign_reference.clone());
 
         if self.eat(TokenKind::Colon) {
@@ -893,6 +893,7 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        self.current_class.pop();
         cl
     }
 
@@ -1164,15 +1165,16 @@ impl<'a> Parser<'a> {
         let begin = self.idx - 1;
         let ident = format!("<{}>lambda_{}", self.current_fn().name, crate::seq!());
         let ty = Type::Class(ClassKind::Class, Some("System.Runtime".to_string()), vec!["System".to_string()], "EventHandler".to_string(), None, false);
-        let current_fn_name = self.current_fn().name.to_string();
         if self.current_fn().nested_class.is_none() {
             // nestedクラスを初期化
             self.current_fn_mut().nested_class
-                = Some(Class::new(ClassKind::Class, "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None));
-            let ty = Type::Class(ClassKind::NestedClass(current_fn_name.to_string()), None, vec![], "<>c__DisplayClass0_0".to_string(), None, true);
+                = Some(Class::new(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None));
+            let ty = Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true);
+            let instance_name = format!("<{}>nested_class", self.current_fn().name.to_string());
             let _nested_class_instance = new_variable_node_with_let(
                 &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
-                format!("<{}>nested_class", current_fn_name),
+                //format!("<{}>nested_class", current_fn_name),
+                instance_name,
                 RRType::new(ty),
                 &[],
                 true,

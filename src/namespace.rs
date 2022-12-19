@@ -1,4 +1,4 @@
-use crate::class::{Class, Impl, EnumDef};
+use crate::class::{Class, ClassKind, Impl, EnumDef};
 use crate::function::Function;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -96,42 +96,45 @@ impl<'a> NameSpace<'a> {
             .map(Rc::clone)
     }
 
-    pub fn find_struct(&self, name: &str) -> Option<Rc<RefCell<Class<'a>>>> {
-        // TODO: ClassKind::Struct
+    pub fn find_class<F>(&self, kind: F, name: &str) -> Option<Rc<RefCell<Class<'a>>>>
+        where F: Fn(&ClassKind) -> bool {
         self.classes
             .iter()
-            .find(|item| item.borrow().name == name)
+            .filter(|cl| kind(&cl.borrow().kind))
+            .find(|cl| cl.borrow().name == name)
             .map(Rc::clone)
     }
 
     pub fn find_impl(&self, name: &str) -> Option<Rc<Impl<'a>>> {
-        if let Some(st) = self.find_struct(name) {
-            st.borrow().impls
-                .iter()
-                .find(|im| im.name == name)
-                .map(Rc::clone)
-        } else if let Some(cl) = self.find_class(name) {
-            cl.borrow().impls
+        self.find_class(|_|true, name)
+            .and_then(|cl| cl
+                .borrow()
+                .impls
                 .iter()
                 .find(|item| item.name == name)
                 .map(Rc::clone)
-        } else {
-            None
-        }
+            )
+        //if let Some(cl) = self.find_class(|_|true, name) {
+        //    if let Some(im) = cl.borrow().impls.iter().find(|item| item.name == name) {
+        //        Some(Rc::clone(im))
+        //    } else if let Some(base) = &cl.borrow().base {
+        //        if let Type::Class(.., name, _, _) = &*base.borrow() {
+        //            self.find_impl(name)
+        //        } else {
+        //            None
+        //        }
+        //    } else {
+        //        None
+        //    }
+        //} else {
+        //    None
+        //}
     }
 
     pub fn find_enum(&self, name: &str) -> Option<Rc<EnumDef>> {
         self.enums
             .iter()
             .find(|item| item.name == name)
-            .map(Rc::clone)
-    }
-
-    pub fn find_class(&self, name: &str) -> Option<Rc<RefCell<Class<'a>>>> {
-        // TODO: ClassKind::Class
-        self.classes
-            .iter()
-            .find(|item| item.borrow().name == name)
             .map(Rc::clone)
     }
 
