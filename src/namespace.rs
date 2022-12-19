@@ -98,11 +98,22 @@ impl<'a> NameSpace<'a> {
 
     pub fn find_class<F>(&self, kind: F, name: &str) -> Option<Rc<RefCell<Class<'a>>>>
         where F: Fn(&ClassKind) -> bool {
-        self.classes
+        if let Some(cl) = self.classes
             .iter()
             .filter(|cl| kind(&cl.borrow().kind))
             .find(|cl| cl.borrow().name == name)
-            .map(Rc::clone)
+            .map(Rc::clone) {
+                Some(cl)
+        } else {
+            self.functions
+                .iter()
+                .find_map(|f| f.nested_class
+                    .iter()
+                    .filter(|cl| kind(&cl.borrow().kind))
+                    .find(|cl| cl.borrow().name == name)
+                )
+                .map(Rc::clone)
+        }
     }
 
     pub fn find_impl(&self, name: &str) -> Option<Rc<Impl<'a>>> {

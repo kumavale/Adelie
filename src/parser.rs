@@ -455,7 +455,7 @@ impl<'a> Parser<'a> {
         &self.tokens[self.idx..=self.idx]
     }
 
-    fn current_fn(&self) -> &Function {
+    fn current_fn(&self) -> &Function<'a> {
         if let Some(local_fn) = self.current_lambda.as_ref() {
             local_fn
         } else {
@@ -1167,18 +1167,29 @@ impl<'a> Parser<'a> {
         let ty = Type::Class(ClassKind::Class, Some("System.Runtime".to_string()), vec!["System".to_string()], "EventHandler".to_string(), None, false);
         if self.current_fn().nested_class.is_none() {
             // nestedクラスを初期化
-            self.current_fn_mut().nested_class
-                = Some(Class::new(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None));
-            let ty = Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true);
+            // コンストラクタを自動生成
+            // let mut ctor = Function::new(".ctor", true);
+            let ty = RRType::new(Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true));
+            // let mut selfobj = Object::new("".to_string(), 0, ObjectKind::Param, RRType::clone(&ty), true);
+            // selfobj.assigned = true;
+            // let instance = new_variable_node(&Rc::new(RefCell::new(selfobj)), &[]);
+            // ctor.statements = new_method_call_node(instance, ".ctor".to_string(), vec![], &[]);
+            //self.current_fn_mut().local_funcs.push(ctor.clone());
+            //let mut im = Impl::new("<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None);
+            //im.functions.push(Rc::new(ctor));
+            // クラスの生成
+            let displayclass = Class::new(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None);
+            //displayclass.impls.push(Rc::new(im));
+            self.current_fn_mut().nested_class = Some(Rc::new(RefCell::new(displayclass)));
             let instance_name = format!("<{}>nested_class", self.current_fn().name.to_string());
             let _nested_class_instance = new_variable_node_with_let(
                 &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
                 //format!("<{}>nested_class", current_fn_name),
                 instance_name,
-                RRType::new(ty),
+                RRType::clone(&ty),
                 &[],
                 true,
-            );
+            );  // <- こいつの.ctorを呼ぶ必要がある
         }
         self.current_lambda = Some(Function::new(&ident, false));
         let stmts = self.parse_expr();
@@ -1775,7 +1786,7 @@ impl<'a> Parser<'a> {
                     let current_fn = self.current_fn.as_mut().unwrap();
                     if let Some(obj) = current_fn.lvar_symbol_table.borrow().find(name) {
                         // TODO: 親メソッド内のローカル変数をnestedクラスのフィールド変数に置き換え
-                        current_fn.nested_class.as_mut().unwrap().field.push(Rc::clone(&obj));
+                        current_fn.nested_class.as_mut().unwrap().borrow_mut().field.push(Rc::clone(&obj));
                         new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                     } else if let Some(obj) = current_fn.param_symbol_table.find(name) {
                         // TODO 親メソッドのarg

@@ -223,7 +223,7 @@ fn gen_il_method<'a>(
             };
             if let Some(cl) = ns.find_class(|_|true, cl_name) {
                 // TODO: 継承元のimplも確認
-                fn find_func_recursive<'a>(ns: &'a NameSpace, base: &Option<RRType>, ident: &str) -> Option<Rc<Function<'a>>> {
+                fn find_func_recursive<'a, 'b>(ns: &'b NameSpace<'a>, base: &Option<RRType>, ident: &str) -> Option<Rc<Function<'a>>> {
                     if let Some(base) = base {
                         if let Type::Class(.., name, base, _) = &*base.borrow() {
                             if let Some(func) = ns
@@ -280,7 +280,6 @@ fn gen_il_method<'a>(
                 let x = Ok(func.rettype.borrow().clone());
                 x
             } else {
-                // unreachable?
                 e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, cl_name);
                 Err(())
             }
@@ -303,12 +302,18 @@ fn gen_il_lambda<'a>(
     ty: Type,
     ident: &str,
 ) -> Result<Type> {
-    println!("\tldc.i4.0");  // 本当は`sender`のobjectをロードする必要がある？
+    //println!("\tldc.i4.0");  // 本当は`sender`のobjectをロードする必要がある？
     //println!("\tldftn instance void '{}'()", ident);  // インターナルclass内に定義していないから`instance`は要らない
     // めっちゃ強引に書いているだけ
     //println!("\tldftn void Form1/'<>c__DisplayClass0_0'::'{}'()", ident);
     println!("\tldloc '{}'", format!("<main>nested_class"));
-    println!("\tldftn void '{}'/'<>c__DisplayClass0_0'::'{}'()", p.name, ident);
+    //let end_label = format!("\tIL_lambda_ctor_end{}", crate::seq!());
+    //println!("\tbrtrue {}", end_label);
+    //println!("\tnewobj instance void [System.Runtime]System.Object::.ctor()");
+    //println!("\tstloc '{}'", format!("<main>nested_class"));
+    //println!("\tldloc '{}'", format!("<main>nested_class"));
+    //println!("{}:", end_label);
+    println!("\tldftn instance void '{}'/'<>c__DisplayClass0_0'::'{}'()", p.name, ident);
     println!("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
     Ok(ty)
 }

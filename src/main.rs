@@ -109,9 +109,16 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         for im in &st.borrow().impls {
             for func in &im.functions {
                 if let Some(nested_class) = &func.nested_class {
-                    println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.name);
-                    for value in &nested_class.field {
+                    println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.borrow().name);
+                    for value in &nested_class.borrow().field {
                         println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
+                    }
+                    if nested_class.borrow().name == "<>c__DisplayClass0_0" {
+                        println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
+                        println!("\t\tldarg.0");
+                        println!("\t\tcall instance void [System.Runtime]System.Object::.ctor()");
+                        println!("\t\tret");
+                        println!("\t}}");
                     }
                     for local_func in &func.local_funcs {
                         gen_local_function(program, local_func);
@@ -171,9 +178,16 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
     println!(".class private auto ansi abstract sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", program.name);
     for func in &namespace.functions {
         if let Some(nested_class) = &func.nested_class {
-            println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.name);
-            for value in &nested_class.field {
+            println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.borrow().name);
+            for value in &nested_class.borrow().field {
                 println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
+            }
+            if nested_class.borrow().name == "<>c__DisplayClass0_0" {
+                println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
+                println!("\t\tldarg.0");
+                println!("\t\tcall instance void [System.Runtime]System.Object::.ctor()");
+                println!("\t\tret");
+                println!("\t}}");
             }
             for local_func in &func.local_funcs {
                 gen_local_function(program, local_func);
@@ -267,6 +281,16 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
         println!("\t.locals init (");
         println!("{}", locals);
         println!("\t)");
+        func.lvar_symbol_table
+            .borrow()
+            .objs
+            .iter()
+            .for_each(|obj| if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &*obj.borrow().ty.borrow() {
+                if name == "<>c__DisplayClass0_0" {
+                    println!("\tnewobj instance void '{}'/'<>c__DisplayClass0_0'::.ctor()", pn);
+                    println!("\tstloc '{}'", obj.borrow().name);
+                }
+            });
     }
 
     println!("}}");
