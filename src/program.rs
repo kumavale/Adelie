@@ -1,6 +1,7 @@
 use crate::ast::Attribute;
 use crate::error::Errors;
 use crate::namespace::NameSpace;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::{Rc, Weak};
@@ -70,8 +71,9 @@ impl<'a> Program<'a> {
         self.current_namespace = Rc::clone(&parent.upgrade().unwrap());
     }
 
-    pub fn push_il(&self, text: String) {
-        self.il.borrow_mut().stmts.push(text);
+    pub fn push_il<S: Into<Cow<'a, str>>>(&self, s: S) {
+        let text = s.into();
+        self.il.borrow_mut().stmts.push(text.into_owned());
     }
 
     pub fn clear_il(&self) {

@@ -59,7 +59,7 @@ fn gen_il_builtin_assert<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Progra
     p.push_il(format!("\tbrtrue {}", end_label));
     p.push_il(format!("\tldstr \"assertion failed: {stringizing_arg}\""));
     p.push_il(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
-    p.push_il(format!("\tcall void '<adelie>panic'(string, string)"));
+    p.push_il("\tcall void '<adelie>panic'(string, string)");
     p.push_il(format!("{}:", end_label));
     Ok(Type::Void)
 }
@@ -88,15 +88,15 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
     if check_type(&lty, &rty).is_err() {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty, &rty);
     }
-    p.push_il(format!("    ceq"));
+    p.push_il("    ceq");
     let end_label = format!("\tIL_assert_eq_end{}", crate::seq!());
     p.push_il(format!("    brtrue {}", end_label));
-    p.push_il(format!("    ldstr \"assertion failed: `(left == right)`\\n\""));
+    p.push_il("    ldstr \"assertion failed: `(left == right)`\\n\"");
     p.push_il(format!("    ldstr \"  left: `{stringizing_left}`\\n\""));
     p.push_il(format!("    ldstr \" right: `{stringizing_right}`\""));
-    p.push_il(format!("    call string [mscorlib]System.String::Concat(string, string, string)"));
+    p.push_il("    call string [mscorlib]System.String::Concat(string, string, string)");
     p.push_il(format!("    ldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
-    p.push_il(format!("    call void '<adelie>panic'(string, string)"));
+    p.push_il("    call void '<adelie>panic'(string, string)");
     p.push_il(format!("{}:", end_label));
     Ok(Type::Void)
     // MEMO
@@ -137,7 +137,7 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
 fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Result<Type> {
     let argc = args.len();
     match argc {
-        0 => p.push_il(format!("\tldstr \"explicit panic\"")),
+        0 => p.push_il("\tldstr \"explicit panic\""),
         1 => {
             let format = args.drain(..1).next().unwrap();
             let token = format.token;
@@ -145,10 +145,10 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
             if format_arg_count(&format) != argc-1 {
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
-            p.push_il(format!("\tldstr \"{{0}}\""));
+            p.push_il("\tldstr \"{{0}}\"");
             let ty = gen_il(format_shaping(format), p)?;
             p.push_il(format!("\tbox {}", ty.to_ilstr()));
-            p.push_il(format!("\tcall string [mscorlib]System.String::Format(string, object)"));
+            p.push_il("\tcall string [mscorlib]System.String::Format(string, object)");
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
@@ -163,19 +163,19 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
             }
             gen_il(format_shaping(format), p)?;
             p.push_il(format!("\tldc.i4 {}", argc));
-            p.push_il(format!("\tnewarr object"));
+            p.push_il("\tnewarr object");
             for (i, arg) in args.into_iter().enumerate() {
-                p.push_il(format!("\tdup"));
+                p.push_il("\tdup");
                 p.push_il(format!("\tldc.i4 {}", i));
                 let ty = gen_il(arg, p)?;
                 p.push_il(format!("\tbox {}", ty.to_ilstr()));
-                p.push_il(format!("\tstelem.ref"));
+                p.push_il("\tstelem.ref");
             }
-            p.push_il(format!("\tcall string [mscorlib]System.String::Format(string, object[])"));
+            p.push_il("\tcall string [mscorlib]System.String::Format(string, object[])");
         }
     }
     p.push_il(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
-    p.push_il(format!("\tcall void '<adelie>panic'(string, string)"));
+    p.push_il("\tcall void '<adelie>panic'(string, string)");
 
     // TODO: Type::Never
     Ok(Type::Void)
@@ -193,7 +193,7 @@ fn gen_il_builtin_read_line<'a>(token: &[Token], args: Vec<Node>, p: &'a Program
     if !args.is_empty() {
         e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "read_line! takes no arguments");
     }
-    p.push_il(format!("\tcall string [mscorlib]System.Console::ReadLine()"));
+    p.push_il("\tcall string [mscorlib]System.Console::ReadLine()");
     Ok(Type::String)
 }
 
@@ -231,13 +231,13 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl
             }
             gen_il(format_shaping(format), p)?;
             p.push_il(format!("\tldc.i4 {}", argc));
-            p.push_il(format!("\tnewarr object"));
+            p.push_il("\tnewarr object");
             for (i, arg) in args.into_iter().enumerate() {
-                p.push_il(format!("\tdup"));
+                p.push_il("\tdup");
                 p.push_il(format!("\tldc.i4 {}", i));
                 let ty = gen_il(arg, p)?;
                 p.push_il(format!("\tbox {}", ty.to_ilstr()));
-                p.push_il(format!("\tstelem.ref"));
+                p.push_il("\tstelem.ref");
             }
             p.push_il(format!("\tcall void [mscorlib]System.Console::Write{nl}(string, object[])"));
         }

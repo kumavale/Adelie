@@ -148,7 +148,7 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                         }
                     }
                 }
-                program.push_il(format!("\t\tret"));
+                program.push_il("\t\tret");
 
                 // prepare local variables
                 let locals = func
@@ -220,7 +220,7 @@ fn gen_local_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) 
             }
         }
     }
-    program.push_il(format!("\t\tret"));
+    program.push_il("\t\tret");
 
     // prepare local variables
     let locals = func
@@ -268,7 +268,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
             }
         }
     }
-    program.push_il(format!("\tret"));
+    program.push_il("\tret");
 
     // prepare local variables
     let locals = func

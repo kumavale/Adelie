@@ -314,7 +314,7 @@ fn gen_il_lambda<'a>(
     //println!("\tldloc '{}'", format!("<main>nested_class"));
     //println!("{}:", end_label);
     p.push_il(format!("\tldftn instance void '{}'/'<>c__DisplayClass0_0'::'{}'()", p.name, ident));
-    p.push_il(format!("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)"));
+    p.push_il("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
     Ok(ty)
 }
 
@@ -631,8 +631,8 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty, &rty);
             }
             match lty {
-                Type::Ptr(_) => p.push_il(format!("\tstind.i")),
-                Type::Numeric(Numeric::I32) => p.push_il(format!("\tstind.i4")),
+                Type::Ptr(_) => p.push_il("\tstind.i"),
+                Type::Numeric(Numeric::I32) => p.push_il("\tstind.i4"),
                 _ => unimplemented!(),
             }
         }
@@ -734,7 +734,7 @@ fn gen_il_return<'a>(_current_token: &[Token], p: &'a Program<'a>, expr: Option<
     } else {
         Type::Void
     };
-    p.push_il(format!("\tret"));
+    p.push_il("\tret");
     Ok(rettype)
 }
 
@@ -751,22 +751,22 @@ fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, 
                 Type::Numeric(..) | Type::Bool | Type::Char => (),  // ok
                 _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Numeric(Numeric::I32)),
             }
-            p.push_il(format!("\tconv.i4"));
+            p.push_il("\tconv.i4");
         }
         Type::Bool => {
             match old_type {
                 Type::Bool => (),  // ok
                 _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Bool),
             }
-            p.push_il(format!("\tldc.i4.0"));
-            p.push_il(format!("\tcgt"));
+            p.push_il("\tldc.i4.0");
+            p.push_il("\tcgt");
         }
         Type::Char => {
             match old_type {
                 Type::Char | Type::Numeric(_) => (),  // ok
                 _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Char),
             }
-            p.push_il(format!("\tconv.u2"));
+            p.push_il("\tconv.u2");
         }
         Type::Ptr(_) => {
             todo!("cast to ref type");
@@ -783,17 +783,17 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
             let ty = gen_il(expr, p)?;
             match ty {
                 Type::Bool => {
-                    p.push_il(format!("\tldc.i4.0"));
-                    p.push_il(format!("\tceq"));
+                    p.push_il("\tldc.i4.0");
+                    p.push_il("\tceq");
                 }
-                _ => p.push_il(format!("\tnot"))
+                _ => p.push_il("\tnot")
             }
             Ok(ty)
         }
         UnaryOpKind::Neg => {
             let ty= gen_il(expr, p)?;
             if let Type::Numeric(..) = ty {
-                p.push_il(format!("\tneg"));
+                p.push_il("\tneg");
             } else {
                 e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
             }
@@ -822,8 +822,8 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                 Type::Ptr(ty) => {
                     let ty = ty.borrow().clone();
                     match ty {
-                        Type::Ptr(_) => p.push_il(format!("\tldind.i")),
-                        Type::Numeric(Numeric::I32) => p.push_il(format!("\tldind.i4")),
+                        Type::Ptr(_) => p.push_il("\tldind.i"),
+                        Type::Numeric(Numeric::I32) => p.push_il("\tldind.i4"),
                         _ => unimplemented!(),
                     }
                     Ok(ty)
@@ -851,45 +851,45 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
     let mut is_bool    = false;
     match &ltype {
         Type::Numeric(..) => match kind {
-            BinaryOpKind::Add    => p.push_il(format!("\tadd")),
-            BinaryOpKind::Sub    => p.push_il(format!("\tsub")),
-            BinaryOpKind::Mul    => p.push_il(format!("\tmul")),
-            BinaryOpKind::Div    => p.push_il(format!("\tdiv")),
-            BinaryOpKind::Rem    => p.push_il(format!("\trem")),
-            BinaryOpKind::BitXor => p.push_il(format!("\txor")),
-            BinaryOpKind::BitAnd => p.push_il(format!("\tand")),
-            BinaryOpKind::BitOr  => p.push_il(format!("\tor")),
-            BinaryOpKind::Shl    => p.push_il(format!("\tshl")),
-            BinaryOpKind::Shr    => p.push_il(format!("\tshr")),
+            BinaryOpKind::Add    => p.push_il("\tadd"),
+            BinaryOpKind::Sub    => p.push_il("\tsub"),
+            BinaryOpKind::Mul    => p.push_il("\tmul"),
+            BinaryOpKind::Div    => p.push_il("\tdiv"),
+            BinaryOpKind::Rem    => p.push_il("\trem"),
+            BinaryOpKind::BitXor => p.push_il("\txor"),
+            BinaryOpKind::BitAnd => p.push_il("\tand"),
+            BinaryOpKind::BitOr  => p.push_il("\tor"),
+            BinaryOpKind::Shl    => p.push_il("\tshl"),
+            BinaryOpKind::Shr    => p.push_il("\tshr"),
 
             BinaryOpKind::Eq => {
-                p.push_il(format!("\tceq"));
+                p.push_il("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Lt => {
-                p.push_il(format!("\tclt"));
+                p.push_il("\tclt");
                 is_bool = true;
             }
             BinaryOpKind::Le => {
-                p.push_il(format!("\tcgt"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tceq"));
+                p.push_il("\tcgt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Ne => {
-                p.push_il(format!("\tceq"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tceq"));
+                p.push_il("\tceq");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Gt => {
-                p.push_il(format!("\tcgt"));
+                p.push_il("\tcgt");
                 is_bool = true;
             }
             BinaryOpKind::Ge => {
-                p.push_il(format!("\tclt"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tceq"));
+                p.push_il("\tclt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
                 is_bool = true;
             }
         }
@@ -903,33 +903,33 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 return Err(());
             }
             BinaryOpKind::Eq => {
-                p.push_il(format!("\tceq"));
+                p.push_il("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Lt => {
-                p.push_il(format!("\tclt"));
+                p.push_il("\tclt");
                 is_bool = true;
             }
             BinaryOpKind::Le => {
-                p.push_il(format!("\tcgt"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tceq"));
+                p.push_il("\tcgt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Ne => {
-                p.push_il(format!("\tceq"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tceq"));
+                p.push_il("\tceq");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Gt => {
-                p.push_il(format!("\tcgt"));
+                p.push_il("\tcgt");
                 is_bool = true;
             }
             BinaryOpKind::Ge => {
-                p.push_il(format!("\tclt"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tceq"));
+                p.push_il("\tclt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
                 is_bool = true;
             }
             _ => {
@@ -939,7 +939,7 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
         }
         Type::String => match kind {
             BinaryOpKind::Add => {
-                p.push_il(format!("\tcall string System.String::Concat(string, string)"));
+                p.push_il("\tcall string System.String::Concat(string, string)");
             }
             BinaryOpKind::Sub |
             BinaryOpKind::Mul |
@@ -949,39 +949,39 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 return Err(());
             }
             BinaryOpKind::Eq => {
-                p.push_il(format!("\tcall bool System.String::op_Equality(string, string)"));
+                p.push_il("\tcall bool System.String::op_Equality(string, string)");
                 is_bool = true;
             }
             BinaryOpKind::Lt => {
-                p.push_il(format!("\tcallvirt instance int32 System.String::CompareTo(string)"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tclt"));
+                p.push_il("\tcallvirt instance int32 System.String::CompareTo(string)");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tclt");
                 is_bool = true;
             }
             BinaryOpKind::Le => {
-                p.push_il(format!("\tcallvirt instance int32 System.String::CompareTo(string)"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tcgt"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tceq"));
+                p.push_il("\tcallvirt instance int32 System.String::CompareTo(string)");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tcgt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Ne => {
-                p.push_il(format!("call bool System.String::op_Inequality(string, string)"));
+                p.push_il("call bool System.String::op_Inequality(string, string)");
                 is_bool = true;
             }
             BinaryOpKind::Gt => {
-                p.push_il(format!("\tcallvirt instance int32 System.String::CompareTo(string)"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tcgt"));
+                p.push_il("\tcallvirt instance int32 System.String::CompareTo(string)");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tcgt");
                 is_bool = true;
             }
             BinaryOpKind::Ge => {
-                p.push_il(format!("\tcallvirt instance int32 System.String::CompareTo(string)"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tclt"));
-                p.push_il(format!("\tldc.i4.0"));
-                p.push_il(format!("\tceq"));
+                p.push_il("\tcallvirt instance int32 System.String::CompareTo(string)");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tclt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
                 is_bool = true;
             }
             _ => {
@@ -1027,14 +1027,14 @@ fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind:
     let end_label  = format!("IL_end{}", label_seq());
     match kind {
         ShortCircuitOpKind::And => {
-            p.push_il(format!("\tldc.i4.0"));
+            p.push_il("\tldc.i4.0");
             let token = lhs.token;
             let ltype = gen_il(lhs, p)?;
             if ltype != Type::Bool {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype);
             }
             p.push_il(format!("\tbrfalse {}", end_label));
-            p.push_il(format!("\tpop"));
+            p.push_il("\tpop");
             let token = rhs.token;
             let rtype = gen_il(rhs, p)?;
             if rtype != Type::Bool {
@@ -1043,14 +1043,14 @@ fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind:
             p.push_il(format!("{}:", end_label));
         }
         ShortCircuitOpKind::Or => {
-            p.push_il(format!("\tldc.i4.1"));
+            p.push_il("\tldc.i4.1");
             let token = lhs.token;
             let ltype = gen_il(lhs, p)?;
             if ltype != Type::Bool {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype);
             }
             p.push_il(format!("\tbrtrue {}", end_label));
-            p.push_il(format!("\tpop"));
+            p.push_il("\tpop");
             let token = rhs.token;
             let rtype = gen_il(rhs, p)?;
             if rtype != Type::Bool {
@@ -1065,7 +1065,7 @@ fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind:
 fn gen_il_semi<'a>(_current_token: &[Token], p: &'a Program<'a>, expr: Node) -> Result<Type> {
     let ty = gen_il(expr, p)?;
     if ty != Type::Void {
-        p.push_il(format!("\tpop"));
+        p.push_il("\tpop");
     }
     Ok(Type::Void)
 }
