@@ -1857,6 +1857,13 @@ impl<'a> Parser<'a> {
             } else {
                 if let Some(obj) = self.current_fn().symbol_table.borrow().find(name) {
                     new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                } else if let Some(new_obj) = self.current_fn().nested_class.as_ref().unwrap().borrow().field.find(name) {
+                    let mut obj = new_obj.borrow().clone();
+                    let instance_name = format!("<{}>nested_class", self.current_fn().name);
+                    let symbol_table = self.current_fn().symbol_table.borrow();
+                    let parent_obj = symbol_table.find(&instance_name).unwrap();
+                    obj.parent = Some(Rc::clone(parent_obj));
+                    new_variable_node(&Rc::new(RefCell::new(obj)), &self.tokens[self.idx-1..self.idx])
                 } else {
                     e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
                     new_empty_node()

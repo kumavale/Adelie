@@ -386,6 +386,7 @@ fn gen_il_field_or_property<'a>(
             }
         }
         ty => {
+            p.display_il();
             unimplemented!("primitive type: {:?}", ty);
         }
     };
@@ -402,7 +403,11 @@ fn gen_il_field_or_property<'a>(
             if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
                 p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
             } else if *p.ret_address.borrow() {
-                p.push_il(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *field.borrow().ty.borrow() {
+                    p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                } else {
+                    p.push_il(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                }
             } else {
                 p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
             }
@@ -446,7 +451,11 @@ fn gen_il_field_or_property<'a>(
                                 if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
                                     p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                                 } else if *p.ret_address.borrow() {
-                                    p.push_il(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
+                                    if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *field.borrow().ty.borrow() {
+                                        p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
+                                    } else {
+                                        p.push_il(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
+                                    }
                                 } else {
                                     p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
                                 }
@@ -506,7 +515,11 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Re
     if obj.is_param() {
         p.push_il(format!("\tldarg {}", obj.offset));
     } else if *p.ret_address.borrow() {
-        p.push_il(format!("\tldloca {}", obj.offset));
+        if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *obj.ty.borrow() {
+            p.push_il(format!("\tldloc {}", obj.offset));
+        } else {
+            p.push_il(format!("\tldloca {}", obj.offset));
+        }
     } else {
         p.push_il(format!("\tldloc {}", obj.offset));
     }

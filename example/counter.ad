@@ -122,6 +122,7 @@ fn main() {
         println!(count);
         System::Console::Beep();
     });
+    count = 42;
     //form1.CountUp();
     form1.form.Controls.Add(form1.label);
     form1.form.Controls.Add(form1.button);
