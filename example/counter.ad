@@ -118,7 +118,7 @@ fn main() {
     let mut count: i32 = 0;
     form1.button.add_Click(|| {
         //form1.label.Text = count.to_string();
-        //count += 1;
+        count += 1;
         //println!(count);
         System::Console::Beep();
     });

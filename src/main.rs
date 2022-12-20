@@ -127,6 +127,7 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                 }
                 let args = func
                     .param_symbol_table
+                    .borrow()
                     .objs
                     .iter()
                     .skip(if func.is_static { 0 } else { 1 })
@@ -179,6 +180,7 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
 fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     println!(".class private auto ansi abstract sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", program.name);
     for func in &namespace.functions {
+        gen_function(program, func);
         if let Some(nested_class) = &func.nested_class {
             println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.borrow().name);
             for value in &nested_class.borrow().field {
@@ -196,7 +198,6 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
             }
             println!("}}");
         }
-        gen_function(program, func);
     }
     println!("}}");
 }
@@ -204,6 +205,7 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
 fn gen_local_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     let args = func
         .param_symbol_table
+        .borrow()
         .objs
         .iter()
         .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
@@ -251,6 +253,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     } else {
         let args = func
             .param_symbol_table
+            .borrow()
             .objs
             .iter()
             .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))

@@ -478,8 +478,11 @@ pub fn new_variable_node_with_let<'a>(
     ty: RRType,
     token: &'a [Token],
     mutable: bool,
+    assigned: bool,
+    kind: ObjectKind,
 ) -> Node<'a> {
-    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.len(), ObjectKind::Local, ty, mutable)));
+    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.len(), kind, ty, mutable)));
+    obj.borrow_mut().assigned = assigned;
     symbol_table.push(Rc::clone(&obj));
     Node {
         kind: NodeKind::Variable {

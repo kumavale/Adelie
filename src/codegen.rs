@@ -150,6 +150,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
     if let Some(func) = p.namespace.borrow().find_fn(name) {
         let params = &func
             .param_symbol_table
+            .borrow()
             .objs;
         if params.len() != args.len() {
             e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
@@ -253,8 +254,8 @@ fn gen_il_method<'a>(
                     e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, cl_name);
                     return Err(());
                 };
-                let params = &func
-                    .param_symbol_table
+                let symbol_table = func.param_symbol_table.borrow();
+                let params = &symbol_table
                     .objs
                     .iter()
                     .skip(if func.is_static { 0 } else { 1 })
@@ -491,6 +492,7 @@ fn gen_il_field_or_property<'a>(
 fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Result<Type> {
     if !obj.assigned {
         // TODO: objのis_assignedを再帰的にtrueにする必要がある
+        dbg!(&obj);
         e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
     }
     if obj.is_param() {
@@ -1098,6 +1100,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
             if let Some(func) = ns.find_fn(&name) {
                 let params = &func
                     .param_symbol_table
+                    .borrow()
                     .objs;
                 if params.len() != args.len() {
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
@@ -1130,6 +1133,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     };
                 let params = &func
                     .param_symbol_table
+                    .borrow()
                     .objs;
                 if params.len() != args.len() {
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());

@@ -13,7 +13,7 @@ pub enum ObjectKind {
 pub struct Object {
     pub name: String,
     pub kind: ObjectKind,
-    pub offset: usize,
+    pub offset: usize,  // TODO: シンボルテーブルを元に計算すれば良い
     pub ty: RRType,
     pub assigned: bool,
     pub mutable: bool,
@@ -76,6 +76,15 @@ impl SymbolTable {
     pub fn len(&self) -> usize {
         self.objs.len()
     }
+
+    pub fn drain(&mut self, name: &str) -> Option<Rc<RefCell<Object>>> {
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some((i, _)) = scope.iter().enumerate().find(|(_,o)|o.borrow().name == name) {
+                return Some(scope.swap_remove(i));
+            }
+        }
+        None
+    }
 }
 
 pub trait FindSymbol {
@@ -98,7 +107,7 @@ impl FindSymbol for SymbolTable {
 
     fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
         for scope in self.scopes.iter_mut().rev() {
-            if let Some(obj) = scope.iter_mut().rev().find(|o|o.borrow().name == name) {
+            if let Some(obj) = scope.iter_mut().find(|o|o.borrow().name == name) {
                 return Some(obj)
             }
         }
