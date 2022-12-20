@@ -657,7 +657,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                         return Err(());
                     };
-                    if let Some(st) = ns.find_class(|k|k==&ClassKind::Struct, name) {
+                    if let Some(st) = ns.find_class(|_|true, name) {
                         if let Some(field) = st.borrow().field.find(&ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&field.borrow().ty.borrow(), &rty).is_err() {
@@ -683,7 +683,6 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                             e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                         }
                     } else {
-                        // unreachable?
                         e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
                     }
                 }

@@ -1183,6 +1183,10 @@ impl<'a> Parser<'a> {
             //im.functions.push(Rc::new(ctor));
             // クラスの生成
             let displayclass = Class::new(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None);
+            //let self_ty = RRType::new(Type::_Self(self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), true));
+            //let self_obj = Rc::new(RefCell::new(Object::new("self".to_string(), 0, ObjectKind::Param, self_ty, true)));
+            //self_obj.borrow_mut().assigned = true;
+            //displayclass.field.push(self_obj);
             //displayclass.impls.push(Rc::new(im));
             self.current_fn_mut().nested_class = Some(Rc::new(RefCell::new(displayclass)));
             let instance_name = format!("<{}>nested_class", self.current_fn().name.to_string());
@@ -1788,9 +1792,9 @@ impl<'a> Parser<'a> {
                 if let Some(obj) = local_fn.symbol_table.borrow().find(name) {
                     new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                 } else {
-                    let symbol_table = Rc::clone(&self.current_fn().symbol_table);
+                    //let symbol_table = Rc::clone(&self.current_fn().symbol_table);
                     let current_fn = self.current_fn.as_mut().unwrap();
-                    let node = if let Some(obj) = symbol_table.borrow_mut().drain(name) {
+                    let node = if let Some(old_obj) = current_fn.symbol_table.borrow_mut().drain(name) {
                         // WIP
                         // 親メソッド内のローカル変数をnestedクラスのフィールド変数に置き換え
                         // 親メソッド: count(local) => nested_class.count(field)
@@ -1800,14 +1804,31 @@ impl<'a> Parser<'a> {
                         // 子メソッド:              => this.count(field)
                         //                             -> ldarg.0
                         //                             -> ldfld count
-                        let ident = obj.borrow().name.to_string();
-                        current_fn.nested_class.as_mut().unwrap().borrow_mut().field.push(Rc::clone(&obj));
-                        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), current_fn.symbol_table.borrow().offset(ObjectKind::Param), ObjectKind::Param, obj.borrow().ty.clone(), true)));
-                        obj.borrow_mut().assigned = true;
-                        symbol_table.borrow_mut().push(Rc::clone(&obj));
+                        // old_objはシンボルテーブルからは削除するが、NodeにRc::cloneされたものがある
+                        let (ident, ty, is_assigned, is_mutable) = {
+                            let obj = old_obj.borrow();
+                            (obj.name.to_string(), RRType::clone(&obj.ty), obj.assigned, obj.mutable)
+                        };
+                        // 変数の定義場所をnestedクラスのフィールド変数に置き換え
+                        let field_offset = current_fn.nested_class.as_ref().unwrap().borrow().field.offset(ObjectKind::Field);
+                        let new_obj = Rc::new(RefCell::new(Object::new(ident.to_string(), field_offset, ObjectKind::Field, RRType::clone(&ty), is_mutable)));
+                        new_obj.borrow_mut().assigned = is_assigned;
+                        current_fn.nested_class.as_mut().unwrap().borrow_mut().field.push(Rc::clone(&new_obj));
+
+                        // TODO
+                        // old_objをnestedクラスのフィールド変数を指すように変更
+                        //let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), current_fn.symbol_table.borrow().offset(ObjectKind::Param), ObjectKind::Param, obj.borrow().ty.clone(), true)));
+                        //obj.borrow_mut().assigned = true;
+                        //symbol_table.borrow_mut().push(Rc::clone(&obj));
+
+                        //let ty = RRType::new(Type::_Self(self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), true));
+                        let ty = RRType::new(Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true));
+                        let self_obj = Rc::new(RefCell::new(Object::new("self".to_string(), 0, ObjectKind::Param, ty, true)));
+                        self_obj.borrow_mut().assigned = true;
+                        let self_node = new_variable_node(&self_obj, &[]);
                         new_field_or_property_node(
-                            Rc::clone(&symbol_table),
-                            self.nested_class_instance.take().unwrap(),
+                            Rc::clone(&current_fn.symbol_table),
+                            self_node,
                             ident,
                             &self.tokens[self.idx-1..self.idx],
                         )
