@@ -13,7 +13,7 @@ pub enum ObjectKind {
 pub struct Object {
     pub name: String,
     pub kind: ObjectKind,
-    pub offset: usize,  // TODO: シンボルテーブルを元に計算すれば良い
+    pub offset: usize,
     pub ty: RRType,
     pub assigned: bool,
     pub mutable: bool,
@@ -73,8 +73,8 @@ impl SymbolTable {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.objs.len()
+    pub fn offset(&self, kind: ObjectKind) -> usize {
+        self.objs.iter().fold(0, |acc, x| if x.borrow().kind == kind { acc+1 } else { acc })
     }
 
     pub fn drain(&mut self, name: &str) -> Option<Rc<RefCell<Object>>> {

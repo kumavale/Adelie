@@ -17,6 +17,7 @@ use crate::class::ClassKind;
 use crate::error::Errors;
 use crate::function::Function;
 use crate::keyword::{Type, Numeric};
+use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
 use crate::program::Program;
 use std::cell::RefCell;
@@ -126,10 +127,11 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                     println!("}}");
                 }
                 let args = func
-                    .param_symbol_table
+                    .symbol_table
                     .borrow()
                     .objs
                     .iter()
+                    .filter(|o| o.borrow().kind == ObjectKind::Param)
                     .skip(if func.is_static { 0 } else { 1 })
                     .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
                     .collect::<Vec<String>>()
@@ -153,10 +155,11 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
 
                 // prepare local variables
                 let locals = func
-                    .lvar_symbol_table
+                    .symbol_table
                     .borrow()
                     .objs
                     .iter()
+                    .filter(|o| o.borrow().kind == ObjectKind::Local)
                     .enumerate()
                     //.map(|(i, obj)| format!("\t\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
                     .map(|(_, obj)| format!("\t\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
@@ -204,10 +207,11 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
 
 fn gen_local_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     let args = func
-        .param_symbol_table
+        .symbol_table
         .borrow()
         .objs
         .iter()
+        .filter(|o| o.borrow().kind == ObjectKind::Param)
         .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
         .collect::<Vec<String>>()
         .join(", ");
@@ -226,10 +230,11 @@ fn gen_local_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) 
 
     // prepare local variables
     let locals = func
-        .lvar_symbol_table
+        .symbol_table
         .borrow()
         .objs
         .iter()
+        .filter(|o| o.borrow().kind == ObjectKind::Local)
         .enumerate()
         //.map(|(i, obj)| format!("\t\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
         .map(|(_, obj)| format!("\t\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
@@ -252,10 +257,11 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
         println!("\t.entrypoint");
     } else {
         let args = func
-            .param_symbol_table
+            .symbol_table
             .borrow()
             .objs
             .iter()
+            .filter(|o| o.borrow().kind == ObjectKind::Param)
             .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
             .collect::<Vec<String>>()
             .join(", ");
@@ -275,10 +281,11 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
 
     // prepare local variables
     let locals = func
-        .lvar_symbol_table
+        .symbol_table
         .borrow()
         .objs
         .iter()
+        .filter(|o| o.borrow().kind == ObjectKind::Local)
         .enumerate()
         //.map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
         .map(|(_, obj)| format!("\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
@@ -288,10 +295,11 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
         println!("\t.locals init (");
         println!("{}", locals);
         println!("\t)");
-        func.lvar_symbol_table
+        func.symbol_table
             .borrow()
             .objs
             .iter()
+            .filter(|o| o.borrow().kind == ObjectKind::Local)
             .for_each(|obj| if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &*obj.borrow().ty.borrow() {
                 if name == "<>c__DisplayClass0_0" {
                     println!("\tnewobj instance void '{}'/'<>c__DisplayClass0_0'::.ctor()", pn);

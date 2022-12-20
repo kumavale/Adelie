@@ -397,7 +397,7 @@ pub fn new_struct_expr_node<'a>(
     let unique_name = format!("{}:{}", name, crate::seq!());
     let obj = Rc::new(RefCell::new(
             Object::new(unique_name,
-                        symbol_table.len(),
+                        symbol_table.offset(ObjectKind::Local),
                         ObjectKind::Local,
                         RRType::new(Type::Class(ClassKind::Struct, reference, current_mod, name.to_string(), None, false)),
                         false)));
@@ -481,7 +481,7 @@ pub fn new_variable_node_with_let<'a>(
     assigned: bool,
     kind: ObjectKind,
 ) -> Node<'a> {
-    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.len(), kind, ty, mutable)));
+    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.offset(ObjectKind::Local), kind, ty, mutable)));
     obj.borrow_mut().assigned = assigned;
     symbol_table.push(Rc::clone(&obj));
     Node {

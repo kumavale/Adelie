@@ -148,14 +148,18 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
         }
     }
     if let Some(func) = p.namespace.borrow().find_fn(name) {
-        let params = &func
-            .param_symbol_table
+        let objs = &func
+            .symbol_table
             .borrow()
             .objs;
+        let params = objs
+            .iter()
+            .filter(|o| o.borrow().kind == ObjectKind::Param)
+            .collect::<Vec<_>>();
         if params.len() != args.len() {
             e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
         }
-        for (arg, param) in args.into_iter().zip(params) {
+        for (arg, param) in args.into_iter().zip(&params) {
             let token = arg.token;
             let param = param.borrow();
             let param_ty = &param.ty.borrow();
@@ -254,10 +258,11 @@ fn gen_il_method<'a>(
                     e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, cl_name);
                     return Err(());
                 };
-                let symbol_table = func.param_symbol_table.borrow();
+                let symbol_table = func.symbol_table.borrow();
                 let params = &symbol_table
                     .objs
                     .iter()
+                    .filter(|o| o.borrow().kind == ObjectKind::Param)
                     .skip(if func.is_static { 0 } else { 1 })
                     .collect::<Vec<_>>();
                 if params.len() != args.len() {
@@ -334,7 +339,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         return Err(());
     };
     if let Some(st) = ns.find_class(|k|k==&ClassKind::Struct, &name) {
-        if field.len() != st.borrow().field.len() {
+        if field.len() != st.borrow().field.objs.len() {
             e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &st.borrow().name);
         }
         p.push_il(format!("\tldloca {}", obj.offset));
@@ -413,7 +418,7 @@ fn gen_il_field_or_property<'a>(
                 // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
                 let unique_name = format!("{}:{}", parent_ty, crate::seq!());
                 let obj = Object::new(unique_name,
-                    lvar_symbol_table.borrow().len(),
+                    lvar_symbol_table.borrow().offset(ObjectKind::Local),
                     ObjectKind::Local,
                     RRType::new(parent_ty.clone()),
                     true);
@@ -457,7 +462,7 @@ fn gen_il_field_or_property<'a>(
                                     // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
                                     let unique_name = format!("{}:{}", base_ty, crate::seq!());
                                     let obj = Object::new(unique_name,
-                                        lvar_symbol_table.borrow().len(),
+                                        lvar_symbol_table.borrow().offset(ObjectKind::Local),
                                         ObjectKind::Local,
                                         RRType::new(base_ty.clone()),
                                         true);
@@ -1098,14 +1103,18 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 return Err(());
             };
             if let Some(func) = ns.find_fn(&name) {
-                let params = &func
-                    .param_symbol_table
+                let objs = &func
+                    .symbol_table
                     .borrow()
                     .objs;
+                let params = objs
+                    .iter()
+                    .filter(|o| o.borrow().kind == ObjectKind::Param)
+                    .collect::<Vec<_>>();
                 if params.len() != args.len() {
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
-                for (arg, param) in args.into_iter().zip(params) {
+                for (arg, param) in args.into_iter().zip(&params) {
                     let token = arg.token;
                     let param = param.borrow();
                     let param_ty = &param.ty.borrow();
@@ -1131,14 +1140,18 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                         e0014(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &name, &im.name);
                         return Err(());
                     };
-                let params = &func
-                    .param_symbol_table
+                let objs = &func
+                    .symbol_table
                     .borrow()
                     .objs;
+                let params = objs
+                    .iter()
+                    .filter(|o| o.borrow().kind == ObjectKind::Param)
+                    .collect::<Vec<_>>();
                 if params.len() != args.len() {
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
-                for (arg, param) in args.into_iter().zip(params) {
+                for (arg, param) in args.into_iter().zip(&params) {
                     let token = arg.token;
                     let param = param.borrow();
                     let param_ty = &param.ty.borrow();

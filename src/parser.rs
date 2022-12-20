@@ -873,9 +873,9 @@ impl<'a> Parser<'a> {
                     }
                     if let Some(ty) = ty {
                         // TODO: backing fieldの生成
-                        let obj = Object::new(ident, cl.field.len(), ObjectKind::Local, ty.clone(), false);
+                        let obj = Object::new(ident, cl.field.offset(ObjectKind::Field), ObjectKind::Local, ty.clone(), false);
                         cl.properties.push(obj);
-                        let dummy = Object::new("".to_string(), cl.field.len(), ObjectKind::Local, ty, false);
+                        let dummy = Object::new("".to_string(), cl.field.offset(ObjectKind::Field), ObjectKind::Local, ty, false);
                         cl.field.push(Rc::new(RefCell::new(dummy)));
                     }
                     self.expect(TokenKind::CloseDelim(Delimiter::Brace));
@@ -886,7 +886,7 @@ impl<'a> Parser<'a> {
                         e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
                     }
                     if let Some(ty) = ty {
-                        let obj = Object::new(ident, cl.field.len(), ObjectKind::Field, ty, false);
+                        let obj = Object::new(ident, cl.field.offset(ObjectKind::Field), ObjectKind::Field, ty, false);
                         cl.field.push(Rc::new(RefCell::new(obj)));
                     }
                     if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
@@ -919,7 +919,7 @@ impl<'a> Parser<'a> {
         } else {
             (self.expect_ident(), false)
         };
-        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), self.g_symbol_table.len(), ObjectKind::Local, RRType::new(Type::Void), false)));
+        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), 0, ObjectKind::Local, RRType::new(Type::Void), false)));
         self.g_symbol_table.push(Rc::clone(&obj));
         self.current_fn = Some(Function::new(&ident, is_ctor));
 
@@ -945,9 +945,9 @@ impl<'a> Parser<'a> {
                     self.current_fn_mut().is_static = false;
                     let ident = "self".to_string();
                     let ty = RRType::new(Type::_Self(self.current_mod.to_vec(), self.current_impl.as_ref().unwrap().name.to_string(), false));
-                    let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.borrow().len(), ObjectKind::Param, ty, is_mutable)));
+                    let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().symbol_table.borrow().offset(ObjectKind::Param), ObjectKind::Param, ty, is_mutable)));
                     obj.borrow_mut().assigned = true;
-                    self.current_fn_mut().param_symbol_table.borrow_mut().push(Rc::clone(&obj));
+                    self.current_fn_mut().symbol_table.borrow_mut().push(Rc::clone(&obj));
                     if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                         e0009(Rc::clone(&self.errors), self.errorset());
                     }
@@ -990,14 +990,14 @@ impl<'a> Parser<'a> {
             self.bump();
             return;
         }
-        if self.current_fn_mut().param_symbol_table.borrow().find(&ident).is_some() {
+        if self.current_fn_mut().symbol_table.borrow().find(&ident).is_some() {
             e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
         }
         self.expect(TokenKind::Colon);
         if let Some(ty) = self.type_no_bounds() {
-            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().param_symbol_table.borrow().len(), ObjectKind::Param, ty, is_mutable)));
+            let obj = Rc::new(RefCell::new(Object::new(ident, self.current_fn().symbol_table.borrow().offset(ObjectKind::Param), ObjectKind::Param, ty, is_mutable)));
             obj.borrow_mut().assigned = true;
-            self.current_fn_mut().param_symbol_table.borrow_mut().push(Rc::clone(&obj));
+            self.current_fn_mut().symbol_table.borrow_mut().push(Rc::clone(&obj));
         }
     }
 
@@ -1008,7 +1008,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_block_expr(&mut self) -> Node<'a> {
-        self.current_fn_mut().lvar_symbol_table.borrow_mut().enter_scope();
+        self.current_fn_mut().symbol_table.borrow_mut().enter_scope();
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
         let begin = self.idx;
@@ -1022,7 +1022,7 @@ impl<'a> Parser<'a> {
         }
         self.close_delimiter(Delimiter::Brace, self.tokens[begin-1].clone());
         self.except_struct_expression = except_struct_expression;
-        self.current_fn_mut().lvar_symbol_table.borrow_mut().leave_scope();
+        self.current_fn_mut().symbol_table.borrow_mut().leave_scope();
         new_block_node(stmts, &self.tokens[begin..self.idx])
     }
 
@@ -1082,7 +1082,7 @@ impl<'a> Parser<'a> {
         let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Void));
         let token = &self.tokens[begin..self.idx];
         let node = new_variable_node_with_let(
-            &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
+            &mut self.current_fn_mut().symbol_table.borrow_mut(),
             ident,
             ty,
             token,
@@ -1187,7 +1187,7 @@ impl<'a> Parser<'a> {
             self.current_fn_mut().nested_class = Some(Rc::new(RefCell::new(displayclass)));
             let instance_name = format!("<{}>nested_class", self.current_fn().name.to_string());
             let nested_class_instance = new_variable_node_with_let(
-                &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
+                &mut self.current_fn_mut().symbol_table.borrow_mut(),
                 //format!("<{}>nested_class", current_fn_name),
                 instance_name,
                 RRType::clone(&ty),
@@ -1667,7 +1667,7 @@ impl<'a> Parser<'a> {
                     );
                 } else {
                     node = new_field_or_property_node(
-                        Rc::clone(&self.current_fn().lvar_symbol_table),
+                        Rc::clone(&self.current_fn().symbol_table),
                         node,
                         ident,
                         &self.tokens[begin..self.idx],
@@ -1775,7 +1775,7 @@ impl<'a> Parser<'a> {
             let current_mod = self.current_mod.to_vec();
             let reference = self.foreign_reference.clone();
             new_struct_expr_node(
-                &mut self.current_fn_mut().lvar_symbol_table.borrow_mut(),
+                &mut self.current_fn_mut().symbol_table.borrow_mut(),
                 reference,
                 name,
                 field,
@@ -1785,14 +1785,12 @@ impl<'a> Parser<'a> {
         } else {
             // local variable or parameter
             if let Some(local_fn) = &self.current_lambda {
-                if let Some(obj) = local_fn.lvar_symbol_table.borrow().find(name) {
-                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-                } else if let Some(obj) = local_fn.param_symbol_table.borrow().find(name) {
+                if let Some(obj) = local_fn.symbol_table.borrow().find(name) {
                     new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                 } else {
-                    let lvar_symbol_table = Rc::clone(&self.current_fn().lvar_symbol_table);
+                    let symbol_table = Rc::clone(&self.current_fn().symbol_table);
                     let current_fn = self.current_fn.as_mut().unwrap();
-                    if let Some(obj) = current_fn.lvar_symbol_table.borrow_mut().drain(name) {
+                    let node = if let Some(obj) = symbol_table.borrow_mut().drain(name) {
                         // WIP
                         // 親メソッド内のローカル変数をnestedクラスのフィールド変数に置き換え
                         // 親メソッド: count(local) => nested_class.count(field)
@@ -1804,29 +1802,25 @@ impl<'a> Parser<'a> {
                         //                             -> ldfld count
                         let ident = obj.borrow().name.to_string();
                         current_fn.nested_class.as_mut().unwrap().borrow_mut().field.push(Rc::clone(&obj));
-                        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), current_fn.param_symbol_table.borrow().len(), ObjectKind::Param, obj.borrow().ty.clone(), true)));
+                        let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), current_fn.symbol_table.borrow().offset(ObjectKind::Param), ObjectKind::Param, obj.borrow().ty.clone(), true)));
                         obj.borrow_mut().assigned = true;
-                        current_fn.param_symbol_table.borrow_mut().push(Rc::clone(&obj));
+                        symbol_table.borrow_mut().push(Rc::clone(&obj));
                         new_field_or_property_node(
-                            lvar_symbol_table,
+                            Rc::clone(&symbol_table),
                             self.nested_class_instance.take().unwrap(),
                             ident,
                             &self.tokens[self.idx-1..self.idx],
                         )
-                    } else if let Some(obj) = current_fn.param_symbol_table.borrow().find(name) {
-                        // TODO 親メソッドのarg
-                        new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                     } else if let Some(obj) = current_fn.nested_class.as_ref().unwrap().borrow().field.find(name) {
                         new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                     } else {
                         e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
                         new_empty_node()
-                    }
+                    };
+                    node
                 }
             } else {
-                if let Some(obj) = self.current_fn().lvar_symbol_table.borrow().find(name) {
-                    new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-                } else if let Some(obj) = self.current_fn().param_symbol_table.borrow().find(name) {
+                if let Some(obj) = self.current_fn().symbol_table.borrow().find(name) {
                     new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                 } else {
                     e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
