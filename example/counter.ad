@@ -115,14 +115,14 @@ fn main() {
     form1.button.Text = "Click Me!";
     form1.button.Location = System::Drawing::Point::.ctor(115, 100);
     form1.ClientSize(System::Drawing::Size::.ctor(300, 200));
-    let mut count: i32 = 0;
+    let mut count: i32 = 1;
+    println!(count);
     form1.button.add_Click(|| {
-        //form1.label.Text = count.to_string();
         count += 1;
+        form1.label.Text = count.to_string();
         println!(count);
         System::Console::Beep();
     });
-    count = 42;
     //form1.CountUp();
     form1.form.Controls.Add(form1.label);
     form1.form.Controls.Add(form1.button);

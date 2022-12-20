@@ -505,23 +505,55 @@ fn gen_il_field_or_property<'a>(
 
 fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Result<Type> {
     if let Some(parent) = &obj.parent {
-        gen_il_variable(current_token, p, parent.borrow())?;
-    }
-    if !obj.assigned {
-        // TODO: objのis_assignedを再帰的にtrueにする必要がある
-        dbg!(&obj);
-        //e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
-    }
-    if obj.is_param() {
-        p.push_il(format!("\tldarg {}", obj.offset));
-    } else if *p.ret_address.borrow() {
-        if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *obj.ty.borrow() {
-            p.push_il(format!("\tldloc {}", obj.offset));
+        if !obj.assigned {
+            // TODO: objのis_assignedを再帰的にtrueにする必要がある
+            //dbg!(&obj);
+            //e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
+        }
+        let parent_ty = gen_il_variable(current_token, p, parent.borrow())?;
+        let ident = obj.name.to_string();
+        if let Type::Class(_, _, path, parent_name, _base, _is_mutable) = &parent_ty {
+            let ns = p.namespace.borrow();
+            let ns = ns.find(&path).unwrap();
+            if let Some(cl) = ns.find_class(|_|true, &parent_name) {
+                if let Some(field) = cl.borrow().field.find(&ident) {
+                    if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
+                        p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                    } else if *p.ret_address.borrow() {
+                        if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *field.borrow().ty.borrow() {
+                            p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                        } else {
+                            p.push_il(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                        }
+                    } else {
+                        p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                    }
+                } else {
+                    unimplemented!();
+                }
+            } else {
+                unimplemented!();
+            }
         } else {
-            p.push_il(format!("\tldloca {}", obj.offset));
+            unimplemented!();
         }
     } else {
-        p.push_il(format!("\tldloc {}", obj.offset));
+        if !obj.assigned {
+            // TODO: objのis_assignedを再帰的にtrueにする必要がある
+            dbg!(&obj);
+            e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
+        }
+        if obj.is_param() {
+            p.push_il(format!("\tldarg {}", obj.offset));
+        } else if *p.ret_address.borrow() {
+            if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *obj.ty.borrow() {
+                p.push_il(format!("\tldloc {}", obj.offset));
+            } else {
+                p.push_il(format!("\tldloca {}", obj.offset));
+            }
+        } else {
+            p.push_il(format!("\tldloc {}", obj.offset));
+        }
     }
     if obj.is_mutable() {
         Ok(obj.ty.borrow().clone().into_mutable())
