@@ -1,8 +1,8 @@
 use crate::builtin::*;
-use crate::class::{Struct, Class, Impl, EnumDef};
+use crate::class::{Class, ClassKind, Impl, EnumDef};
 use crate::function::Function;
 use crate::keyword::{Keyword, Numeric, Type, RRType};
-use crate::object::{Object, SymbolTable};
+use crate::object::{Object, ObjectKind, SymbolTable};
 use crate::token::Token;
 use std::cell::RefCell;
 use std::fmt;
@@ -73,6 +73,11 @@ pub enum NodeKind<'a> {
         expr: Box<Node<'a>>,
         ident: String,
         args: Vec<Node<'a>>,
+    },
+    Lambda {
+        ty: Type,
+        ident: String,
+        // args: Vec<Node<'a>>,
     },
     Struct {
         obj: Rc<RefCell<Object>>,
@@ -392,9 +397,9 @@ pub fn new_struct_expr_node<'a>(
     let unique_name = format!("{}:{}", name, crate::seq!());
     let obj = Rc::new(RefCell::new(
             Object::new(unique_name,
-                        symbol_table.len(),
-                        false,
-                        RRType::new(Type::Struct(reference, current_mod, name.to_string(), false)),
+                        symbol_table.offset(ObjectKind::Local),
+                        ObjectKind::Local,
+                        RRType::new(Type::Class(ClassKind::Struct, reference, current_mod, name.to_string(), None, false)),
                         false)));
     obj.borrow_mut().assigned = true;
     symbol_table.push(Rc::clone(&obj));
@@ -439,6 +444,22 @@ pub fn new_method_call_node<'a>(
     }
 }
 
+pub fn new_lambda_node<'a>(
+    ty: Type,
+    ident: String,
+    // args: Vec<Node<'a>>,
+    token: &'a [Token],
+) -> Node<'a> {
+    Node {
+        kind: NodeKind::Lambda {
+            ty,
+            ident,
+            // args,
+        },
+        token,
+    }
+}
+
 pub fn new_variable_node<'a>(
     obj: &Rc<RefCell<Object>>,
     token: &'a [Token],
@@ -457,8 +478,11 @@ pub fn new_variable_node_with_let<'a>(
     ty: RRType,
     token: &'a [Token],
     mutable: bool,
+    assigned: bool,
+    kind: ObjectKind,
 ) -> Node<'a> {
-    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.len(), false, ty, mutable)));
+    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.offset(ObjectKind::Local), kind, ty, mutable)));
+    obj.borrow_mut().assigned = assigned;
     symbol_table.push(Rc::clone(&obj));
     Node {
         kind: NodeKind::Variable {
@@ -619,11 +643,6 @@ pub enum ItemKind<'a> {
     /// A struct definition (`struct`).
     ///
     /// E.g., `struct Foo<A> { x: A }`.
-    Struct(Struct<'a>),
-    /// A class definition (`class`).
-    /// must be inside an extern block.
-    ///
-    /// E.g., `class Foo<A> { x: A }`.
     Class(Class<'a>),
     /// An implementation.
     ///
@@ -637,6 +656,5 @@ pub enum ForeignItemKind<'a> {
     Mod((String, Vec<(usize, Item<'a>)>)),
     Enum(EnumDef),
     Class(Class<'a>),
-    Struct(Struct<'a>),
     Impl(Impl<'a>),
 }

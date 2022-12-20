@@ -1,4 +1,4 @@
-use crate::class::{Struct, Class, Impl, EnumDef};
+use crate::class::{Class, ClassKind, Impl, EnumDef};
 use crate::function::Function;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -26,11 +26,9 @@ pub struct NameSpace<'a> {
     pub name: String,
     pub parent: Weak<RefCell<NameSpace<'a>>>,
     pub children: Vec<Rc<RefCell<NameSpace<'a>>>>,
-    pub functions: Vec<Rc<Function<'a>>>,
-    pub structs:   Vec<Rc<Struct<'a>>>,
-    pub impls:     Vec<Rc<Impl<'a>>>,
+    pub classes:   Vec<Rc<RefCell<Class<'a>>>>,
     pub enums:     Vec<Rc<EnumDef>>,
-    pub classes:   Vec<Rc<Class<'a>>>,
+    pub functions: Vec<Rc<Function<'a>>>,
     pub is_foreign: bool,
 }
 
@@ -44,11 +42,9 @@ impl<'a> NameSpace<'a> {
                 Weak::new()
             },
             children: vec![],
-            functions: vec![],
-            structs:   vec![],
-            impls:     vec![],
-            enums:     vec![],
             classes:   vec![],
+            enums:     vec![],
+            functions: vec![],
             is_foreign: false,
         }
     }
@@ -62,14 +58,8 @@ impl<'a> NameSpace<'a> {
                     current_namespace = child.as_ptr();
                     continue 'tree;
                 }
-                for st in child.borrow().structs.iter() {
-                    if st.name == *ns {
-                        current_namespace = child.as_ptr();
-                        continue 'tree;
-                    }
-                }
                 for cl in child.borrow().classes.iter() {
-                    if cl.name == *ns {
+                    if cl.borrow().name == *ns {
                         current_namespace = child.as_ptr();
                         continue 'tree;
                     }
@@ -80,14 +70,8 @@ impl<'a> NameSpace<'a> {
                             current_namespace = child.as_ptr();
                             continue 'tree;
                         }
-                        for st in child.borrow().structs.iter() {
-                            if st.name == *ns {
-                                current_namespace = child.as_ptr();
-                                continue 'tree;
-                            }
-                        }
                         for cl in child.borrow().classes.iter() {
-                            if cl.name == *ns {
+                            if cl.borrow().name == *ns {
                                 current_namespace = child.as_ptr();
                                 continue 'tree;
                             }
@@ -95,13 +79,8 @@ impl<'a> NameSpace<'a> {
                     }
                 }
             }
-            for st in unsafe{ (*current_namespace).structs.iter() } {
-                if st.name == *ns {
-                    continue 'tree;
-                }
-            }
             for cl in unsafe{ (*current_namespace).classes.iter() } {
-                if cl.name == *ns {
+                if cl.borrow().name == *ns {
                     continue 'tree;
                 }
             }
@@ -117,18 +96,50 @@ impl<'a> NameSpace<'a> {
             .map(Rc::clone)
     }
 
-    pub fn find_struct(&self, name: &str) -> Option<Rc<Struct<'a>>> {
-        self.structs
+    pub fn find_class<F>(&self, kind: F, name: &str) -> Option<Rc<RefCell<Class<'a>>>>
+        where F: Fn(&ClassKind) -> bool {
+        if let Some(cl) = self.classes
             .iter()
-            .find(|item| item.name == name)
-            .map(Rc::clone)
+            .filter(|cl| kind(&cl.borrow().kind))
+            .find(|cl| cl.borrow().name == name)
+            .map(Rc::clone) {
+                Some(cl)
+        } else {
+            self.functions
+                .iter()
+                .find_map(|f| f.nested_class
+                    .iter()
+                    .filter(|cl| kind(&cl.borrow().kind))
+                    .find(|cl| cl.borrow().name == name)
+                )
+                .map(Rc::clone)
+        }
     }
 
     pub fn find_impl(&self, name: &str) -> Option<Rc<Impl<'a>>> {
-        self.impls
-            .iter()
-            .find(|item| item.name == name)
-            .map(Rc::clone)
+        self.find_class(|_|true, name)
+            .and_then(|cl| cl
+                .borrow()
+                .impls
+                .iter()
+                .find(|item| item.name == name)
+                .map(Rc::clone)
+            )
+        //if let Some(cl) = self.find_class(|_|true, name) {
+        //    if let Some(im) = cl.borrow().impls.iter().find(|item| item.name == name) {
+        //        Some(Rc::clone(im))
+        //    } else if let Some(base) = &cl.borrow().base {
+        //        if let Type::Class(.., name, _, _) = &*base.borrow() {
+        //            self.find_impl(name)
+        //        } else {
+        //            None
+        //        }
+        //    } else {
+        //        None
+        //    }
+        //} else {
+        //    None
+        //}
     }
 
     pub fn find_enum(&self, name: &str) -> Option<Rc<EnumDef>> {
@@ -138,31 +149,16 @@ impl<'a> NameSpace<'a> {
             .map(Rc::clone)
     }
 
-    pub fn find_class(&self, name: &str) -> Option<Rc<Class<'a>>> {
-        self.classes
-            .iter()
-            .find(|item| item.name == name)
-            .map(Rc::clone)
-    }
-
-    pub fn push_fn(&mut self, f: Function<'a>) {
-        self.functions.push(Rc::new(f));
-    }
-
-    pub fn push_struct(&mut self, s: Struct<'a>) {
-        self.structs.push(Rc::new(s));
-    }
-
-    pub fn push_impl(&mut self, i: Impl<'a>) {
-        self.impls.push(Rc::new(i));
+    pub fn push_class(&mut self, c: Class<'a>) {
+        self.classes.push(Rc::new(RefCell::new(c)));
     }
 
     pub fn push_enum(&mut self, e: EnumDef) {
         self.enums.push(Rc::new(e));
     }
 
-    pub fn push_class(&mut self, c: Class<'a>) {
-        self.classes.push(Rc::new(c));
+    pub fn push_fn(&mut self, f: Function<'a>) {
+        self.functions.push(Rc::new(f));
     }
 
     #[allow(dead_code)]

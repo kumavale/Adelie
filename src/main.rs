@@ -13,12 +13,14 @@ mod program;
 mod token;
 mod utils;
 
+use crate::class::ClassKind;
 use crate::error::Errors;
+use crate::function::Function;
 use crate::keyword::{Type, Numeric};
+use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
 use crate::program::Program;
 use std::cell::RefCell;
-use std::path::Path;
 use std::rc::Rc;
 
 fn main() {
@@ -40,7 +42,7 @@ fn main() {
     }
     //eprintln!("{:#?}", program);
 
-    gen_manifest(&program, Path::new(&path));
+    gen_manifest(&program);
     gen_builtin();
     gen_items(&program, &program.namespace.borrow());
 
@@ -49,7 +51,7 @@ fn main() {
     }
 }
 
-fn gen_manifest<'a>(program: &'a Program<'a>, path: &Path) {
+fn gen_manifest<'a>(program: &'a Program<'a>) {
     // 組み込み関数で使用
     println!(".assembly extern mscorlib {{}}");
     println!(".assembly extern System.Diagnostics.Debug {{");
@@ -65,11 +67,7 @@ fn gen_manifest<'a>(program: &'a Program<'a>, path: &Path) {
         println!("}}");
     }
 
-    let assembly_name = path
-        .file_stem()
-        .and_then(|n|n.to_str())
-        .unwrap_or_default();
-    println!(".assembly '{}' {{}}", assembly_name);
+    println!(".assembly '{}' {{}}", program.name);
 }
 
 fn gen_builtin() {
@@ -93,121 +91,226 @@ fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         return;
     }
     gen_structs(program, namespace);
-    gen_impls(program, namespace);
     gen_functions(program, namespace);
     for child in &namespace.children {
         gen_items(program, &child.borrow());
     }
 }
 
-fn gen_structs<'a, 'b>(_program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
-    for st in &namespace.structs {
-        println!(".class private sequential auto sealed beforefieldinit '{}' extends System.ValueType", st.name);
-        println!("{{");
-        for value in &st.field {
-            println!("\t.field public {} '{}'", value.ty.borrow().to_ilstr(), value.name);
+fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
+    for st in &namespace.classes {
+        if st.borrow().kind != ClassKind::Struct {
+            continue;
         }
-        println!("}}");
-    }
-}
-
-fn gen_impls<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
-    for im in &namespace.impls {
-        println!(".class private sequential auto sealed beforefieldinit '{}' extends System.ValueType", im.name);
+        println!(".class private sequential auto sealed beforefieldinit '{}' extends [System.Runtime]System.ValueType", st.borrow().name);
         println!("{{");
-        for func in &im.functions {
-            let args = func
-                .param_symbol_table
-                .objs
-                .iter()
-                .skip(if func.is_static { 0 } else { 1 })
-                .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
-                .collect::<Vec<String>>()
-                .join(", ");
-            println!("\t.method public {} {} '{}'({}) cil managed {{",
-                if func.is_static {"static"} else {"instance"},
-                func.rettype.borrow().to_ilstr(),
-                func.name,
-                args);
-            println!("\t\t.maxstack 32");
+        for value in &st.borrow().field.objs {
+            println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
+        }
+        for im in &st.borrow().impls {
+            for func in &im.functions {
+                if let Some(nested_class) = &func.nested_class {
+                    println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.borrow().name);
+                    for value in &nested_class.borrow().field.objs {
+                        println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
+                    }
+                    if nested_class.borrow().name == "<>c__DisplayClass0_0" {
+                        println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
+                        println!("\t\tldarg.0");
+                        println!("\t\tcall instance void [System.Runtime]System.Object::.ctor()");
+                        println!("\t\tret");
+                        println!("\t}}");
+                    }
+                    for local_func in &func.local_funcs {
+                        gen_local_function(program, local_func);
+                    }
+                    println!("}}");
+                }
+                let args = func
+                    .symbol_table
+                    .borrow()
+                    .objs
+                    .iter()
+                    .filter(|o| o.borrow().kind == ObjectKind::Param)
+                    .skip(if func.is_static { 0 } else { 1 })
+                    .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                println!("\t.method public {} {} '{}'({}) cil managed {{",
+                    if func.is_static {"static"} else {"instance"},
+                    func.rettype.borrow().to_ilstr(),
+                    func.name,
+                    args);
+                println!("\t\t.maxstack 32");
 
-            if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
-                match (&rettype, &*func.rettype.borrow()) {
-                    (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-                    _ => if rettype != *func.rettype.borrow() {
-                        panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+                if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
+                    match (&rettype, &*func.rettype.borrow()) {
+                        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+                        _ => if rettype != *func.rettype.borrow() {
+                            panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+                        }
                     }
                 }
-            }
-            println!("\t\tret");
+                program.push_il("\t\tret");
 
-            // prepare local variables
-            let locals = func
-                .lvar_symbol_table
-                .borrow()
-                .objs
-                .iter()
-                .enumerate()
-                .map(|(i, obj)| format!("\t\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
-                .collect::<Vec<String>>()
-                .join(",\n");
-            if !locals.is_empty() {
-                println!("\t\t.locals init (");
-                println!("{}", locals);
-                println!("\t\t)");
-            }
+                // prepare local variables
+                let locals = func
+                    .symbol_table
+                    .borrow()
+                    .objs
+                    .iter()
+                    .filter(|o| o.borrow().kind == ObjectKind::Local)
+                    .enumerate()
+                    //.map(|(i, obj)| format!("\t\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
+                    .map(|(_, obj)| format!("\t\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+                    .collect::<Vec<String>>()
+                    .join(",\n");
+                if !locals.is_empty() {
+                    println!("\t\t.locals init (");
+                    println!("{}", locals);
+                    println!("\t\t)");
+                }
 
-            println!("\t}}");
+                program.display_il();
+
+                println!("\t}}");
+            }
         }
         println!("}}");
     }
 }
 
 fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
+    println!(".class private auto ansi abstract sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", program.name);
     for func in &namespace.functions {
-        if func.name == "main" {
-            println!(".method static void Main() cil managed {{");
-            println!("\t.entrypoint");
-        } else {
-            let args = func
-                .param_symbol_table
-                .objs
-                .iter()
-                .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
-                .collect::<Vec<String>>()
-                .join(", ");
-            println!(".method static {} '{}'({}) cil managed {{", func.rettype.borrow().to_ilstr(), func.name, args);
+        gen_function(program, func);
+        if let Some(nested_class) = &func.nested_class {
+            println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.borrow().name);
+            for value in &nested_class.borrow().field.objs {
+                println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
+            }
+            if nested_class.borrow().name == "<>c__DisplayClass0_0" {
+                println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
+                println!("\t\tldarg.0");
+                println!("\t\tcall instance void [System.Runtime]System.Object::.ctor()");
+                println!("\t\tret");
+                println!("\t}}");
+            }
+            for local_func in &func.local_funcs {
+                gen_local_function(program, local_func);
+            }
+            println!("}}");
         }
-        println!("\t.maxstack 32");
+    }
+    println!("}}");
+}
 
-        if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
-            match (&rettype, &*func.rettype.borrow()) {
-                (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-                _ => if rettype != *func.rettype.borrow() {
-                    panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
-                }
+fn gen_local_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
+    let args = func
+        .symbol_table
+        .borrow()
+        .objs
+        .iter()
+        .filter(|o| o.borrow().kind == ObjectKind::Param)
+        .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
+        .collect::<Vec<String>>()
+        .join(", ");
+    println!("\t.method assembly instance {} '{}'({}) cil managed {{", func.rettype.borrow().to_ilstr(), func.name, args);
+    println!("\t\t.maxstack 32");
+
+    if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
+        match (&rettype, &*func.rettype.borrow()) {
+            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+            _ => if rettype != *func.rettype.borrow() {
+                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
             }
         }
-        println!("\tret");
+    }
+    program.push_il("\t\tret");
 
-        // prepare local variables
-        let locals = func
-            .lvar_symbol_table
+    // prepare local variables
+    let locals = func
+        .symbol_table
+        .borrow()
+        .objs
+        .iter()
+        .filter(|o| o.borrow().kind == ObjectKind::Local)
+        .enumerate()
+        //.map(|(i, obj)| format!("\t\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
+        .map(|(_, obj)| format!("\t\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+        .collect::<Vec<String>>()
+        .join(",\n");
+    if !locals.is_empty() {
+        println!("\t\t.locals init (");
+        println!("{}", locals);
+        println!("\t\t)");
+    }
+
+    program.display_il();
+
+    println!("}}");
+}
+
+fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
+    if func.name == "main" {
+        println!(".method static void Main() cil managed {{");
+        println!("\t.entrypoint");
+    } else {
+        let args = func
+            .symbol_table
             .borrow()
             .objs
             .iter()
-            .enumerate()
-            .map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
+            .filter(|o| o.borrow().kind == ObjectKind::Param)
+            .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
             .collect::<Vec<String>>()
-            .join(",\n");
-        if !locals.is_empty() {
-            println!("\t.locals init (");
-            println!("{}", locals);
-            println!("\t)");
-        }
-
-        println!("}}");
+            .join(", ");
+        println!(".method static {} '{}'({}) cil managed {{", func.rettype.borrow().to_ilstr(), func.name, args);
     }
+    println!("\t.maxstack 32");
+
+    if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
+        match (&rettype, &*func.rettype.borrow()) {
+            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
+            _ => if rettype != *func.rettype.borrow() {
+                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+            }
+        }
+    }
+    program.push_il("\tret");
+
+    // prepare local variables
+    let locals = func
+        .symbol_table
+        .borrow()
+        .objs
+        .iter()
+        .filter(|o| o.borrow().kind == ObjectKind::Local)
+        .enumerate()
+        //.map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
+        .map(|(_, obj)| format!("\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+        .collect::<Vec<String>>()
+        .join(",\n");
+    if !locals.is_empty() {
+        println!("\t.locals init (");
+        println!("{}", locals);
+        println!("\t)");
+        func.symbol_table
+            .borrow()
+            .objs
+            .iter()
+            .filter(|o| o.borrow().kind == ObjectKind::Local)
+            .for_each(|obj| if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &*obj.borrow().ty.borrow() {
+                if name == "<>c__DisplayClass0_0" {
+                    println!("\tnewobj instance void '{}'/'<>c__DisplayClass0_0'::.ctor()", pn);
+                    println!("\tstloc '{}'", obj.borrow().name);
+                }
+            });
+    }
+
+    program.display_il();
+
+    println!("}}");
 }
 
 fn disp_errors(program: &Program) {

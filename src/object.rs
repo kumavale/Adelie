@@ -3,24 +3,33 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ObjectKind {
+    Field,
+    Local,
+    Param,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Object {
     pub name: String,
+    pub kind: ObjectKind,
     pub offset: usize,
-    pub is_param: bool,
     pub ty: RRType,
     pub assigned: bool,
     pub mutable: bool,
+    pub parent: Option<Rc<RefCell<Object>>>,
 }
 
 impl Object {
-    pub fn new(name: String, offset: usize, is_param: bool, ty: RRType, mutable: bool) -> Self {
+    pub fn new(name: String, offset: usize, kind: ObjectKind, ty: RRType, mutable: bool) -> Self {
         Object {
             name,
+            kind,
             offset,
-            is_param,
             ty,
             assigned: false,
             mutable,
+            parent: None,
         }
     }
 
@@ -33,7 +42,7 @@ impl Object {
     }
 
     pub fn is_param(&self) -> bool {
-        self.is_param
+        self.kind == ObjectKind::Param
     }
 }
 
@@ -66,8 +75,31 @@ impl SymbolTable {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.objs.len()
+    pub fn offset(&self, kind: ObjectKind) -> usize {
+        self.objs.iter().fold(0, |acc, x| if x.borrow().kind == kind { acc+1 } else { acc })
+    }
+
+    pub fn repair_offset(&mut self) {
+        // とりあえずObjectKind::Localだけ修正
+        self.objs.iter()
+            .filter(|o|o.borrow().kind == ObjectKind::Local)
+            .fold(0, |acc, o| {
+                o.borrow_mut().offset = acc;
+                acc + 1
+            });
+    }
+
+    pub fn drain(&mut self, name: &str) -> Option<Rc<RefCell<Object>>> {
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some((i, _)) = scope.iter().enumerate().find(|(_,o)|o.borrow().name == name) {
+                let obj = scope.remove(i);
+                let (i, _) = self.objs.iter().enumerate().find(|(_,o)| **o == obj).unwrap();
+                let obj = self.objs.remove(i);
+                self.repair_offset();
+                return Some(obj);
+            }
+        }
+        None
     }
 }
 
@@ -91,7 +123,7 @@ impl FindSymbol for SymbolTable {
 
     fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
         for scope in self.scopes.iter_mut().rev() {
-            if let Some(obj) = scope.iter_mut().rev().find(|o|o.borrow().name == name) {
+            if let Some(obj) = scope.iter_mut().find(|o|o.borrow().name == name) {
                 return Some(obj)
             }
         }

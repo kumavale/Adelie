@@ -1,90 +1,41 @@
 use crate::function::Function;
 use crate::keyword::RRType;
-use crate::object::{Object, FindSymbol};
+use crate::object::{Object, SymbolTable, FindSymbol};
 use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Dummy();
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Struct<'a> {
-    pub name: String,
-    pub field: Vec<Object>,
-    pub properties: Vec<Object>,
-    pub path: Vec<String>,
-    pub reference: Option<String>,
-    //pub impls: Vec<Impl<'a>>,  // trait毎
-    pub _dummy: &'a Dummy,
-}
-
-impl<'a> Struct<'a> {
-    pub fn new(name: String, path: Vec<String>, reference: Option<String>) -> Self {
-        Struct {
-            name,
-            field: vec![],
-            properties: vec![],
-            path,
-            reference,
-            //impls: vec![],
-            _dummy: &Dummy(),
-        }
-    }
-}
-
-impl<'a> FindSymbol for [Struct<'a>] {
-    type Item = Struct<'a>;
-
-    fn find(&self, name: &str) -> Option<&Self::Item> {
-        self.iter().find(|s|s.name == name)
-    }
-
-    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
-        self.iter_mut().find(|s|s.name == name)
-    }
-}
-
-impl<'a> FindSymbol for Vec<Rc<Struct<'a>>> {
-    type Item = Rc<Struct<'a>>;
-
-    fn find(&self, name: &str) -> Option<&Self::Item> {
-        self.iter().find(|s|s.name == name)
-    }
-
-    fn find_mut(&mut self, name: &str) -> Option<&mut Self::Item> {
-        self.iter_mut().find(|s|s.name == name)
-    }
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ClassKind {
+    Struct,
+    Class,
+    NestedClass(String),  // parent name
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Class<'a> {
+    pub kind: ClassKind,
     pub name: String,
-    pub field: Vec<Object>,
+    pub field: SymbolTable,
     pub properties: Vec<Object>,
     pub path: Vec<String>,
     pub reference: Option<String>,
-    //pub impls: Vec<Impl<'a>>,  // trait毎
+    pub impls: Vec<Rc<Impl<'a>>>,
     /// 継承元クラス
     pub base: Option<RRType>,
     pub nested_class: Vec<Class<'a>>,
-    pub nested_impl: Vec<Impl<'a>>,
-    pub parent: Option<String>,  // if nested
-    pub _dummy: &'a Dummy,
 }
 
 impl<'a> Class<'a> {
-    pub fn new(name: String, path: Vec<String>, reference: Option<String>) -> Self {
+    pub fn new(kind: ClassKind, name: String, path: Vec<String>, reference: Option<String>) -> Self {
         Class {
+            kind,
             name,
-            field: vec![],
+            field: SymbolTable::new(),
             properties: vec![],
             path,
             reference,
-            //impls: vec![],
+            impls: vec![],
             base: None,
             nested_class: vec![],
-            nested_impl: vec![],
-            parent: None,
-            _dummy: &Dummy(),
         }
     }
 }

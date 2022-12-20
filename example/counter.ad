@@ -10,6 +10,9 @@ extern {
                     }
                     Controls: ControlCollection { get; },
                 }
+                impl Control {
+                    fn add_Click(&self, event: System::EventHandler) {}
+                }
                 class ScrollableControl : Control {}
                 class ContainerControl : ScrollableControl {}
                 class Form : ContainerControl {
@@ -19,9 +22,17 @@ extern {
                 impl Form {
                     fn .ctor() {}
                 }
+                class Label : Control {
+                    Text: string { get; set; },
+                    Location: System::Drawing::Point { get; set; }
+                }
+                impl Label {
+                    fn .ctor() {}
+                }
                 class ButtonBase : Control {}
                 class Button : ButtonBase {
                     Text: string { get; set; },
+                    Location: System::Drawing::Point { get; set; }
                 }
                 impl Button {
                     fn .ctor() {}
@@ -34,10 +45,34 @@ extern {
         }
     }
 }
+#[link(name="System.Runtime.dll", publickeytoken="B0 3F 5F 7F 11 D5 0A 3A")]
+extern {
+    mod System {
+        class EventArgs {}
+        class EventHandler {}
+        //EventHandler: fn(object, EventArgs);
+    }
+}
+#[link(name="System.Console.dll", publickeytoken="B0 3F 5F 7F 11 D5 0A 3A")]
+extern {
+    mod System {
+        class Console {}
+        impl Console {
+            fn Beep() {}
+        }
+    }
+}
 #[link(name="System.Drawing.Primitives.dll", publickeytoken="B0 3F 5F 7F 11 D5 0A 3A")]
 extern {
     mod System {
         mod Drawing {
+            struct Point {
+                X: i32 { get; set; },
+                Y: i32 { get; set; },
+            }
+            impl Point {
+                fn .ctor(x: i32, y: i32) {}
+            }
             struct Size {
                 Width:  i32 { get; set; },
                 Height: i32 { get; set; },
@@ -50,23 +85,46 @@ extern {
 }
 struct Form1 {
     form: System::Windows::Forms::Form,
+    label: System::Windows::Forms::Label,
     button: System::Windows::Forms::Button,
+    //_count: i32,
 }
 impl Form1 {
     fn new() -> Form1 {
         Form1 {
             System::Windows::Forms::Form::.ctor(),
+            System::Windows::Forms::Label::.ctor(),
             System::Windows::Forms::Button::.ctor(),
+            //0,
         }
     }
     fn Text(&mut self, text: string) { self.form.Text = text }
     fn ClientSize(&mut self, size: System::Drawing::Size) { self.form.ClientSize = size }
+    //fn CountUp(&mut self) {
+    //    self.button.add_Click(|| {
+    //        self.label.Text = self._count.to_string();
+    //        self._count += 1;
+    //    });
+    //}
 }
 fn main() {
     let mut form1: Form1 = Form1::new();
     form1.Text("Counter");
+    form1.label.Text = "1";
+    form1.label.Location = System::Drawing::Point::.ctor(150, 50);
     form1.button.Text = "Click Me!";
+    form1.button.Location = System::Drawing::Point::.ctor(115, 100);
     form1.ClientSize(System::Drawing::Size::.ctor(300, 200));
+    let mut count: i32 = 1;
+    println!(count);
+    form1.button.add_Click(|| {
+        count += 1;
+        form1.label.Text = count.to_string();
+        println!(count);
+        System::Console::Beep();
+    });
+    //form1.CountUp();
+    form1.form.Controls.Add(form1.label);
     form1.form.Controls.Add(form1.button);
     System::Windows::Forms::Application::Run(form1.form);
     println!("ok");
