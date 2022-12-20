@@ -119,7 +119,7 @@ fn main() {
     form1.button.add_Click(|| {
         //form1.label.Text = count.to_string();
         count += 1;
-        //println!(count);
+        println!(count);
         System::Console::Beep();
     });
     //form1.CountUp();

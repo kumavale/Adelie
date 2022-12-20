@@ -501,7 +501,7 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Re
     if !obj.assigned {
         // TODO: objのis_assignedを再帰的にtrueにする必要がある
         dbg!(&obj);
-        e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
+        //e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
     }
     if obj.is_param() {
         p.push_il(format!("\tldarg {}", obj.offset));

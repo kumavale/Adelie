@@ -1792,12 +1792,9 @@ impl<'a> Parser<'a> {
                 if let Some(obj) = local_fn.symbol_table.borrow().find(name) {
                     new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                 } else {
-                    //let symbol_table = Rc::clone(&self.current_fn().symbol_table);
                     let current_fn = self.current_fn.as_mut().unwrap();
-                    //let old_obj = current_fn.symbol_table.borrow_mut().drain(name);
-                    //let node = if let Some(old_obj) = current_fn.symbol_table.borrow_mut().drain(name) {
-                    //let node = if let Some(old_obj) = old_obj {
-                    let node = if let Some(old_obj) = current_fn.symbol_table.borrow().find(name) {  // 理想はdrainでローカル変数を削除だが、オフセットがずれてしまうのでとりあえずfindで <- というかローカル変数生成時にObjectType::Localで絞っているからわざわざdrainしなくても良いのでは？というかdrainしなくてもオフセットがずれてしまうのでは？
+                    let old_obj = current_fn.symbol_table.borrow_mut().drain(name);
+                    let node = if let Some(old_obj) = old_obj {
                         // WIP
                         // 親メソッド内のローカル変数をnestedクラスのフィールド変数に置き換え
                         // 親メソッド: count(local) => nested_class.count(field)
@@ -1825,7 +1822,6 @@ impl<'a> Parser<'a> {
                             let instance_name = format!("<{}>nested_class", current_fn.name);
                             let symbol_table = current_fn.symbol_table.borrow();
                             let parent_obj = symbol_table.find(&instance_name).unwrap();
-                            old_obj.borrow_mut().kind = ObjectKind::Local;  // オフセットのずれ修正（TODO:削除）
                             old_obj.borrow_mut().parent = Some(Rc::clone(parent_obj));
                         }
 
@@ -1841,7 +1837,17 @@ impl<'a> Parser<'a> {
                             &self.tokens[self.idx-1..self.idx],
                         )
                     } else if let Some(obj) = current_fn.nested_class.as_ref().unwrap().borrow().field.find(name) {
-                        new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
+                        let ty = RRType::new(Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true));
+                        let self_obj = Rc::new(RefCell::new(Object::new("self".to_string(), 0, ObjectKind::Param, ty, true)));
+                        self_obj.borrow_mut().assigned = true;
+                        let self_node = new_variable_node(&self_obj, &[]);
+                        let ident = obj.borrow().name.to_string();
+                        new_field_or_property_node(
+                            Rc::clone(&current_fn.symbol_table),
+                            self_node,
+                            ident,
+                            &self.tokens[self.idx-1..self.idx],
+                        )
                     } else {
                         e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
                         new_empty_node()

@@ -79,12 +79,24 @@ impl SymbolTable {
         self.objs.iter().fold(0, |acc, x| if x.borrow().kind == kind { acc+1 } else { acc })
     }
 
+    pub fn repair_offset(&mut self) {
+        // とりあえずObjectKind::Localだけ修正
+        self.objs.iter()
+            .filter(|o|o.borrow().kind == ObjectKind::Local)
+            .fold(0, |acc, o| {
+                o.borrow_mut().offset = acc;
+                acc + 1
+            });
+    }
+
     pub fn drain(&mut self, name: &str) -> Option<Rc<RefCell<Object>>> {
         for scope in self.scopes.iter_mut().rev() {
             if let Some((i, _)) = scope.iter().enumerate().find(|(_,o)|o.borrow().name == name) {
                 let obj = scope.remove(i);
                 let (i, _) = self.objs.iter().enumerate().find(|(_,o)| **o == obj).unwrap();
-                return Some(self.objs.remove(i));
+                let obj = self.objs.remove(i);
+                self.repair_offset();
+                return Some(obj);
             }
         }
         None
