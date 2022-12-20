@@ -17,6 +17,7 @@ pub struct Object {
     pub ty: RRType,
     pub assigned: bool,
     pub mutable: bool,
+    pub parent: Option<Rc<RefCell<Object>>>,
 }
 
 impl Object {
@@ -28,6 +29,7 @@ impl Object {
             ty,
             assigned: false,
             mutable,
+            parent: None,
         }
     }
 
@@ -80,7 +82,9 @@ impl SymbolTable {
     pub fn drain(&mut self, name: &str) -> Option<Rc<RefCell<Object>>> {
         for scope in self.scopes.iter_mut().rev() {
             if let Some((i, _)) = scope.iter().enumerate().find(|(_,o)|o.borrow().name == name) {
-                return Some(scope.swap_remove(i));
+                let obj = scope.remove(i);
+                let (i, _) = self.objs.iter().enumerate().find(|(_,o)| **o == obj).unwrap();
+                return Some(self.objs.remove(i));
             }
         }
         None

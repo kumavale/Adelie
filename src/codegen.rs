@@ -495,6 +495,9 @@ fn gen_il_field_or_property<'a>(
 }
 
 fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Result<Type> {
+    if let Some(parent) = &obj.parent {
+        gen_il_variable(current_token, p, parent.borrow())?;
+    }
     if !obj.assigned {
         // TODO: objのis_assignedを再帰的にtrueにする必要がある
         dbg!(&obj);
@@ -608,6 +611,56 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
     }
     match lhs.kind {
         NodeKind::Variable { obj } => {
+            if let Some(parent) = &obj.borrow().parent {
+                let ident = obj.borrow().name.to_string();
+                *p.ret_address.borrow_mut() = true;
+                let parent_ty = gen_il_variable(current_token, p, parent.borrow())?;
+                *p.ret_address.borrow_mut() = false;
+                match parent_ty {
+                    Type::Class(_, _, ref path, ref name, _, is_mutable) => {
+                        let namespace = p.namespace.borrow();
+                        let ns = if let Some(ns) = namespace.find(path) {
+                            ns
+                        } else {
+                            let message = format!("failed to resolve: use of undeclared crate or module `{}`", path.join("::"));
+                            e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                            return Err(());
+                        };
+                        if let Some(cl) = ns.find_class(|_|true, name) {
+                            if let Some(field) = cl.borrow().field.find(&ident) {
+                                let rty = gen_il(rhs, p)?;
+                                if check_type(&field.borrow().ty.borrow(), &rty).is_err() {
+                                    e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty);
+                                }
+                                if !is_mutable {
+                                    let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
+                                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                                }
+                                p.push_il(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                            } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
+                                let rty = gen_il(rhs, p)?;
+                                if check_type(&property.ty.borrow(), &rty).is_err() {
+                                    e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &property.ty.borrow(), &rty);
+                                }
+                                if !is_mutable {
+                                    let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
+                                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                                }
+                                let method_name = format!("set_{}", ident);
+                                p.push_il(format!("\tcall instance void {}::'{}'({})", parent_ty.to_ilstr(), method_name, property.ty.borrow().to_ilstr()));
+                            } else {
+                                e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
+                            }
+                        } else {
+                            e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
+                        }
+                    }
+                    ty => {
+                        unimplemented!("primitive type: {:?}", ty);
+                    }
+                }
+                return Ok(Type::Void);
+            }
             let rty = gen_il(rhs, p)?;
             let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;

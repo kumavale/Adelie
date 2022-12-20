@@ -1794,7 +1794,10 @@ impl<'a> Parser<'a> {
                 } else {
                     //let symbol_table = Rc::clone(&self.current_fn().symbol_table);
                     let current_fn = self.current_fn.as_mut().unwrap();
-                    let node = if let Some(old_obj) = current_fn.symbol_table.borrow_mut().drain(name) {
+                    //let old_obj = current_fn.symbol_table.borrow_mut().drain(name);
+                    //let node = if let Some(old_obj) = current_fn.symbol_table.borrow_mut().drain(name) {
+                    //let node = if let Some(old_obj) = old_obj {
+                    let node = if let Some(old_obj) = current_fn.symbol_table.borrow().find(name) {  // 理想はdrainでローカル変数を削除だが、オフセットがずれてしまうのでとりあえずfindで <- というかローカル変数生成時にObjectType::Localで絞っているからわざわざdrainしなくても良いのでは？というかdrainしなくてもオフセットがずれてしまうのでは？
                         // WIP
                         // 親メソッド内のローカル変数をnestedクラスのフィールド変数に置き換え
                         // 親メソッド: count(local) => nested_class.count(field)
@@ -1805,21 +1808,26 @@ impl<'a> Parser<'a> {
                         //                             -> ldarg.0
                         //                             -> ldfld count
                         // old_objはシンボルテーブルからは削除するが、NodeにRc::cloneされたものがある
+
+                        // 変数の定義場所をnestedクラスのフィールド変数に置き換え
                         let (ident, ty, is_assigned, is_mutable) = {
                             let obj = old_obj.borrow();
                             (obj.name.to_string(), RRType::clone(&obj.ty), obj.assigned, obj.mutable)
                         };
-                        // 変数の定義場所をnestedクラスのフィールド変数に置き換え
                         let field_offset = current_fn.nested_class.as_ref().unwrap().borrow().field.offset(ObjectKind::Field);
                         let new_obj = Rc::new(RefCell::new(Object::new(ident.to_string(), field_offset, ObjectKind::Field, RRType::clone(&ty), is_mutable)));
                         new_obj.borrow_mut().assigned = is_assigned;
                         current_fn.nested_class.as_mut().unwrap().borrow_mut().field.push(Rc::clone(&new_obj));
 
-                        // TODO
                         // old_objをnestedクラスのフィールド変数を指すように変更
-                        //let obj = Rc::new(RefCell::new(Object::new(ident.to_string(), current_fn.symbol_table.borrow().offset(ObjectKind::Param), ObjectKind::Param, obj.borrow().ty.clone(), true)));
-                        //obj.borrow_mut().assigned = true;
-                        //symbol_table.borrow_mut().push(Rc::clone(&obj));
+                        {
+                            *old_obj.borrow_mut() = new_obj.borrow().clone();
+                            let instance_name = format!("<{}>nested_class", current_fn.name);
+                            let symbol_table = current_fn.symbol_table.borrow();
+                            let parent_obj = symbol_table.find(&instance_name).unwrap();
+                            old_obj.borrow_mut().kind = ObjectKind::Local;  // オフセットのずれ修正（TODO:削除）
+                            old_obj.borrow_mut().parent = Some(Rc::clone(parent_obj));
+                        }
 
                         //let ty = RRType::new(Type::_Self(self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), true));
                         let ty = RRType::new(Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true));
