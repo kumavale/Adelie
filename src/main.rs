@@ -103,14 +103,14 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         }
         println!(".class private sequential auto sealed beforefieldinit '{}' extends [System.Runtime]System.ValueType", st.borrow().name);
         println!("{{");
-        for value in &st.borrow().field {
+        for value in &st.borrow().field.objs {
             println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
         }
         for im in &st.borrow().impls {
             for func in &im.functions {
                 if let Some(nested_class) = &func.nested_class {
                     println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.borrow().name);
-                    for value in &nested_class.borrow().field {
+                    for value in &nested_class.borrow().field.objs {
                         println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
                     }
                     if nested_class.borrow().name == "<>c__DisplayClass0_0" {
@@ -183,7 +183,7 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
         gen_function(program, func);
         if let Some(nested_class) = &func.nested_class {
             println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.borrow().name);
-            for value in &nested_class.borrow().field {
+            for value in &nested_class.borrow().field.objs {
                 println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
             }
             if nested_class.borrow().name == "<>c__DisplayClass0_0" {

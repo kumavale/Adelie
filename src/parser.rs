@@ -882,7 +882,7 @@ impl<'a> Parser<'a> {
                     self.eat(TokenKind::Comma);
                 } else {
                     // field
-                    if cl.field.iter().any(|o|o.borrow().name==ident) {
+                    if cl.field.find(&ident).is_some() {
                         e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
                     }
                     if let Some(ty) = ty {
@@ -1816,7 +1816,7 @@ impl<'a> Parser<'a> {
                     } else if let Some(obj) = current_fn.param_symbol_table.borrow().find(name) {
                         // TODO 親メソッドのarg
                         new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-                    } else if let Some(obj) = current_fn.nested_class.as_ref().unwrap().borrow().field.iter().find_map(|o| (o.borrow().name == name).then_some(o)) {
+                    } else if let Some(obj) = current_fn.nested_class.as_ref().unwrap().borrow().field.find(name) {
                         new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                     } else {
                         e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);

@@ -339,7 +339,7 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         }
         p.push_il(format!("\tldloca {}", obj.offset));
         p.push_il(format!("\tinitobj {}", obj.ty.borrow()));
-        for (field_expr, field_dec) in field.into_iter().zip(&st.borrow().field) {
+        for (field_expr, field_dec) in field.into_iter().zip(&st.borrow().field.objs) {
             p.push_il(format!("\tldloca {}", obj.offset));
             gen_il(field_expr, p)?;
             p.push_il(format!("\tstfld {} {}::'{}'", field_dec.borrow().ty.borrow().to_ilstr(), obj.ty.borrow(), field_dec.borrow().name));
@@ -393,7 +393,7 @@ fn gen_il_field_or_property<'a>(
         return Err(());
     };
     if let Some(cl) = ns.find_class(|_|true, &parent_name) {
-        if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
+        if let Some(field) = cl.borrow().field.find(ident) {
             if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
                 p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
             } else if *p.ret_address.borrow() {
@@ -437,7 +437,7 @@ fn gen_il_field_or_property<'a>(
                     let (path, name, base)  = if let Type::Class(_, _, p, n, b, ..) = &*base_ty { (p, n, b) } else { unreachable!() };
                     if let Some(ns) = ns.find(path) {
                         if let Some(cl) = ns.find_class(|_|true, name) {
-                            if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
+                            if let Some(field) = cl.borrow().field.find(ident) {
                                 if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
                                     p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                                 } else if *p.ret_address.borrow() {
@@ -653,7 +653,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         return Err(());
                     };
                     if let Some(st) = ns.find_class(|k|k==&ClassKind::Struct, name) {
-                        if let Some(field) = st.borrow().field.iter().find(|o|o.borrow().name==ident) {
+                        if let Some(field) = st.borrow().field.find(&ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&field.borrow().ty.borrow(), &rty).is_err() {
                                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty);
@@ -692,7 +692,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         return Err(());
                     };
                     if let Some(cl) = ns.find_class(|_|true, name) {
-                        if let Some(field) = cl.borrow().field.iter().find(|o|o.borrow().name==ident) {
+                        if let Some(field) = cl.borrow().field.find(&ident) {
                             let rty = gen_il(rhs, p)?;
                             if check_type(&field.borrow().ty.borrow(), &rty).is_err() {
                                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty);

@@ -1,7 +1,6 @@
 use crate::function::Function;
 use crate::keyword::RRType;
-use crate::object::{Object, FindSymbol};
-use std::cell::RefCell;
+use crate::object::{Object, SymbolTable, FindSymbol};
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -15,7 +14,7 @@ pub enum ClassKind {
 pub struct Class<'a> {
     pub kind: ClassKind,
     pub name: String,
-    pub field: Vec<Rc<RefCell<Object>>>,
+    pub field: SymbolTable,
     pub properties: Vec<Object>,
     pub path: Vec<String>,
     pub reference: Option<String>,
@@ -30,7 +29,7 @@ impl<'a> Class<'a> {
         Class {
             kind,
             name,
-            field: vec![],
+            field: SymbolTable::new(),
             properties: vec![],
             path,
             reference,
