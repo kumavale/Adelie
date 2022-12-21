@@ -8,32 +8,26 @@ extern {
                     impl ControlCollection {
                         fn Add(&self, value: Control) {}
                     }
-                    Controls: ControlCollection { get; },
                 }
                 impl Control {
+                    fn set_Text(&self, _: string) {}
+                    fn set_Location(&self, _: System::Drawing::Point) {}
+                    fn set_ClientSize(&self, _: System::Drawing::Size) {}
+                    fn get_Controls(&self) -> ControlCollection {}
                     fn add_Click(&self, event: System::EventHandler) {}
                 }
                 class ScrollableControl : Control {}
                 class ContainerControl : ScrollableControl {}
-                class Form : ContainerControl {
-                    Text: string { get; set; },
-                    ClientSize: System::Drawing::Size { set; get; },
-                }
+                class Form : ContainerControl {}
                 impl Form {
                     fn .ctor() {}
                 }
-                class Label : Control {
-                    Text: string { get; set; },
-                    Location: System::Drawing::Point { get; set; }
-                }
+                class Label : Control {}
                 impl Label {
                     fn .ctor() {}
                 }
                 class ButtonBase : Control {}
-                class Button : ButtonBase {
-                    Text: string { get; set; },
-                    Location: System::Drawing::Point { get; set; }
-                }
+                class Button : ButtonBase {}
                 impl Button {
                     fn .ctor() {}
                 }
@@ -68,22 +62,22 @@ extern {
 }
 fn main() {
     let mut form: System::Windows::Forms::Form = System::Windows::Forms::Form::.ctor();
-    form.Text = "Counter";
-    form.ClientSize = System::Drawing::Size::.ctor(300, 200);
+    form.set_Text("Counter");
+    form.set_ClientSize(System::Drawing::Size::.ctor(300, 200));
     let mut label: System::Windows::Forms::Label = System::Windows::Forms::Label::.ctor();
-    label.Text = "1";
-    label.Location = System::Drawing::Point::.ctor(150, 50);
+    label.set_Text("1");
+    label.set_Location(System::Drawing::Point::.ctor(150, 50));
     let mut button: System::Windows::Forms::Button = System::Windows::Forms::Button::.ctor();
-    button.Text = "Click Me!";
-    button.Location = System::Drawing::Point::.ctor(115, 100);
+    button.set_Text("Click Me!");
+    button.set_Location(System::Drawing::Point::.ctor(115, 100));
 
-    form.Controls.Add(label);
-    form.Controls.Add(button);
+    form.get_Controls().Add(label);
+    form.get_Controls().Add(button);
 
     let mut count: i32 = 1;
     button.add_Click(|| {
         count += 1;
-        label.Text = count.to_string();
+        label.set_Text(count.to_string());
     });
 
     System::Windows::Forms::Application::Run(form);

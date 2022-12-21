@@ -5,12 +5,12 @@ use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Numeric, Keyword};
 use crate::namespace::NameSpace;
-use crate::object::{FindSymbol, Object, ObjectKind, SymbolTable};
+use crate::object::{FindSymbol, Object, ObjectKind};
 use crate::program::Program;
 use crate::token::Token;
 use crate::utils::remove_seq;
 use std::rc::Rc;
-use std::cell::{Ref, RefCell};
+use std::cell::Ref;
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -40,8 +40,8 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Result<Type> {
         NodeKind::Struct { obj, field } => {
             gen_il_struct(node.token, p, obj.borrow(), field)
         }
-        NodeKind::FieldOrProperty { lvar_symbol_table, expr, ident } => {
-            gen_il_field_or_property(node.token, p, lvar_symbol_table, *expr, &ident)
+        NodeKind::Field { expr, ident } => {
+            gen_il_field(node.token, p, *expr, &ident)
         }
         NodeKind::Variable { obj } => {
             gen_il_variable(node.token, p, obj.borrow())
@@ -356,10 +356,9 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
     Ok(obj.ty.borrow().clone())
 }
 
-fn gen_il_field_or_property<'a>(
+fn gen_il_field<'a>(
     current_token: &[Token],
     p: &'a Program<'a>,
-    lvar_symbol_table: Rc<RefCell<SymbolTable>>,
     expr: Node,
     ident: &str,
 ) -> Result<Type> {
@@ -416,31 +415,9 @@ fn gen_il_field_or_property<'a>(
             } else {
                 Ok(field.borrow().ty.borrow().clone())
             }
-        } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
-            if let Type::Class(ClassKind::Struct, ..) = parent_ty {
-                // parent_tyを`stloc`するための一意なローカル変数を定義する
-                // スタックのトップには`struct`の'値'が入っている
-                // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
-                let unique_name = format!("{}:{}", parent_ty, crate::seq!());
-                let obj = Object::new(unique_name,
-                    lvar_symbol_table.borrow().offset(ObjectKind::Local),
-                    ObjectKind::Local,
-                    RRType::new(parent_ty.clone()),
-                    true);
-                p.push_il(format!("\tstloc {}", obj.offset));
-                p.push_il(format!("\tldloca {}", obj.offset));
-                lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
-            }
-            let method_name = format!("get_{}", ident);
-            p.push_il(format!("\tcall instance {} {}::'{}'()", property.ty.borrow().to_ilstr(), parent_ty.to_ilstr(), method_name));
-            if is_mutable {
-                Ok(property.ty.borrow().clone().into_mutable())
-            } else {
-                Ok(property.ty.borrow().clone())
-            }
         } else {
             // baseクラスから検索
-            fn search_from_base(base_ty: Option<RRType>, parent_ty: &Type, p: &Program, lvar_symbol_table: Rc<RefCell<SymbolTable>>, ident: &str, is_mutable: bool) -> Result<Type> {
+            fn search_from_base(base_ty: Option<RRType>, parent_ty: &Type, p: &Program, ident: &str, is_mutable: bool) -> Result<Type> {
                 if let Some(base_ty) = base_ty {
                     let ns = p.namespace.borrow();
                     let base_ty = base_ty.borrow();
@@ -464,36 +441,14 @@ fn gen_il_field_or_property<'a>(
                                 } else {
                                     return Ok(field.borrow().ty.borrow().clone());
                                 }
-                            } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
-                                if let Type::Class(ClassKind::Struct, ..) = *parent_ty {
-                                    // parent_tyを`stloc`するための一意なローカル変数を定義する
-                                    // スタックのトップには`struct`の'値'が入っている
-                                    // それをローカル変数に格納して、`ldloca`でアドレスをスタックに積む
-                                    let unique_name = format!("{}:{}", base_ty, crate::seq!());
-                                    let obj = Object::new(unique_name,
-                                        lvar_symbol_table.borrow().offset(ObjectKind::Local),
-                                        ObjectKind::Local,
-                                        RRType::new(base_ty.clone()),
-                                        true);
-                                    p.push_il(format!("\tstloc {}", obj.offset));
-                                    p.push_il(format!("\tldloca {}", obj.offset));
-                                    lvar_symbol_table.borrow_mut().push(Rc::new(RefCell::new(obj)));
-                                }
-                                let method_name = format!("get_{}", ident);
-                                p.push_il(format!("\tcall instance {} {}::'{}'()", property.ty.borrow().to_ilstr(), base_ty.to_ilstr(), method_name));
-                                if is_mutable {
-                                    return Ok(property.ty.borrow().clone().into_mutable());
-                                } else {
-                                    return Ok(property.ty.borrow().clone());
-                                }
                             }
                         }
                     }
-                    return search_from_base(base.clone(), parent_ty, p, Rc::clone(&lvar_symbol_table), ident, is_mutable);
+                    return search_from_base(base.clone(), parent_ty, p, ident, is_mutable);
                 }
                 Err(())
             }
-            search_from_base(base, &parent_ty, p, Rc::clone(&lvar_symbol_table), ident, is_mutable)
+            search_from_base(base, &parent_ty, p, ident, is_mutable)
                 .map_err(|()| e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name))
         }
     } else {
@@ -682,17 +637,6 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                     e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                                 }
                                 p.push_il(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
-                            } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
-                                let rty = gen_il(rhs, p)?;
-                                if check_type(&property.ty.borrow(), &rty).is_err() {
-                                    e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &property.ty.borrow(), &rty);
-                                }
-                                if !is_mutable {
-                                    let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
-                                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
-                                }
-                                let method_name = format!("set_{}", ident);
-                                p.push_il(format!("\tcall instance void {}::'{}'({})", parent_ty.to_ilstr(), method_name, property.ty.borrow().to_ilstr()));
                             } else {
                                 e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                             }
@@ -741,7 +685,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 _ => unimplemented!(),
             }
         }
-        NodeKind::FieldOrProperty { lvar_symbol_table: _, expr, ident } => {
+        NodeKind::Field { expr, ident } => {
             *p.ret_address.borrow_mut() = true;
             let parent_ty = gen_il(*expr, p)?;
             *p.ret_address.borrow_mut() = false;
@@ -766,17 +710,6 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
                             p.push_il(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
-                        } else if let Some(property) = st.borrow().properties.iter().find(|o|o.name==ident) {
-                            let rty = gen_il(rhs, p)?;
-                            if check_type(&property.ty.borrow(), &rty).is_err() {
-                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &property.ty.borrow(), &rty);
-                            }
-                            if !is_mutable {
-                                let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
-                                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
-                            }
-                            let method_name = format!("set_{}", ident);
-                            p.push_il(format!("\tcall instance void {}::'{}'({})", parent_ty.to_ilstr(), method_name, property.ty.borrow().to_ilstr()));
                         } else {
                             e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                         }
@@ -804,17 +737,6 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
                             p.push_il(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
-                        } else if let Some(property) = cl.borrow().properties.iter().find(|o|o.name==ident) {
-                            let rty = gen_il(rhs, p)?;
-                            if check_type(&property.ty.borrow(), &rty).is_err() {
-                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &property.ty.borrow(), &rty);
-                            }
-                            if !is_mutable {
-                                let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
-                                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
-                            }
-                            let method_name = format!("set_{}", ident);
-                            p.push_il(format!("\tcall instance void {}::'{}'({})", parent_ty.to_ilstr(), method_name, property.ty.borrow().to_ilstr()));
                         } else {
                             e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                         }
