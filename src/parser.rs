@@ -837,7 +837,7 @@ impl<'a> Parser<'a> {
                 }
                 self.eat(TokenKind::Comma);
             } else {
-                // field or property
+                // field
                 let ident = self.expect_ident();
                 if ident.is_empty() {
                     self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
@@ -847,51 +847,15 @@ impl<'a> Parser<'a> {
                 self.expect(TokenKind::Colon);
                 let ty = self.type_no_bounds();
 
-                if self.eat(TokenKind::OpenDelim(Delimiter::Brace)) {
-                    // property
-                    if cl.properties.iter().any(|o|o.name==ident) {
-                        e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
-                    }
-                    // TODO
-                    if self.eat_keyword(Keyword::Set) {
-                        self.expect(TokenKind::Semi);
-                        if self.eat_keyword(Keyword::Get) {
-                            self.expect(TokenKind::Semi);
-                        }
-                    } else if self.eat_keyword(Keyword::Get) {
-                        self.expect(TokenKind::Semi);
-                        if self.eat_keyword(Keyword::Set) {
-                            self.expect(TokenKind::Semi);
-                        }
-                    } else {
-                    }
-                    // TODO
-                    if let Some(ident) = self.eat_ident() {
-                        if ident == "add" {
-                            self.expect(TokenKind::Semi);
-                        }
-                    }
-                    if let Some(ty) = ty {
-                        // TODO: backing fieldの生成
-                        let obj = Object::new(ident, cl.field.offset(ObjectKind::Field), ObjectKind::Local, ty.clone(), false);
-                        cl.properties.push(obj);
-                        let dummy = Object::new("".to_string(), cl.field.offset(ObjectKind::Field), ObjectKind::Local, ty, false);
-                        cl.field.push(Rc::new(RefCell::new(dummy)));
-                    }
-                    self.expect(TokenKind::CloseDelim(Delimiter::Brace));
-                    self.eat(TokenKind::Comma);
-                } else {
-                    // field
-                    if cl.field.find(&ident).is_some() {
-                        e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
-                    }
-                    if let Some(ty) = ty {
-                        let obj = Object::new(ident, cl.field.offset(ObjectKind::Field), ObjectKind::Field, ty, false);
-                        cl.field.push(Rc::new(RefCell::new(obj)));
-                    }
-                    if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-                        e0008(Rc::clone(&self.errors), self.errorset());
-                    }
+                if cl.field.find(&ident).is_some() {
+                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                }
+                if let Some(ty) = ty {
+                    let obj = Object::new(ident, cl.field.offset(ObjectKind::Field), ObjectKind::Field, ty, false);
+                    cl.field.push(Rc::new(RefCell::new(obj)));
+                }
+                if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
+                    e0008(Rc::clone(&self.errors), self.errorset());
                 }
             }
         }
@@ -1670,7 +1634,7 @@ impl<'a> Parser<'a> {
                         &self.tokens[begin..self.idx],
                     );
                 } else {
-                    node = new_field_or_property_node(
+                    node = new_field_node(
                         Rc::clone(&self.current_fn().symbol_table),
                         node,
                         ident,
@@ -1830,7 +1794,7 @@ impl<'a> Parser<'a> {
                         let self_obj = Rc::new(RefCell::new(Object::new("self".to_string(), 0, ObjectKind::Param, ty, true)));
                         self_obj.borrow_mut().assigned = true;
                         let self_node = new_variable_node(&self_obj, &[]);
-                        new_field_or_property_node(
+                        new_field_node(
                             Rc::clone(&current_fn.symbol_table),
                             self_node,
                             ident,
@@ -1842,7 +1806,7 @@ impl<'a> Parser<'a> {
                         self_obj.borrow_mut().assigned = true;
                         let self_node = new_variable_node(&self_obj, &[]);
                         let ident = obj.borrow().name.to_string();
-                        new_field_or_property_node(
+                        new_field_node(
                             Rc::clone(&current_fn.symbol_table),
                             self_node,
                             ident,

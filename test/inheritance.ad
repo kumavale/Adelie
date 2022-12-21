@@ -8,21 +8,19 @@ extern {
                     impl ControlCollection {
                         fn Add(&self, value: Control) {}
                     }
-                    Controls: ControlCollection { get; },
                 }
+                impl Control {
+                    fn set_Text(&self, _: string) {}
+                    fn get_Controls(&self) -> ControlCollection {}
+                    }
                 class ScrollableControl : Control {}
                 class ContainerControl : ScrollableControl {}
-                class Form : ContainerControl {
-                    Text: string { get; set; },
-                    ClientSize: System::Drawing::Size { set; get; },
-                }
+                class Form : ContainerControl {}
                 impl Form {
                     fn .ctor() {}
                 }
                 class ButtonBase : Control {}
-                class Button : ButtonBase {
-                    Text: string { get; set; },
-                }
+                class Button : ButtonBase {}
                 impl Button {
                     fn .ctor() {}
                 }
@@ -45,14 +43,14 @@ impl Form1 {
             System::Windows::Forms::Button::.ctor(),
         }
     }
-    fn Text(&mut self, text: string) { self.form.Text = text }
+    fn Text(&mut self, text: string) { self.form.set_Text(text) }
 }
 fn main() {
     // class継承、ネストclassのテスト
     let mut form1: Form1 = Form1::new();
-    form1.Text("Counter");
-    form1.button.Text = "Click Me!";
-    form1.form.Controls.Add(form1.button);
+    form1.Text("inheritance test");
+    form1.button.set_Text("Button");
+    form1.form.get_Controls().Add(form1.button);
     //System::Windows::Forms::Application::Run(form1.form);
     println!("ok");
 }
