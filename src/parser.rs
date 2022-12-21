@@ -1635,7 +1635,6 @@ impl<'a> Parser<'a> {
                     );
                 } else {
                     node = new_field_node(
-                        Rc::clone(&self.current_fn().symbol_table),
                         node,
                         ident,
                         &self.tokens[begin..self.idx],
@@ -1795,7 +1794,6 @@ impl<'a> Parser<'a> {
                         self_obj.borrow_mut().assigned = true;
                         let self_node = new_variable_node(&self_obj, &[]);
                         new_field_node(
-                            Rc::clone(&current_fn.symbol_table),
                             self_node,
                             ident,
                             &self.tokens[self.idx-1..self.idx],
@@ -1807,7 +1805,6 @@ impl<'a> Parser<'a> {
                         let self_node = new_variable_node(&self_obj, &[]);
                         let ident = obj.borrow().name.to_string();
                         new_field_node(
-                            Rc::clone(&current_fn.symbol_table),
                             self_node,
                             ident,
                             &self.tokens[self.idx-1..self.idx],

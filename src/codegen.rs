@@ -5,12 +5,12 @@ use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Numeric, Keyword};
 use crate::namespace::NameSpace;
-use crate::object::{FindSymbol, Object, ObjectKind, SymbolTable};
+use crate::object::{FindSymbol, Object, ObjectKind};
 use crate::program::Program;
 use crate::token::Token;
 use crate::utils::remove_seq;
 use std::rc::Rc;
-use std::cell::{Ref, RefCell};
+use std::cell::Ref;
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -40,8 +40,8 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Result<Type> {
         NodeKind::Struct { obj, field } => {
             gen_il_struct(node.token, p, obj.borrow(), field)
         }
-        NodeKind::Field { lvar_symbol_table, expr, ident } => {
-            gen_il_field(node.token, p, lvar_symbol_table, *expr, &ident)
+        NodeKind::Field { expr, ident } => {
+            gen_il_field(node.token, p, *expr, &ident)
         }
         NodeKind::Variable { obj } => {
             gen_il_variable(node.token, p, obj.borrow())
@@ -359,7 +359,6 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
 fn gen_il_field<'a>(
     current_token: &[Token],
     p: &'a Program<'a>,
-    lvar_symbol_table: Rc<RefCell<SymbolTable>>,
     expr: Node,
     ident: &str,
 ) -> Result<Type> {
@@ -418,7 +417,7 @@ fn gen_il_field<'a>(
             }
         } else {
             // baseクラスから検索
-            fn search_from_base(base_ty: Option<RRType>, parent_ty: &Type, p: &Program, lvar_symbol_table: Rc<RefCell<SymbolTable>>, ident: &str, is_mutable: bool) -> Result<Type> {
+            fn search_from_base(base_ty: Option<RRType>, parent_ty: &Type, p: &Program, ident: &str, is_mutable: bool) -> Result<Type> {
                 if let Some(base_ty) = base_ty {
                     let ns = p.namespace.borrow();
                     let base_ty = base_ty.borrow();
@@ -445,11 +444,11 @@ fn gen_il_field<'a>(
                             }
                         }
                     }
-                    return search_from_base(base.clone(), parent_ty, p, Rc::clone(&lvar_symbol_table), ident, is_mutable);
+                    return search_from_base(base.clone(), parent_ty, p, ident, is_mutable);
                 }
                 Err(())
             }
-            search_from_base(base, &parent_ty, p, Rc::clone(&lvar_symbol_table), ident, is_mutable)
+            search_from_base(base, &parent_ty, p, ident, is_mutable)
                 .map_err(|()| e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name))
         }
     } else {
@@ -686,7 +685,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 _ => unimplemented!(),
             }
         }
-        NodeKind::Field { lvar_symbol_table: _, expr, ident } => {
+        NodeKind::Field { expr, ident } => {
             *p.ret_address.borrow_mut() = true;
             let parent_ty = gen_il(*expr, p)?;
             *p.ret_address.borrow_mut() = false;

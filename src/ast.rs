@@ -84,7 +84,6 @@ pub enum NodeKind<'a> {
         field: Vec<Node<'a>>,
     },
     Field {
-        lvar_symbol_table: Rc<RefCell<SymbolTable>>,
         expr: Box<Node<'a>>,
         ident: String,
     },
@@ -413,14 +412,12 @@ pub fn new_struct_expr_node<'a>(
 }
 
 pub fn new_field_node<'a>(
-    lvar_symbol_table: Rc<RefCell<SymbolTable>>,
     expr: Node<'a>,
     ident: String,
     token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Field {
-            lvar_symbol_table,
             expr: Box::new(expr),
             ident,
         },
