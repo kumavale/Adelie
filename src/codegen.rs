@@ -826,7 +826,7 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
         }
         UnaryOpKind::Neg => {
             let ty= gen_il(expr, p)?;
-            if let Type::Numeric(..) = ty {
+            if let Type::Numeric(..) | Type::Float(..) = ty {
                 p.push_il("\tneg");
             } else {
                 e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
