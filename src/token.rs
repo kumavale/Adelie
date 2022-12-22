@@ -2,7 +2,7 @@ use crate::builtin::*;
 use crate::keyword::{Keyword, Type};
 use std::fmt;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {
     Plus,      // +
     Minus,     // -
@@ -68,11 +68,12 @@ pub enum TokenKind {
     Eof,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LiteralKind{
     Char(char),
     String(String),
     Integer(i128),
+    Float(f64),
 }
 
 impl fmt::Display for LiteralKind {
@@ -81,6 +82,7 @@ impl fmt::Display for LiteralKind {
             LiteralKind::Char(c)    => write!(f, "'{}'", c),
             LiteralKind::String(s)  => write!(f, "\\\"{}\\\"", s),
             LiteralKind::Integer(i) => write!(f, "{}", i),
+            LiteralKind::Float(fp)  => write!(f, "{}", fp),
         }
     }
 }
@@ -112,7 +114,7 @@ pub enum Delimiter {
     Bracket,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub cur: usize,

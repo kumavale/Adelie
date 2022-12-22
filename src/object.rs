@@ -9,7 +9,7 @@ pub enum ObjectKind {
     Param,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Object {
     pub name: String,
     pub kind: ObjectKind,
@@ -46,7 +46,7 @@ impl Object {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
     pub objs: Vec<Rc<RefCell<Object>>>,
     pub scopes: Vec<Vec<Rc<RefCell<Object>>>>,

@@ -61,7 +61,7 @@ impl fmt::Display for Keyword {
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-#[derive(Clone, Debug, Eq, Hash)]
+#[derive(Clone, Debug, Hash)]
 pub enum Type {
     Numeric(Numeric),
     Bool,
@@ -111,6 +111,8 @@ impl Type {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Numeric {
     I32,
+    F32,
+    Float,
     Integer,
 }
 
@@ -118,6 +120,8 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
+            Type::Numeric(Numeric::F32)     => write!(f, "f32"),
+            Type::Numeric(Numeric::Float)   => write!(f, "{{float}}"),
             Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
             Type::Bool                  => write!(f, "bool"),
             Type::Char                  => write!(f, "char"),
@@ -186,12 +190,14 @@ impl Numeric {
     pub fn to_ilstr(&self) -> String {
         match self {
             Numeric::I32     => "int32".to_string(),
+            Numeric::F32     => "float32".to_string(),
+            Numeric::Float   => "float32".to_string(),
             Numeric::Integer => "int32".to_string(),  // TODO: maybe unreachable
         }
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct RRType {
     inner: Rc<RefCell<Type>>,
 }

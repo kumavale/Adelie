@@ -1706,6 +1706,9 @@ impl<'a> Parser<'a> {
             LiteralKind::Integer(i) => {
                 new_num_node(*i, &self.tokens[self.idx-1..=self.idx-1])
             }
+            LiteralKind::Float(fp) => {
+                new_float_node(*fp, &self.tokens[self.idx-1..=self.idx-1])
+            }
         }
     }
 

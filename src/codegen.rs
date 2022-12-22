@@ -19,6 +19,9 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Result<Type> {
         NodeKind::Integer { ty, num } => {
             gen_il_integer(node.token, p, ty, num)
         }
+        NodeKind::Float { ty, num } => {
+            gen_il_float(node.token, p, ty, num)
+        }
         NodeKind::String { ty, str } => {
             gen_il_string(node.token, p, ty, &str)
         }
@@ -107,6 +110,11 @@ fn gen_il_integer(current_token: &[Token], p: &Program, ty: Type, num: i128) -> 
             | TokenKind::Keyword(Keyword::True)
             | TokenKind::Keyword(Keyword::False)));
     p.push_il(format!("\tldc.i4 {}", num as i32));
+    Ok(ty)
+}
+
+fn gen_il_float(_current_token: &[Token], p: &Program, ty: Type, num: f64) -> Result<Type> {
+    p.push_il(format!("\tldc.r8 {}", num));
     Ok(ty)
 }
 

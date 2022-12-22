@@ -42,17 +42,21 @@ pub enum ShortCircuitOpKind {
     Or,   // ||
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Node<'a> {
     pub kind: NodeKind<'a>,
     pub token: &'a [Token],
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum NodeKind<'a> {
     Integer {
         ty: Type,
         num: i128,  // -?[1-9][0-9]*
+    },
+    Float {
+        ty: Type,
+        num: f64,  // -?[1-9][0-9]*\.[0-9]+
     },
     String {
         ty: Type,
@@ -294,6 +298,19 @@ pub fn new_num_node(
     Node {
         kind: NodeKind::Integer {
             ty: Type::Numeric(Numeric::Integer),
+            num,
+        },
+        token,
+    }
+}
+
+pub fn new_float_node(
+    num: f64,
+    token: &[Token],
+) -> Node<'_> {
+    Node {
+        kind: NodeKind::Float {
+            ty: Type::Numeric(Numeric::Float),
             num,
         },
         token,
