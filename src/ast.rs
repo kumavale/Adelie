@@ -1,7 +1,7 @@
 use crate::builtin::*;
 use crate::class::{Class, ClassKind, Impl, EnumDef};
 use crate::function::Function;
-use crate::keyword::{Keyword, Numeric, Type, RRType};
+use crate::keyword::{Keyword, Numeric, Float, Type, RRType};
 use crate::object::{Object, ObjectKind, SymbolTable};
 use crate::token::Token;
 use std::cell::RefCell;
@@ -310,7 +310,7 @@ pub fn new_float_node(
 ) -> Node<'_> {
     Node {
         kind: NodeKind::Float {
-            ty: Type::Numeric(Numeric::Float),
+            ty: Type::Float(Float::F),
             num,
         },
         token,

@@ -1,5 +1,5 @@
 use crate::builtin::*;
-use crate::keyword::{Keyword, Numeric, Type};
+use crate::keyword::{Keyword, Numeric, Float, Type};
 use crate::token::{Delimiter, LiteralKind, Token, TokenKind};
 use std::cmp::Ordering;
 
@@ -284,7 +284,7 @@ impl<'a> Lexer<'a> {
                     "read_line" => Token::new(TokenKind::Builtin(Builtin::ReadLine), self.col, self.line),
 
                     "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), self.col, self.line),
-                    "f32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::F32)), self.col, self.line),
+                    "f32"    => Token::new(TokenKind::Type(Type::Float(Float::F32)),     self.col, self.line),
                     "bool"   => Token::new(TokenKind::Type(Type::Bool),                  self.col, self.line),
                     "char"   => Token::new(TokenKind::Type(Type::Char),                  self.col, self.line),
                     "string" => Token::new(TokenKind::Type(Type::String),                self.col, self.line),
