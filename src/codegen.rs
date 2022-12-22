@@ -3,7 +3,7 @@ use crate::builtin::*;
 use crate::class::ClassKind;
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, RRType, Numeric, Keyword};
+use crate::keyword::{Type, RRType, Numeric, Float, Keyword};
 use crate::namespace::NameSpace;
 use crate::object::{FindSymbol, Object, ObjectKind};
 use crate::program::Program;
@@ -611,6 +611,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
     fn check_type(lty: &Type, rty: &Type) -> Result<()> {
         match (lty, rty) {
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
+            (Type::Float(..), Type::Float(Float::F)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
             _ if lty == rty => Ok(()),
