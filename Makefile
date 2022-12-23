@@ -15,7 +15,7 @@ check:
 clippy:
 	cargo clippy
 
-test/%.exe: build test/%.ad
+test/%.exe: build
 	./target/debug/adelie test/$*.ad > test/$*.il
 	$(ILASM) $(FLAGS) /OUTPUT=$@ test/$*.il
 
@@ -23,14 +23,10 @@ test: $(TESTS)
 	for i in $^; do echo; echo $$i; ./$$i || exit 1; done
 
 %.ad: build
-	@if [ -f "test/$@" ]; then \
-		./target/debug/adelie test/$*.ad > test/$*.il && \
-		$(ILASM) $(FLAGS) /OUTPUT=test/$*.exe test/$*.il && \
-		test/$*.exe; \
-	elif [ -f "example/$@" ]; then\
-		./target/debug/adelie example/$*.ad > example/$*.il && \
-		$(ILASM) $(FLAGS) /OUTPUT=example/$*.exe example/$*.il && \
-		example/$*.exe; \
+	@if [ -f "$@" ]; then \
+		./target/debug/adelie $*.ad > $*.il && \
+		$(ILASM) $(FLAGS) /OUTPUT=$*.exe $*.il && \
+		$*.exe; \
 	else \
 		echo \`$@\` is not found.; \
 	fi
