@@ -10,7 +10,7 @@ pub enum ClassKind {
     NestedClass(String),  // parent name
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Class<'a> {
     pub kind: ClassKind,
     pub name: String,
@@ -62,7 +62,7 @@ impl<'a> FindSymbol for Vec<Rc<Class<'a>>> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Impl<'a> {
     // TODO: trait
     pub name: String,
@@ -94,7 +94,7 @@ impl<'a> FindSymbol for [Impl<'a>] {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EnumDef {
     pub name: String,
     pub path: Vec<String>,

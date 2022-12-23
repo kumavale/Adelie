@@ -3,7 +3,7 @@ use crate::builtin::*;
 use crate::class::ClassKind;
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, RRType, Numeric, Keyword};
+use crate::keyword::{Type, RRType, Numeric, Float, FloatNum, Keyword};
 use crate::namespace::NameSpace;
 use crate::object::{FindSymbol, Object, ObjectKind};
 use crate::program::Program;
@@ -18,6 +18,9 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Result<Type> {
     match node.kind {
         NodeKind::Integer { ty, num } => {
             gen_il_integer(node.token, p, ty, num)
+        }
+        NodeKind::Float { ty, num } => {
+            gen_il_float(node.token, p, ty, num)
         }
         NodeKind::String { ty, str } => {
             gen_il_string(node.token, p, ty, &str)
@@ -107,6 +110,13 @@ fn gen_il_integer(current_token: &[Token], p: &Program, ty: Type, num: i128) -> 
             | TokenKind::Keyword(Keyword::True)
             | TokenKind::Keyword(Keyword::False)));
     p.push_il(format!("\tldc.i4 {}", num as i32));
+    Ok(ty)
+}
+
+fn gen_il_float(_current_token: &[Token], p: &Program, ty: Type, num: FloatNum) -> Result<Type> {
+    match num {
+        FloatNum::Float32(f) => p.push_il(format!("\tldc.r4 {}", f)),
+    }
     Ok(ty)
 }
 
@@ -774,10 +784,17 @@ fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, 
     match &new_type {
         Type::Numeric(Numeric::I32) => {
             match old_type {
-                Type::Numeric(..) | Type::Bool | Type::Char => (),  // ok
+                Type::Numeric(..) | Type::Float(..) | Type::Bool | Type::Char => (),  // ok
                 _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Numeric(Numeric::I32)),
             }
             p.push_il("\tconv.i4");
+        }
+        Type::Float(Float::F32) => {
+            match old_type {
+                Type::Numeric(..) | Type::Float(Float::F32) => (),  // ok
+                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Float(Float::F32)),
+            }
+            p.push_il("\tconv.r4");
         }
         Type::Bool => {
             match old_type {
@@ -818,7 +835,7 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
         }
         UnaryOpKind::Neg => {
             let ty= gen_il(expr, p)?;
-            if let Type::Numeric(..) = ty {
+            if let Type::Numeric(..) | Type::Float(..) = ty {
                 p.push_il("\tneg");
             } else {
                 e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
@@ -850,6 +867,7 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                     match ty {
                         Type::Ptr(_) => p.push_il("\tldind.i"),
                         Type::Numeric(Numeric::I32) => p.push_il("\tldind.i4"),
+                        Type::Float(Float::F32) => p.push_il("\tldind.r4"),
                         _ => unimplemented!(),
                     }
                     Ok(ty)
@@ -917,6 +935,48 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 p.push_il("\tldc.i4.0");
                 p.push_il("\tceq");
                 is_bool = true;
+            }
+        }
+        Type::Float(..) => match kind {
+            BinaryOpKind::Add => p.push_il("\tadd"),
+            BinaryOpKind::Sub => p.push_il("\tsub"),
+            BinaryOpKind::Mul => p.push_il("\tmul"),
+            BinaryOpKind::Div => p.push_il("\tdiv"),
+            BinaryOpKind::Rem => p.push_il("\trem"),
+
+            BinaryOpKind::Eq => {
+                p.push_il("\tceq");
+                is_bool = true;
+            }
+            BinaryOpKind::Lt => {
+                p.push_il("\tclt");
+                is_bool = true;
+            }
+            BinaryOpKind::Le => {
+                p.push_il("\tcgt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
+                is_bool = true;
+            }
+            BinaryOpKind::Ne => {
+                p.push_il("\tceq");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
+                is_bool = true;
+            }
+            BinaryOpKind::Gt => {
+                p.push_il("\tcgt");
+                is_bool = true;
+            }
+            BinaryOpKind::Ge => {
+                p.push_il("\tclt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
+                is_bool = true;
+            }
+            _ => {
+                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                return Err(());
             }
         }
         Type::Char | Type::Bool => match kind {

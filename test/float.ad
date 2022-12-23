@@ -1,0 +1,64 @@
+fn foo() -> f32 { 1.1f32 }
+fn bar(a: f32) -> f32 { a }
+struct Foo { a: f32, }
+impl Foo { fn baz(&self, b: f32) -> f32 { self.a } }
+fn main() {
+    0.0f32;
+    1.1f32;
+    12.34f32;
+    123.456f32;
+    -2.9f32;
+    3.1415926535897932f32;  // 3.141592653589793まで
+
+    assert_eq!( 1.0f32, { let a: f32 =  1.0f32; a });
+    assert_eq!(-1.0f32, { let a: f32 = -1.0f32; a });
+    assert_eq!( 2.2f32, 2.2f32);
+
+    assert_eq!( 1.0f32, { let a: Box<f32> = Box::new(1.0f32); *a });
+
+    print!("println!(12.34f32) => ");
+            println!(12.34f32);
+    print!("println!({ let a: f32 = 12.34f32; a }) => ");
+            println!({ let a: f32 = 12.34f32; a });
+
+    assert_eq!(1.1f32, foo());
+    assert_eq!(1.1f32, bar(1.1f32));
+    assert_eq!(1.1f32, bar({ let a: f32 = 1.1f32; a }));
+    assert_eq!(2.2f32, { let a: Foo = Foo { 2.2f32 }; a.baz(3.3f32) });
+
+    assert_eq!( 2, 2.2f32 as i32);
+    assert_eq!( 2.0f32, 2.2f32 as i32 as f32);
+
+    assert_eq!(-2.2f32,   -2.2f32);
+    assert_eq!( 2.2f32,  --2.2f32);
+    assert_eq!(-2.2f32, ---2.2f32);
+    assert_eq!( 2.2f32, { let a: f32 = 2.2f32; *&a });
+
+    assert_eq!( 4.4f32,  2.2f32 + 2.2f32);
+    assert_eq!( 2.2f32,  4.4f32 - 2.2f32);
+    assert_eq!( 7.26f32, 3.3f32 * 2.2f32);
+    assert_eq!( 2.0f32,  4.4f32 / 2.2f32);
+    assert_eq!( 0.0f32,  4.4f32 % 2.2f32);
+    assert_eq!( true,  2.2f32 == 2.2f32);
+    assert_eq!(false,  2.2f32 != 2.2f32);
+    assert_eq!( true,  2.2f32 <= 2.2f32);
+    assert_eq!( true,  2.2f32 >= 2.2f32);
+    assert_eq!(false,  2.2f32 <  2.2f32);
+    assert_eq!(false,  2.2f32 >  2.2f32);
+    assert_eq!( 4.4f32, { let mut a: f32 = 2.2f32; a += 2.2f32; a });
+
+    // should compile error
+    //let a: f32 = 1;
+    //let a: i32 = 1.0;
+    //assert_eq!( 2, 2.2f32 as bool);
+    //assert_eq!( 2, true as f32);
+    //assert_eq!( 1.1f32, 2.2f32 ^  2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 &  2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 |  2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 << 2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 >> 2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 && 2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 || 2.2f32);
+
+    println!("ok");
+}

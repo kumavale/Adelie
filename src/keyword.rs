@@ -64,6 +64,7 @@ impl fmt::Display for Keyword {
 #[derive(Clone, Debug, Eq, Hash)]
 pub enum Type {
     Numeric(Numeric),
+    Float(Float),
     Bool,
     Char,
     String,
@@ -84,6 +85,7 @@ impl PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Type::Numeric(nl), Type::Numeric(nr)) => nl == nr,
+            (Type::Float(fl), Type::Float(fr)) => fl == fr,
             (Type::Bool, Type::Bool) => true,
             (Type::Char, Type::Char) => true,
             (Type::String, Type::String) => true,
@@ -114,21 +116,32 @@ pub enum Numeric {
     Integer,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Float {
+    F32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum FloatNum {
+    Float32(f32),
+}
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
             Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
-            Type::Bool                  => write!(f, "bool"),
-            Type::Char                  => write!(f, "char"),
-            Type::String                => write!(f, "string"),
-            Type::_Self(_, n, _)        => write!(f, "{}", n),
-            Type::Enum(_, _, n)         => write!(f, "{}", n),
-            Type::Class(_, _, _, n, ..) => write!(f, "{}", n),
-            Type::Box(t)                => write!(f, "Box<{}>", t.borrow()),
-            Type::Ptr(t)                => write!(f, "&{}", t.borrow()),
-            Type::Void                  => write!(f, "void"),
-            Type::RRIdent(_, n)         => write!(f, "RRIdent<{}>", n),
+            Type::Float(Float::F32)         => write!(f, "f32"),
+            Type::Bool                      => write!(f, "bool"),
+            Type::Char                      => write!(f, "char"),
+            Type::String                    => write!(f, "string"),
+            Type::_Self(_, n, _)            => write!(f, "{}", n),
+            Type::Enum(_, _, n)             => write!(f, "{}", n),
+            Type::Class(_, _, _, n, ..)     => write!(f, "{}", n),
+            Type::Box(t)                    => write!(f, "Box<{}>", t.borrow()),
+            Type::Ptr(t)                    => write!(f, "&{}", t.borrow()),
+            Type::Void                      => write!(f, "void"),
+            Type::RRIdent(_, n)             => write!(f, "RRIdent<{}>", n),
         }
     }
 }
@@ -137,6 +150,7 @@ impl Type {
     pub fn to_ilstr(&self) -> String {
         match self {
             Type::Numeric(n)      => n.to_ilstr(),
+            Type::Float(f)        => f.to_ilstr(),
             Type::Bool            => "bool".to_string(),
             Type::Char            => "char".to_string(),
             Type::String          => "string".to_string(),
@@ -187,6 +201,14 @@ impl Numeric {
         match self {
             Numeric::I32     => "int32".to_string(),
             Numeric::Integer => "int32".to_string(),  // TODO: maybe unreachable
+        }
+    }
+}
+
+impl Float {
+    pub fn to_ilstr(&self) -> String {
+        match self {
+            Float::F32 => "float32".to_string(),
         }
     }
 }

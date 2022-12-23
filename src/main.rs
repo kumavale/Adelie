@@ -273,7 +273,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
         match (&rettype, &*func.rettype.borrow()) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
             _ => if rettype != *func.rettype.borrow() {
-                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
+                panic!("{}: expected `{:?}`, found `{:?}`", func.name, func.rettype.borrow(), rettype);
             }
         }
     }

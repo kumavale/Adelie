@@ -1,7 +1,7 @@
 use crate::builtin::*;
 use crate::class::{Class, ClassKind, Impl, EnumDef};
 use crate::function::Function;
-use crate::keyword::{Keyword, Numeric, Type, RRType};
+use crate::keyword::{Keyword, Numeric, Float, FloatNum, Type, RRType};
 use crate::object::{Object, ObjectKind, SymbolTable};
 use crate::token::Token;
 use std::cell::RefCell;
@@ -42,17 +42,21 @@ pub enum ShortCircuitOpKind {
     Or,   // ||
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Node<'a> {
     pub kind: NodeKind<'a>,
     pub token: &'a [Token],
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum NodeKind<'a> {
     Integer {
         ty: Type,
         num: i128,  // -?[1-9][0-9]*
+    },
+    Float {
+        ty: Type,
+        num: FloatNum,  // -?[1-9][0-9]*\.[0-9]+
     },
     String {
         ty: Type,
@@ -294,6 +298,22 @@ pub fn new_num_node(
     Node {
         kind: NodeKind::Integer {
             ty: Type::Numeric(Numeric::Integer),
+            num,
+        },
+        token,
+    }
+}
+
+pub fn new_float_node(
+    num: FloatNum,
+    token: &[Token],
+) -> Node<'_> {
+    let ty = match num {
+        FloatNum::Float32(..) => Type::Float(Float::F32),
+    };
+    Node {
+        kind: NodeKind::Float {
+            ty,
             num,
         },
         token,
