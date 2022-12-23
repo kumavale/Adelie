@@ -1165,7 +1165,7 @@ impl<'a> Parser<'a> {
             //displayclass.field.push(self_obj);
             //displayclass.impls.push(Rc::new(im));
             self.current_fn_mut().nested_class = Some(Rc::new(RefCell::new(displayclass)));
-            let instance_name = format!("<{}>nested_class", self.current_fn().name.to_string());
+            let instance_name = format!("<{}>nested_class", self.current_fn().name);
             let nested_class_instance = new_variable_node_with_let(
                 &mut self.current_fn_mut().symbol_table.borrow_mut(),
                 //format!("<{}>nested_class", current_fn_name),
@@ -1775,13 +1775,13 @@ impl<'a> Parser<'a> {
         } else {
             // local variable or parameter
             if let Some(local_fn) = &self.current_lambda {
+                // クロージャ内部の場合
                 if let Some(obj) = local_fn.symbol_table.borrow().find(name) {
                     new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                 } else {
                     let current_fn = self.current_fn.as_mut().unwrap();
                     let old_obj = current_fn.symbol_table.borrow_mut().drain(name);
                     let node = if let Some(old_obj) = old_obj {
-                        // WIP
                         // 親メソッド内のローカル変数をnestedクラスのフィールド変数に置き換え
                         // 親メソッド: count(local) => nested_class.count(field)
                         //                             -> ldloc nested_class
@@ -1844,6 +1844,7 @@ impl<'a> Parser<'a> {
                     node
                 }
             } else {
+                // クロージャ外部の場合
                 if let Some(obj) = self.current_fn().symbol_table.borrow().find(name) {
                     new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                 } else if let Some(nested_class) = self.current_fn().nested_class.as_ref() {

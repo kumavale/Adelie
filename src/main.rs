@@ -103,7 +103,7 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         if st.borrow().kind != ClassKind::Struct {
             continue;
         }
-        println!(".class private sequential auto sealed beforefieldinit '{}' extends [System.Runtime]System.ValueType", st.borrow().name);
+        println!(".class private sequential auto sealed beforefieldinit '{}' extends [mscorlib]System.ValueType", st.borrow().name);
         println!("{{");
         for value in &st.borrow().field.objs {
             println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
@@ -111,14 +111,14 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         for im in &st.borrow().impls {
             for func in &im.functions {
                 if let Some(nested_class) = &func.nested_class {
-                    println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.borrow().name);
+                    println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", nested_class.borrow().name);
                     for value in &nested_class.borrow().field.objs {
                         println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
                     }
                     if nested_class.borrow().name == "<>c__DisplayClass0_0" {
                         println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
                         println!("\t\tldarg.0");
-                        println!("\t\tcall instance void [System.Runtime]System.Object::.ctor()");
+                        println!("\t\tcall instance void [mscorlib]System.Object::.ctor()");
                         println!("\t\tret");
                         println!("\t}}");
                     }
@@ -133,7 +133,7 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                     .objs
                     .iter()
                     .filter(|o| o.borrow().kind == ObjectKind::Param)
-                    .skip(if func.is_static { 0 } else { 1 })
+                    .skip((!func.is_static) as usize)
                     .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
                     .collect::<Vec<String>>()
                     .join(", ");
@@ -194,18 +194,18 @@ fn gen_enums<'a, 'b>(_program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
 }
 
 fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
-    println!(".class private auto ansi abstract sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", program.name);
+    println!(".class private auto ansi abstract sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", program.name);
     for func in &namespace.functions {
         gen_function(program, func);
         if let Some(nested_class) = &func.nested_class {
-            println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [System.Runtime]System.Object {{", nested_class.borrow().name);
+            println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", nested_class.borrow().name);
             for value in &nested_class.borrow().field.objs {
                 println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
             }
             if nested_class.borrow().name == "<>c__DisplayClass0_0" {
                 println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
                 println!("\t\tldarg.0");
-                println!("\t\tcall instance void [System.Runtime]System.Object::.ctor()");
+                println!("\t\tcall instance void [mscorlib]System.Object::.ctor()");
                 println!("\t\tret");
                 println!("\t}}");
             }

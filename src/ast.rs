@@ -464,12 +464,12 @@ pub fn new_method_call_node<'a>(
     }
 }
 
-pub fn new_lambda_node<'a>(
+pub fn new_lambda_node(
     ty: Type,
     ident: String,
     // args: Vec<Node<'a>>,
-    token: &'a [Token],
-) -> Node<'a> {
+    token: &[Token],
+) -> Node {
     Node {
         kind: NodeKind::Lambda {
             ty,
@@ -492,10 +492,10 @@ pub fn new_variable_node<'a>(
     }
 }
 
-pub fn new_enum_node<'a>(
+pub fn new_enum_node(
     obj: EnumObject,
-    token: &'a [Token],
-) -> Node<'a> {
+    token: &[Token],
+) -> Node {
     Node {
         kind: NodeKind::Enum {
             obj,
