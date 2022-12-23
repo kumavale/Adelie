@@ -4,7 +4,7 @@ use crate::class::{ClassKind, Class, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Float, FloatNum, Keyword};
-use crate::object::{Object, ObjectKind, FindSymbol, SymbolTable};
+use crate::object::{Object, ObjectKind, EnumObject, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
@@ -751,7 +751,7 @@ impl<'a> Parser<'a> {
 
     fn parse_item_enum(&mut self) -> EnumDef {
         let name = self.expect_ident();
-        let ed = EnumDef::new(name, self.current_mod.to_vec());
+        let mut ed = EnumDef::new(name, self.current_mod.to_vec());
         if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), ed.name.to_string())) {
             // replace
             let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
@@ -766,26 +766,24 @@ impl<'a> Parser<'a> {
             self.ident_types.insert((self.current_mod.to_vec(), ed.name.to_string()), ty);
         }
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
-        //let start_brace = self.idx-1;
+        let start_brace = self.idx-1;
+        let mut value: usize = 0;
         while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
-            todo!();
-            // ↓parse_item_structを引用
-            //let ident = self.expect_ident();
-            //if ident.is_empty() {
-            //    self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
-            //    break;
-            //}
-            //if st.field.iter().any(|o|o.name==ident) {
-            //    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
-            //}
-            //self.expect(TokenKind::Colon);
-            //if let Some(ty) = self.type_no_bounds() {
-            //    let obj = Object::new(ident, st.field.len(), false, ty, false);
-            //    st.field.push(obj);
-            //}
-            //if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-            //    e0008(Rc::clone(&self.errors), self.errorset());
-            //}
+            let ident = self.expect_ident();
+            if ident.is_empty() {
+                self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
+                break;
+            }
+            if ed.fields.iter().any(|o|o.name==ident) {
+                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            }
+
+            ed.fields.push(EnumObject::new(ident, value));
+            value += 1;
+
+            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
+                e0008(Rc::clone(&self.errors), self.errorset());
+            }
         }
         ed
     }

@@ -1,6 +1,6 @@
 use crate::function::Function;
 use crate::keyword::RRType;
-use crate::object::{Object, SymbolTable, FindSymbol};
+use crate::object::{EnumObject, SymbolTable, FindSymbol};
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -99,7 +99,7 @@ pub struct EnumDef {
     pub name: String,
     pub path: Vec<String>,
     pub reference: Option<String>,
-    pub variants: Vec<Object>,
+    pub fields: Vec<EnumObject>,
 }
 
 impl EnumDef {
@@ -108,7 +108,7 @@ impl EnumDef {
             name,
             path,
             reference: None,
-            variants: vec![],
+            fields: vec![],
         }
     }
 }
