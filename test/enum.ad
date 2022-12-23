@@ -8,5 +8,8 @@ fn main() {
     let green: Color = Color::Green;
     let blue:  Color = Color::Blue;
 
+    assert_eq!(red, Color::Red);
+    assert_eq!(2,   Color::Blue as i32);
+
     println!("ok");
 }
