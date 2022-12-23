@@ -453,6 +453,10 @@ impl<'a> Parser<'a> {
         self.tokens[self.idx].kind == TokenKind::Eof
     }
 
+    fn token_kind(&self) -> &TokenKind {
+        &self.tokens[self.idx].kind
+    }
+
     fn current_token(&self) -> &[Token] {
         &self.tokens[self.idx..=self.idx]
     }
@@ -776,6 +780,16 @@ impl<'a> Parser<'a> {
             }
             if ed.fields.iter().any(|o|o.name==ident) {
                 e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            }
+
+            if self.eat(TokenKind::Assign) {
+                if let TokenKind::Literal(LiteralKind::Integer(new_value)) = &self.token_kind() {
+                    value = *new_value as usize;
+                } else {
+                    let message = format!("expected `isize`, found `{}`", self.token_kind());
+                    e0000(Rc::clone(&self.errors), self.errorset(), &message);
+                }
+                self.bump();
             }
 
             ed.fields.push(EnumObject::new(ident, value));

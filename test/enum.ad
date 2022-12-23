@@ -3,13 +3,29 @@ enum Color {
     Green,
     Blue,
 }
+enum Animals {
+    Cat  = 1,
+    Dog  = 2,
+    Bird = 4,
+    Bear = 8,
+}
 fn main() {
     let red:   Color = Color::Red;
     let green: Color = Color::Green;
     let blue:  Color = Color::Blue;
 
-    assert_eq!(red, Color::Red);
-    assert_eq!(2,   Color::Blue as i32);
+    assert_eq!(red,   Color::Red);
+    assert_eq!(green, Color::Green);
+    assert_eq!(blue,  Color::Blue);
+
+    assert_eq!(0, Color::Red   as i32);
+    assert_eq!(1, Color::Green as i32);
+    assert_eq!(2, Color::Blue  as i32);
+
+    assert_eq!(1, Animals::Cat  as i32);
+    assert_eq!(2, Animals::Dog  as i32);
+    assert_eq!(4, Animals::Bird as i32);
+    assert_eq!(8, Animals::Bear as i32);
 
     println!("ok");
 }
