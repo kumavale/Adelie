@@ -34,11 +34,28 @@ fn main() {
     assert_eq!(-2.2f32, ---2.2f32);
     assert_eq!( 2.2f32, { let a: f32 = 2.2f32; *&a });
 
+    assert_eq!( 4.4f32,  2.2f32 + 2.2f32);
+    assert_eq!( 2.2f32,  4.4f32 - 2.2f32);
+    assert_eq!( 7.26f32, 3.3f32 * 2.2f32);
+    assert_eq!( 2.0f32,  4.4f32 / 2.2f32);
+    assert_eq!( 0.0f32,  4.4f32 % 2.2f32);
+    assert_eq!( true,  2.2f32 == 2.2f32);
+    assert_eq!(false,  2.2f32 != 2.2f32);
+    assert_eq!( true,  2.2f32 <= 2.2f32);
+    assert_eq!( true,  2.2f32 >= 2.2f32);
+    assert_eq!(false,  2.2f32 <  2.2f32);
+    assert_eq!(false,  2.2f32 >  2.2f32);
+
     // should compile error
     //let a: f32 = 1;
     //let a: i32 = 1.0;
     //assert_eq!( 2, 2.2f32 as bool);
     //assert_eq!( 2, true as f32);
+    //assert_eq!( 1.1f32, 2.2f32 ^  2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 &  2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 |  2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 << 2.2f32);
+    //assert_eq!( 1.1f32, 2.2f32 >> 2.2f32);
 
     println!("ok");
 }

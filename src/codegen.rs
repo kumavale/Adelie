@@ -937,6 +937,48 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 is_bool = true;
             }
         }
+        Type::Float(..) => match kind {
+            BinaryOpKind::Add => p.push_il("\tadd"),
+            BinaryOpKind::Sub => p.push_il("\tsub"),
+            BinaryOpKind::Mul => p.push_il("\tmul"),
+            BinaryOpKind::Div => p.push_il("\tdiv"),
+            BinaryOpKind::Rem => p.push_il("\trem"),
+
+            BinaryOpKind::Eq => {
+                p.push_il("\tceq");
+                is_bool = true;
+            }
+            BinaryOpKind::Lt => {
+                p.push_il("\tclt");
+                is_bool = true;
+            }
+            BinaryOpKind::Le => {
+                p.push_il("\tcgt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
+                is_bool = true;
+            }
+            BinaryOpKind::Ne => {
+                p.push_il("\tceq");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
+                is_bool = true;
+            }
+            BinaryOpKind::Gt => {
+                p.push_il("\tcgt");
+                is_bool = true;
+            }
+            BinaryOpKind::Ge => {
+                p.push_il("\tclt");
+                p.push_il("\tldc.i4.0");
+                p.push_il("\tceq");
+                is_bool = true;
+            }
+            _ => {
+                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
+                return Err(());
+            }
+        }
         Type::Char | Type::Bool => match kind {
             BinaryOpKind::Add |
             BinaryOpKind::Sub |
