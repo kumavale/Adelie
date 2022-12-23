@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::codegen::*;
 use crate::error::*;
-use crate::keyword::{Type, Numeric, Float};
+use crate::keyword::{Type, Numeric};
 use crate::program::Program;
 use crate::token::{LiteralKind, Token, TokenKind};
 use std::fmt;

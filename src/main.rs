@@ -16,7 +16,7 @@ mod utils;
 use crate::class::ClassKind;
 use crate::error::Errors;
 use crate::function::Function;
-use crate::keyword::{Type, Numeric, Float};
+use crate::keyword::{Type, Numeric};
 use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
 use crate::program::Program;

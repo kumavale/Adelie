@@ -784,10 +784,17 @@ fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, 
     match &new_type {
         Type::Numeric(Numeric::I32) => {
             match old_type {
-                Type::Numeric(..) | Type::Bool | Type::Char => (),  // ok
+                Type::Numeric(..) | Type::Float(..) | Type::Bool | Type::Char => (),  // ok
                 _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Numeric(Numeric::I32)),
             }
             p.push_il("\tconv.i4");
+        }
+        Type::Float(Float::F32) => {
+            match old_type {
+                Type::Numeric(..) | Type::Float(Float::F32) => (),  // ok
+                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Float(Float::F32)),
+            }
+            p.push_il("\tconv.r4");
         }
         Type::Bool => {
             match old_type {
