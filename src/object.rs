@@ -46,6 +46,21 @@ impl Object {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EnumObject {
+    pub name: String,
+    pub value: usize,
+}
+
+impl EnumObject {
+    pub fn new(name: String, value: usize) -> Self {
+        EnumObject {
+            name,
+            value,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
     pub objs: Vec<Rc<RefCell<Object>>>,

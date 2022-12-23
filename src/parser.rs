@@ -4,7 +4,7 @@ use crate::class::{ClassKind, Class, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Float, FloatNum, Keyword};
-use crate::object::{Object, ObjectKind, FindSymbol, SymbolTable};
+use crate::object::{Object, ObjectKind, EnumObject, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
 use std::cell::RefCell;
@@ -453,6 +453,10 @@ impl<'a> Parser<'a> {
         self.tokens[self.idx].kind == TokenKind::Eof
     }
 
+    fn token_kind(&self) -> &TokenKind {
+        &self.tokens[self.idx].kind
+    }
+
     fn current_token(&self) -> &[Token] {
         &self.tokens[self.idx..=self.idx]
     }
@@ -751,7 +755,7 @@ impl<'a> Parser<'a> {
 
     fn parse_item_enum(&mut self) -> EnumDef {
         let name = self.expect_ident();
-        let ed = EnumDef::new(name, self.current_mod.to_vec());
+        let mut ed = EnumDef::new(name, self.current_mod.to_vec());
         if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), ed.name.to_string())) {
             // replace
             let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
@@ -766,26 +770,34 @@ impl<'a> Parser<'a> {
             self.ident_types.insert((self.current_mod.to_vec(), ed.name.to_string()), ty);
         }
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
-        //let start_brace = self.idx-1;
+        let start_brace = self.idx-1;
+        let mut value: usize = 0;
         while !self.eat(TokenKind::CloseDelim(Delimiter::Brace)) {
-            todo!();
-            // ↓parse_item_structを引用
-            //let ident = self.expect_ident();
-            //if ident.is_empty() {
-            //    self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
-            //    break;
-            //}
-            //if st.field.iter().any(|o|o.name==ident) {
-            //    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
-            //}
-            //self.expect(TokenKind::Colon);
-            //if let Some(ty) = self.type_no_bounds() {
-            //    let obj = Object::new(ident, st.field.len(), false, ty, false);
-            //    st.field.push(obj);
-            //}
-            //if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-            //    e0008(Rc::clone(&self.errors), self.errorset());
-            //}
+            let ident = self.expect_ident();
+            if ident.is_empty() {
+                self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
+                break;
+            }
+            if ed.fields.iter().any(|o|o.name==ident) {
+                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            }
+
+            if self.eat(TokenKind::Assign) {
+                if let TokenKind::Literal(LiteralKind::Integer(new_value)) = &self.token_kind() {
+                    value = *new_value as usize;
+                } else {
+                    let message = format!("expected `isize`, found `{}`", self.token_kind());
+                    e0000(Rc::clone(&self.errors), self.errorset(), &message);
+                }
+                self.bump();
+            }
+
+            ed.fields.push(EnumObject::new(ident, value));
+            value += 1;
+
+            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
+                e0008(Rc::clone(&self.errors), self.errorset());
+            }
         }
         ed
     }
@@ -1809,36 +1821,46 @@ impl<'a> Parser<'a> {
                             ident,
                             &self.tokens[self.idx-1..self.idx],
                         )
-                    } else if let Some(obj) = current_fn.nested_class.as_ref().unwrap().borrow().field.find(name) {
-                        let ty = RRType::new(Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true));
-                        let self_obj = Rc::new(RefCell::new(Object::new("self".to_string(), 0, ObjectKind::Param, ty, true)));
-                        self_obj.borrow_mut().assigned = true;
-                        let self_node = new_variable_node(&self_obj, &[]);
-                        let ident = obj.borrow().name.to_string();
-                        new_field_node(
-                            self_node,
-                            ident,
-                            &self.tokens[self.idx-1..self.idx],
-                        )
+                    } else if let Some(nested_class) = current_fn.nested_class.as_ref() {
+                        if let Some(obj) = nested_class.borrow().field.find(name) {
+                            let ty = RRType::new(Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true));
+                            let self_obj = Rc::new(RefCell::new(Object::new("self".to_string(), 0, ObjectKind::Param, ty, true)));
+                            self_obj.borrow_mut().assigned = true;
+                            let self_node = new_variable_node(&self_obj, &[]);
+                            let ident = obj.borrow().name.to_string();
+                            new_field_node(
+                                self_node,
+                                ident,
+                                &self.tokens[self.idx-1..self.idx],
+                            )
+                        } else {
+                            let obj = EnumObject::new(name.to_string(), 0);
+                            new_enum_node(obj, &self.tokens[self.idx-1..self.idx])
+                        }
                     } else {
-                        e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
-                        new_empty_node()
+                        let obj = EnumObject::new(name.to_string(), 0);
+                        new_enum_node(obj, &self.tokens[self.idx-1..self.idx])
                     };
                     node
                 }
             } else {
                 if let Some(obj) = self.current_fn().symbol_table.borrow().find(name) {
                     new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
-                } else if let Some(new_obj) = self.current_fn().nested_class.as_ref().unwrap().borrow().field.find(name) {
-                    let mut obj = new_obj.borrow().clone();
-                    let instance_name = format!("<{}>nested_class", self.current_fn().name);
-                    let symbol_table = self.current_fn().symbol_table.borrow();
-                    let parent_obj = symbol_table.find(&instance_name).unwrap();
-                    obj.parent = Some(Rc::clone(parent_obj));
-                    new_variable_node(&Rc::new(RefCell::new(obj)), &self.tokens[self.idx-1..self.idx])
+                } else if let Some(nested_class) = self.current_fn().nested_class.as_ref() {
+                    if let Some(new_obj) = nested_class.borrow().field.find(name) {
+                        let mut obj = new_obj.borrow().clone();
+                        let instance_name = format!("<{}>nested_class", self.current_fn().name);
+                        let symbol_table = self.current_fn().symbol_table.borrow();
+                        let parent_obj = symbol_table.find(&instance_name).unwrap();
+                        obj.parent = Some(Rc::clone(parent_obj));
+                        new_variable_node(&Rc::new(RefCell::new(obj)), &self.tokens[self.idx-1..self.idx])
+                    } else {
+                        let obj = EnumObject::new(name.to_string(), 0);
+                        new_enum_node(obj, &self.tokens[self.idx-1..self.idx])
+                    }
                 } else {
-                    e0007(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), name);
-                    new_empty_node()
+                    let obj = EnumObject::new(name.to_string(), 0);
+                    new_enum_node(obj, &self.tokens[self.idx-1..self.idx])
                 }
             }
         }
