@@ -61,7 +61,7 @@ impl fmt::Display for Keyword {
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Eq, Hash)]
 pub enum Type {
     Numeric(Numeric),
     Float(Float),
@@ -85,6 +85,7 @@ impl PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Type::Numeric(nl), Type::Numeric(nr)) => nl == nr,
+            (Type::Float(fl), Type::Float(fr)) => fl == fr,
             (Type::Bool, Type::Bool) => true,
             (Type::Char, Type::Char) => true,
             (Type::String, Type::String) => true,
@@ -118,7 +119,11 @@ pub enum Numeric {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Float {
     F32,
-    F,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum FloatNum {
+    Float32(f32),
 }
 
 impl fmt::Display for Type {
@@ -127,7 +132,6 @@ impl fmt::Display for Type {
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
             Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
             Type::Float(Float::F32)         => write!(f, "f32"),
-            Type::Float(Float::F)           => write!(f, "{{F}}"),
             Type::Bool                      => write!(f, "bool"),
             Type::Char                      => write!(f, "char"),
             Type::String                    => write!(f, "string"),
@@ -205,12 +209,11 @@ impl Float {
     pub fn to_ilstr(&self) -> String {
         match self {
             Float::F32 => "float32".to_string(),
-            Float::F   => "float64".to_string(),
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct RRType {
     inner: Rc<RefCell<Type>>,
 }

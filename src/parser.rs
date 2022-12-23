@@ -3,7 +3,7 @@ use crate::builtin::*;
 use crate::class::{ClassKind, Class, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, RRType, Keyword};
+use crate::keyword::{Type, RRType, Float, FloatNum, Keyword};
 use crate::object::{Object, ObjectKind, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
@@ -1706,8 +1706,16 @@ impl<'a> Parser<'a> {
             LiteralKind::Integer(i) => {
                 new_num_node(*i, &self.tokens[self.idx-1..=self.idx-1])
             }
-            LiteralKind::Float(fp) => {
-                new_float_node(*fp, &self.tokens[self.idx-1..=self.idx-1])
+            LiteralKind::Float(s) => {
+                if let TokenKind::Type(Type::Float(Float::F32)) = &self.tokens[self.idx].kind {
+                    self.bump();
+                    let f = s.parse::<f32>().unwrap();
+                    new_float_node(FloatNum::Float32(f), &self.tokens[self.idx-1..=self.idx-1])
+                } else {
+                    let message = "float literal must be suffixed with `f32` or `f64`";
+                    e0000(Rc::clone(&self.errors), self.errorset(), message);
+                    new_empty_node()
+                }
             }
         }
     }

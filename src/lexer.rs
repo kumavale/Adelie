@@ -327,8 +327,7 @@ impl<'a> Lexer<'a> {
                         num.push(n);
                         self.seek(1);
                     }
-                    let f = num.parse::<f64>().unwrap();
-                    Token::new(TokenKind::Literal(LiteralKind::Float(f)), self.col, self.line)
+                    Token::new(TokenKind::Literal(LiteralKind::Float(num)), self.col, self.line)
                 } else {
                     Token::new(TokenKind::Literal(LiteralKind::Integer(num)), self.col, self.line)
                 }

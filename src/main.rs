@@ -272,7 +272,6 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
         match (&rettype, &*func.rettype.borrow()) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-            (Type::Float(Float::F), Type::Float(Float::F32)) => program.push_il("\tconv.r4"),
             _ => if rettype != *func.rettype.borrow() {
                 panic!("{}: expected `{:?}`, found `{:?}`", func.name, func.rettype.borrow(), rettype);
             }

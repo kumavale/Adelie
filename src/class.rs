@@ -3,7 +3,7 @@ use crate::keyword::RRType;
 use crate::object::{Object, SymbolTable, FindSymbol};
 use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ClassKind {
     Struct,
     Class,

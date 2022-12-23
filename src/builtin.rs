@@ -69,8 +69,6 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
         match (&lty, &rty) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
-            (Type::Float(..), Type::Float(Float::F)) => Ok(()),
-            (Type::Float(Float::F), Type::Float(..)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
             _ if lty == rty => Ok(()),

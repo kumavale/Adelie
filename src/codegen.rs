@@ -3,7 +3,7 @@ use crate::builtin::*;
 use crate::class::ClassKind;
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, RRType, Numeric, Float, Keyword};
+use crate::keyword::{Type, RRType, Numeric, Float, FloatNum, Keyword};
 use crate::namespace::NameSpace;
 use crate::object::{FindSymbol, Object, ObjectKind};
 use crate::program::Program;
@@ -113,8 +113,10 @@ fn gen_il_integer(current_token: &[Token], p: &Program, ty: Type, num: i128) -> 
     Ok(ty)
 }
 
-fn gen_il_float(_current_token: &[Token], p: &Program, ty: Type, num: f64) -> Result<Type> {
-    p.push_il(format!("\tldc.r8 {}", num));
+fn gen_il_float(_current_token: &[Token], p: &Program, ty: Type, num: FloatNum) -> Result<Type> {
+    match num {
+        FloatNum::Float32(f) => p.push_il(format!("\tldc.r4 {}", f)),
+    }
     Ok(ty)
 }
 
@@ -611,7 +613,6 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
     fn check_type(lty: &Type, rty: &Type) -> Result<()> {
         match (lty, rty) {
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
-            (Type::Float(..), Type::Float(Float::F)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
             _ if lty == rty => Ok(()),

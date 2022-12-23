@@ -73,7 +73,7 @@ pub enum LiteralKind{
     Char(char),
     String(String),
     Integer(i128),
-    Float(f64),
+    Float(String),
 }
 
 impl fmt::Display for LiteralKind {
@@ -82,7 +82,7 @@ impl fmt::Display for LiteralKind {
             LiteralKind::Char(c)    => write!(f, "'{}'", c),
             LiteralKind::String(s)  => write!(f, "\\\"{}\\\"", s),
             LiteralKind::Integer(i) => write!(f, "{}", i),
-            LiteralKind::Float(fp)  => write!(f, "{}", fp),
+            LiteralKind::Float(s)   => write!(f, "{}", s),
         }
     }
 }
