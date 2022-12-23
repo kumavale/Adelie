@@ -91,6 +91,7 @@ fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         return;
     }
     gen_structs(program, namespace);
+    gen_enums(program, namespace);
     gen_functions(program, namespace);
     for child in &namespace.children {
         gen_items(program, &child.borrow());
@@ -175,6 +176,18 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
 
                 println!("\t}}");
             }
+        }
+        println!("}}");
+    }
+}
+
+fn gen_enums<'a, 'b>(_program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
+    for ed in &namespace.enums {
+        println!(".class private auto ansi sealed '{}' extends [mscorlib]System.Enum", ed.name);
+        println!("{{");
+        println!("\t.field public specialname rtspecialname int32 '<>value__'");
+        for enumobj in &ed.fields {
+            println!("\t.field public static literal valuetype '{}' '{}' = int32({})", ed.name, enumobj.name, enumobj.value);
         }
         println!("}}");
     }

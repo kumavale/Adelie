@@ -4,7 +4,7 @@ enum Color {
     Blue,
 }
 fn main() {
-    //let red: Color = Color::Red;
+    let red: Color;// = Color::Red;
 
     println!("ok");
 }
