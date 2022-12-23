@@ -1103,8 +1103,12 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::OpenDelim(Delimiter::Brace));
         let then = self.parse_block_expr();
         let els = if self.eat_keyword(Keyword::Else) {
-            self.expect(TokenKind::OpenDelim(Delimiter::Brace));
-            Some(self.parse_block_expr())
+            if self.eat_keyword(Keyword::If) {
+                Some(self.parse_if_expr())
+            } else {
+                self.expect(TokenKind::OpenDelim(Delimiter::Brace));
+                Some(self.parse_block_expr())
+            }
         } else {
             None
         };
