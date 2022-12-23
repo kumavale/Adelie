@@ -39,7 +39,7 @@ impl<'a> Program<'a> {
             name: Path::new(&path)
                 .file_stem()
                 .and_then(|n|n.to_str())
-                .and_then(|n|Some(n.to_string()))
+                .map(|n|n.to_string())
                 .unwrap_or_default(),
             path,
             lines: input.lines().collect(),

@@ -245,12 +245,12 @@ fn gen_il_method<'a>(
                     if let Some(base) = base {
                         if let Type::Class(.., name, base, _) = &*base.borrow() {
                             if let Some(func) = ns
-                                .find_impl(&name)
+                                .find_impl(name)
                                 .and_then(|im| im.functions.find(ident).map(Rc::clone))
                                 .and_then(|f| (!f.is_static).then_some(f)) {
                                     Some(func)
                             } else {
-                                find_func_recursive(ns, &base, ident)
+                                find_func_recursive(ns, base, ident)
                             }
                         } else {
                             None
@@ -276,7 +276,7 @@ fn gen_il_method<'a>(
                     .objs
                     .iter()
                     .filter(|o| o.borrow().kind == ObjectKind::Param)
-                    .skip(if func.is_static { 0 } else { 1 })
+                    .skip((!func.is_static) as usize)
                     .collect::<Vec<_>>();
                 if params.len() != args.len() {
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
@@ -316,7 +316,7 @@ fn gen_il_method<'a>(
 }
 
 fn gen_il_lambda<'a>(
-    current_token: &[Token],
+    _current_token: &[Token],
     p: &'a Program<'a>,
     ty: Type,
     ident: &str,
@@ -325,7 +325,7 @@ fn gen_il_lambda<'a>(
     //println!("\tldftn instance void '{}'()", ident);  // インターナルclass内に定義していないから`instance`は要らない
     // めっちゃ強引に書いているだけ
     //println!("\tldftn void Form1/'<>c__DisplayClass0_0'::'{}'()", ident);
-    p.push_il(format!("\tldloc '{}'", format!("<main>nested_class")));
+    p.push_il(format!("\tldloc '{}'", "<main>nested_class"));
     //let end_label = format!("\tIL_lambda_ctor_end{}", crate::seq!());
     //println!("\tbrtrue {}", end_label);
     //println!("\tnewobj instance void [System.Runtime]System.Object::.ctor()");
@@ -482,8 +482,8 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Re
         let ident = obj.name.to_string();
         if let Type::Class(_, _, path, parent_name, _base, _is_mutable) = &parent_ty {
             let ns = p.namespace.borrow();
-            let ns = ns.find(&path).unwrap();
-            if let Some(cl) = ns.find_class(|_|true, &parent_name) {
+            let ns = ns.find(path).unwrap();
+            if let Some(cl) = ns.find_class(|_|true, parent_name) {
                 if let Some(field) = cl.borrow().field.find(&ident) {
                     if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
                         p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
@@ -1165,7 +1165,6 @@ fn gen_il_semi<'a>(_current_token: &[Token], p: &'a Program<'a>, expr: Node) -> 
     Ok(Type::Void)
 }
 
-// WIP
 fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, mut full_path: Vec<String>, child: Node) -> Result<Type> {
     fn check_type(arg: &Type, param: &Type) -> Result<()> {
         match (arg, param) {
@@ -1250,7 +1249,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 }
                 let params = params
                     .iter()
-                    .skip(if func.is_static { 0 } else { 1 })
+                    .skip((!func.is_static) as usize)
                     .map(|o|o.borrow().ty.borrow().to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
@@ -1279,7 +1278,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                 return Err(());
             };
-            if let Some(ed) = ns.find_enum(&full_path.last().unwrap()) {
+            if let Some(ed) = ns.find_enum(full_path.last().unwrap()) {
                 if let Some(f) = ed.fields.iter().find(|f| f.name == obj.name) {
                     p.push_il(format!("\tldc.i4 {}", f.value));
                     Ok(Type::Enum(None, full_path[..full_path.len()-1].to_vec(), full_path.last().unwrap().to_string()))
