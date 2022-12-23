@@ -1,3 +1,5 @@
+fn foo() -> f32 { 1.1 }
+//fn bar(a: f32) -> f32 { a }
 fn main() {
     0.0;
     1.1;
@@ -13,8 +15,12 @@ fn main() {
     // TODO: `float64`から`float32`への`unbox`は出来ないからどうするか…
     //assert_eq!( 1.0, { let a: Box<f32> = Box::new(1.0); *a });
 
-    println!(12.34);
-    println!({ let a: f32 = 12.34; a });
+    print!("println!(12.34) => ");
+            println!(12.34);
+    print!("println!({ let a: f32 = 12.34; a }) => ");
+            println!({ let a: f32 = 12.34; a });
+
+    assert_eq!(1.1, foo());
 
     // should compile error
     //let a: f32 = 1;
