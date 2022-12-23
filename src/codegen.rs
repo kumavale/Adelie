@@ -867,6 +867,7 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                     match ty {
                         Type::Ptr(_) => p.push_il("\tldind.i"),
                         Type::Numeric(Numeric::I32) => p.push_il("\tldind.i4"),
+                        Type::Float(Float::F32) => p.push_il("\tldind.r4"),
                         _ => unimplemented!(),
                     }
                     Ok(ty)
