@@ -1710,7 +1710,7 @@ impl<'a> Parser<'a> {
                 if let TokenKind::Type(Type::Float(Float::F32)) = &self.tokens[self.idx].kind {
                     self.bump();
                     let f = s.parse::<f32>().unwrap();
-                    new_float_node(FloatNum::Float32(f), &self.tokens[self.idx-1..=self.idx-1])
+                    new_float_node(FloatNum::Float32(f), &self.tokens[self.idx-2..=self.idx-1])
                 } else {
                     let message = "float literal must be suffixed with `f32` or `f64`";
                     e0000(Rc::clone(&self.errors), self.errorset(), message);
