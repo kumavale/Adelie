@@ -2,7 +2,7 @@ use crate::builtin::*;
 use crate::class::{Class, ClassKind, Impl, EnumDef};
 use crate::function::Function;
 use crate::keyword::{Keyword, Numeric, Float, FloatNum, Type, RRType};
-use crate::object::{Object, ObjectKind, SymbolTable};
+use crate::object::{Object, ObjectKind, EnumObject, SymbolTable};
 use crate::token::Token;
 use std::cell::RefCell;
 use std::fmt;
@@ -93,6 +93,9 @@ pub enum NodeKind<'a> {
     },
     Variable {
         obj: Rc<RefCell<Object>>,
+    },
+    Enum {
+        obj: EnumObject,
     },
     Block {
         stmts: Vec<Node<'a>>,
@@ -484,6 +487,18 @@ pub fn new_variable_node<'a>(
     Node {
         kind: NodeKind::Variable {
             obj: Rc::clone(obj),
+        },
+        token,
+    }
+}
+
+pub fn new_enum_node<'a>(
+    obj: EnumObject,
+    token: &'a [Token],
+) -> Node<'a> {
+    Node {
+        kind: NodeKind::Enum {
+            obj,
         },
         token,
     }

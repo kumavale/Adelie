@@ -5,7 +5,7 @@ use crate::error::*;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Numeric, Float, FloatNum, Keyword};
 use crate::namespace::NameSpace;
-use crate::object::{FindSymbol, Object, ObjectKind};
+use crate::object::{FindSymbol, Object, ObjectKind, EnumObject};
 use crate::program::Program;
 use crate::token::Token;
 use crate::utils::remove_seq;
@@ -48,6 +48,9 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Result<Type> {
         }
         NodeKind::Variable { obj } => {
             gen_il_variable(node.token, p, obj.borrow())
+        }
+        NodeKind::Enum { obj } => {
+            gen_il_enum(node.token, p, obj)
         }
         NodeKind::Block { stmts } => {
             gen_il_block(node.token, p, stmts)
@@ -525,6 +528,12 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Re
     } else {
         Ok(obj.ty.borrow().clone())
     }
+}
+
+fn gen_il_enum(current_token: &[Token], p: &Program, obj: EnumObject) -> Result<Type> {
+    // TODO: 名前空間指定なしのenum
+    e0007(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
+    Err(())
 }
 
 fn gen_il_block<'a>(_current_token: &[Token], p: &'a Program<'a>, stmts: Vec<Node>) -> Result<Type> {
@@ -1258,6 +1267,28 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 Ok(func.rettype.borrow().clone())
             } else {
                 e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &name);
+                Err(())
+            }
+        }
+        NodeKind::Enum { obj } => {
+            let namespace = p.namespace.borrow();
+            let ns = if let Some(ns) = namespace.find(&full_path[..full_path.len()-1]) {
+                ns
+            } else {
+                let message = format!("failed to resolve: use of undeclared crate or module `{}`", full_path.join("::"));
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                return Err(());
+            };
+            if let Some(ed) = ns.find_enum(&full_path.last().unwrap()) {
+                if let Some(f) = ed.fields.iter().find(|f| f.name == obj.name) {
+                    p.push_il(format!("\tldc.i4 {}", f.value));
+                    Ok(Type::Enum(None, full_path[..full_path.len()-1].to_vec(), full_path.last().unwrap().to_string()))
+                } else {
+                    e0007(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
+                    Err(())
+                }
+            } else {
+                e0007(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
                 Err(())
             }
         }
