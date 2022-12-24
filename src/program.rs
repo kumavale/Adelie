@@ -7,6 +7,47 @@ use std::path::Path;
 use std::rc::{Rc, Weak};
 
 #[derive(Clone, Debug)]
+struct IlAsm {
+    name: String,
+    pkt: Option<String>,
+}
+impl IlAsm {
+    pub fn new(name: &str, pkt: Option<&str>) -> Self {
+        IlAsm {
+            name: name.to_string(),
+            pkt: pkt.map(|s|s.to_string()),
+        }
+    }
+}
+#[derive(Clone, Debug)]
+pub struct IlManifest {
+    name: String,
+    asms: Vec<IlAsm>,
+}
+impl IlManifest {
+    pub fn new(name: &str) -> Self {
+        IlManifest {
+            name: name.to_string(),
+            asms: vec![],
+        }
+    }
+    pub fn push_asm(&mut self, name: &str, pkt: Option<&str>) {
+        let ilasm = IlAsm::new(name, pkt);
+        self.asms.push(ilasm);
+    }
+    pub fn display_il(&self) {
+        println!(".assembly '{}' {{}}",  self.name);
+        for asm in &self.asms {
+            println!(".assembly extern '{}' {{", asm.name);
+            if let Some(pkt) = &asm.pkt {
+                println!("    .publickeytoken = ({})", pkt);
+            }
+            println!("}}");
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct IlEnum {
     name: String,
     fields: Vec<String>,  // TODO: Vec<IlField>
@@ -32,12 +73,14 @@ impl IlEnum {
 
 #[derive(Clone, Debug)]
 pub struct Il {
+    mani: Option<IlManifest>,
     stmts: Vec<String>,
     enums: Vec<IlEnum>,
 }
 impl Il {
     pub fn new() -> Self {
         Il {
+            mani: None,
             stmts: vec![],
             enums: vec![],
         }
@@ -106,12 +149,20 @@ impl<'a> Program<'a> {
         self.il.borrow_mut().enums.push(ilenum);
     }
 
+    pub fn push_il_mani(&self, ilman: IlManifest) {
+        self.il.borrow_mut().mani = Some(ilman);
+    }
+
     pub fn clear_il(&self) {
+        self.il.borrow_mut().mani.take();
         self.il.borrow_mut().enums.clear();
         self.il.borrow_mut().stmts.clear();
     }
 
     pub fn display_il(&self) {
+        if let Some(mani) = &self.il.borrow().mani {
+            mani.display_il();
+        }
         for enu in &self.il.borrow().enums {
             enu.display_il();
         }

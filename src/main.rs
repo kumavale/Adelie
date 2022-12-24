@@ -19,7 +19,7 @@ use crate::function::Function;
 use crate::keyword::{Type, Numeric};
 use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
-use crate::program::{Program, IlEnum};
+use crate::program::{Program, IlEnum, IlManifest};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -52,22 +52,21 @@ fn main() {
 }
 
 fn gen_manifest<'a>(program: &'a Program<'a>) {
-    // 組み込み関数で使用
-    println!(".assembly extern mscorlib {{}}");
-    println!(".assembly extern System.Diagnostics.Debug {{");
-    println!("    .publickeytoken = (B0 3F 5F 7F 11 D5 0A 3A)");
-    println!("}}");
+    let mut ilman = IlManifest::new(&program.name);
 
+    // 内部で使用
+    ilman.push_asm("mscorlib", None);
+
+    // externブロックで使用
     for assembly in &program.references {
         let name = assembly.find_value("name").unwrap();
-        println!(".assembly extern {} {{", &name[..name.len()-4]);
-        if let Some(pkt) = assembly.find_value("publickeytoken") {
-            println!("    .publickeytoken = ({})", pkt);
-        }
-        println!("}}");
+        ilman.push_asm(name, assembly.find_value("publickeytoken"));
     }
 
-    println!(".assembly '{}' {{}}", program.name);
+    program.push_il_mani(ilman);
+
+    // ひとまず直ぐに出力
+    program.display_il();
 }
 
 fn gen_builtin() {
@@ -186,13 +185,12 @@ fn gen_enums<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         let mut ilenum = IlEnum::new(&ed.name);
         ilenum.push_field(".field public specialname rtspecialname int32 '<>value__'");
         for enumobj in &ed.fields {
-            ilenum.push_field(format!("\t.field public static literal valuetype '{}' '{}' = int32({})", ed.name, enumobj.name, enumobj.value));
+            ilenum.push_field(format!(".field public static literal valuetype '{}' '{}' = int32({})", ed.name, enumobj.name, enumobj.value));
         }
         program.push_il_enum(ilenum);
-
-        // ひとまず直ぐに出力
-        program.display_il();
     }
+    // ひとまず直ぐに出力
+    program.display_il();
 }
 
 fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
