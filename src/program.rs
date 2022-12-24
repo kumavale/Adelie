@@ -7,13 +7,39 @@ use std::path::Path;
 use std::rc::{Rc, Weak};
 
 #[derive(Clone, Debug)]
+pub struct IlEnum {
+    name: String,
+    fields: Vec<String>,  // TODO: Vec<IlField>
+}
+impl IlEnum {
+    pub fn new(name: &str) -> Self {
+        IlEnum {
+            name: name.to_string(),
+            fields: vec![],
+        }
+    }
+    pub fn push_field<'a, S: Into<Cow<'a, str>>>(&mut self, s: S) {
+        self.fields.push(s.into().into_owned());
+    }
+    pub fn display_il(&self) {
+        println!(".class private auto ansi sealed '{}' extends [mscorlib]System.Enum {{", self.name);
+        for field in &self.fields {
+            println!("\t{}", field);
+        }
+        println!("}}");
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Il {
     stmts: Vec<String>,
+    enums: Vec<IlEnum>,
 }
 impl Il {
     pub fn new() -> Self {
         Il {
             stmts: vec![],
+            enums: vec![],
         }
     }
 }
@@ -71,16 +97,24 @@ impl<'a> Program<'a> {
         self.current_namespace = Rc::clone(&parent.upgrade().unwrap());
     }
 
-    pub fn push_il<S: Into<Cow<'a, str>>>(&self, s: S) {
+    pub fn push_il_text<S: Into<Cow<'a, str>>>(&self, s: S) {
         let text = s.into();
         self.il.borrow_mut().stmts.push(text.into_owned());
     }
 
+    pub fn push_il_enum(&self, ilenum: IlEnum) {
+        self.il.borrow_mut().enums.push(ilenum);
+    }
+
     pub fn clear_il(&self) {
+        self.il.borrow_mut().enums.clear();
         self.il.borrow_mut().stmts.clear();
     }
 
     pub fn display_il(&self) {
+        for enu in &self.il.borrow().enums {
+            enu.display_il();
+        }
         for stmt in &self.il.borrow().stmts {
             println!("{}", stmt);
         }

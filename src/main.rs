@@ -19,7 +19,7 @@ use crate::function::Function;
 use crate::keyword::{Type, Numeric};
 use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
-use crate::program::Program;
+use crate::program::{Program, IlEnum};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -152,7 +152,7 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                         }
                     }
                 }
-                program.push_il("\t\tret");
+                program.push_il_text("\t\tret");
 
                 // prepare local variables
                 let locals = func
@@ -181,15 +181,17 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     }
 }
 
-fn gen_enums<'a, 'b>(_program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
+fn gen_enums<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     for ed in &namespace.enums {
-        println!(".class private auto ansi sealed '{}' extends [mscorlib]System.Enum", ed.name);
-        println!("{{");
-        println!("\t.field public specialname rtspecialname int32 '<>value__'");
+        let mut ilenum = IlEnum::new(&ed.name);
+        ilenum.push_field(".field public specialname rtspecialname int32 '<>value__'");
         for enumobj in &ed.fields {
-            println!("\t.field public static literal valuetype '{}' '{}' = int32({})", ed.name, enumobj.name, enumobj.value);
+            ilenum.push_field(format!("\t.field public static literal valuetype '{}' '{}' = int32({})", ed.name, enumobj.name, enumobj.value));
         }
-        println!("}}");
+        program.push_il_enum(ilenum);
+
+        // ひとまず直ぐに出力
+        program.display_il();
     }
 }
 
@@ -239,7 +241,7 @@ fn gen_local_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) 
             }
         }
     }
-    program.push_il("\t\tret");
+    program.push_il_text("\t\tret");
 
     // prepare local variables
     let locals = func
@@ -290,7 +292,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
             }
         }
     }
-    program.push_il("\tret");
+    program.push_il_text("\tret");
 
     // prepare local variables
     let locals = func

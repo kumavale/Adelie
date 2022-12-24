@@ -112,19 +112,19 @@ fn gen_il_integer(current_token: &[Token], p: &Program, ty: Type, num: i128) -> 
             | TokenKind::Literal(LiteralKind::Integer(_))
             | TokenKind::Keyword(Keyword::True)
             | TokenKind::Keyword(Keyword::False)));
-    p.push_il(format!("\tldc.i4 {}", num as i32));
+    p.push_il_text(format!("\tldc.i4 {}", num as i32));
     Ok(ty)
 }
 
 fn gen_il_float(_current_token: &[Token], p: &Program, ty: Type, num: FloatNum) -> Result<Type> {
     match num {
-        FloatNum::Float32(f) => p.push_il(format!("\tldc.r4 {}", f)),
+        FloatNum::Float32(f) => p.push_il_text(format!("\tldc.r4 {}", f)),
     }
     Ok(ty)
 }
 
 fn gen_il_string(_current_token: &[Token], p: &Program, ty: Type, str: &str) -> Result<Type> {
-    p.push_il(format!("\tldstr \"{}\"", str));
+    p.push_il_text(format!("\tldstr \"{}\"", str));
     Ok(ty)
 }
 
@@ -137,7 +137,7 @@ fn gen_il_box<'a>(_current_token: &[Token], p: &'a Program<'a>, method: Node) ->
                 }
                 let boxed_ty = gen_il(args.into_iter().next().unwrap(), p)?;
                 //println!("\tbox [System.Runtime]System.Int32");
-                p.push_il(format!("\tbox {}", boxed_ty.to_ilstr()));
+                p.push_il_text(format!("\tbox {}", boxed_ty.to_ilstr()));
                 Ok(Type::Box(RRType::new(boxed_ty)))
             }
             _ => {
@@ -186,7 +186,7 @@ fn gen_il_call<'a>(current_token: &[Token], p: &'a Program<'a>, name: &str, args
             .map(|p|p.borrow().ty.borrow().to_ilstr())
             .collect::<Vec<String>>()
             .join(", ");
-        p.push_il(format!("\tcall {} '{}'::'{}'({})", func.rettype.borrow().to_ilstr(), p.name, name, params));
+        p.push_il_text(format!("\tcall {} '{}'::'{}'({})", func.rettype.borrow().to_ilstr(), p.name, name, params));
         Ok(func.rettype.borrow().clone())
     } else {
         e0013(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
@@ -295,7 +295,7 @@ fn gen_il_method<'a>(
                     .map(|p|p.borrow().ty.borrow().to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
-                p.push_il(format!("\tcall instance {} {}::'{}'({})", func.rettype.borrow().to_ilstr(), parent_ty.to_ilstr(), ident, params));
+                p.push_il_text(format!("\tcall instance {} {}::'{}'({})", func.rettype.borrow().to_ilstr(), parent_ty.to_ilstr(), ident, params));
                 let x = Ok(func.rettype.borrow().clone());
                 x
             } else {
@@ -305,7 +305,7 @@ fn gen_il_method<'a>(
         }
         // 仮実装
         Type::Numeric(Numeric::I32) if ident == "to_string" => {
-            p.push_il(format!("\tcall instance string {}::ToString()", parent_ty.to_ilstr()));
+            p.push_il_text(format!("\tcall instance string {}::ToString()", parent_ty.to_ilstr()));
             Ok(Type::String)
         }
         ty => {
@@ -325,15 +325,15 @@ fn gen_il_lambda<'a>(
     //println!("\tldftn instance void '{}'()", ident);  // インターナルclass内に定義していないから`instance`は要らない
     // めっちゃ強引に書いているだけ
     //println!("\tldftn void Form1/'<>c__DisplayClass0_0'::'{}'()", ident);
-    p.push_il(format!("\tldloc '{}'", "<main>nested_class"));
+    p.push_il_text(format!("\tldloc '{}'", "<main>nested_class"));
     //let end_label = format!("\tIL_lambda_ctor_end{}", crate::seq!());
     //println!("\tbrtrue {}", end_label);
     //println!("\tnewobj instance void [System.Runtime]System.Object::.ctor()");
     //println!("\tstloc '{}'", format!("<main>nested_class"));
     //println!("\tldloc '{}'", format!("<main>nested_class"));
     //println!("{}:", end_label);
-    p.push_il(format!("\tldftn instance void '{}'/'<>c__DisplayClass0_0'::'{}'()", p.name, ident));
-    p.push_il("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
+    p.push_il_text(format!("\tldftn instance void '{}'/'<>c__DisplayClass0_0'::'{}'()", p.name, ident));
+    p.push_il_text("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
     Ok(ty)
 }
 
@@ -355,14 +355,14 @@ fn gen_il_struct<'a>(current_token: &[Token], p: &'a Program<'a>, obj: Ref<Objec
         if field.len() != st.borrow().field.objs.len() {
             e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &st.borrow().name);
         }
-        p.push_il(format!("\tldloca {}", obj.offset));
-        p.push_il(format!("\tinitobj {}", obj.ty.borrow()));
+        p.push_il_text(format!("\tldloca {}", obj.offset));
+        p.push_il_text(format!("\tinitobj {}", obj.ty.borrow()));
         for (field_expr, field_dec) in field.into_iter().zip(&st.borrow().field.objs) {
-            p.push_il(format!("\tldloca {}", obj.offset));
+            p.push_il_text(format!("\tldloca {}", obj.offset));
             gen_il(field_expr, p)?;
-            p.push_il(format!("\tstfld {} {}::'{}'", field_dec.borrow().ty.borrow().to_ilstr(), obj.ty.borrow(), field_dec.borrow().name));
+            p.push_il_text(format!("\tstfld {} {}::'{}'", field_dec.borrow().ty.borrow().to_ilstr(), obj.ty.borrow(), field_dec.borrow().name));
         }
-        p.push_il(format!("\tldloc {}", obj.offset));
+        p.push_il_text(format!("\tldloc {}", obj.offset));
     } else {
         e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.name));
     }
@@ -413,15 +413,15 @@ fn gen_il_field<'a>(
     if let Some(cl) = ns.find_class(|_|true, &parent_name) {
         if let Some(field) = cl.borrow().field.find(ident) {
             if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
-                p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                p.push_il_text(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
             } else if *p.ret_address.borrow() {
                 if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *field.borrow().ty.borrow() {
-                    p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                    p.push_il_text(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                 } else {
-                    p.push_il(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                    p.push_il_text(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                 }
             } else {
-                p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                p.push_il_text(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
             }
             if is_mutable {
                 Ok(field.borrow().ty.borrow().clone().into_mutable())
@@ -439,15 +439,15 @@ fn gen_il_field<'a>(
                         if let Some(cl) = ns.find_class(|_|true, name) {
                             if let Some(field) = cl.borrow().field.find(ident) {
                                 if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
-                                    p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                                    p.push_il_text(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                                 } else if *p.ret_address.borrow() {
                                     if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *field.borrow().ty.borrow() {
-                                        p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
+                                        p.push_il_text(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
                                     } else {
-                                        p.push_il(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
+                                        p.push_il_text(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
                                     }
                                 } else {
-                                    p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
+                                    p.push_il_text(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), base_ty.to_ilstr(), ident));
                                 }
                                 if is_mutable {
                                     return Ok(field.borrow().ty.borrow().clone().into_mutable());
@@ -486,15 +486,15 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Re
             if let Some(cl) = ns.find_class(|_|true, parent_name) {
                 if let Some(field) = cl.borrow().field.find(&ident) {
                     if let Type::Class(ClassKind::Class, ..) = *field.borrow().ty.borrow()  {
-                        p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                        p.push_il_text(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                     } else if *p.ret_address.borrow() {
                         if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *field.borrow().ty.borrow() {
-                            p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                            p.push_il_text(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                         } else {
-                            p.push_il(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                            p.push_il_text(format!("\tldflda {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                         }
                     } else {
-                        p.push_il(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                        p.push_il_text(format!("\tldfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                     }
                 } else {
                     unimplemented!();
@@ -512,15 +512,15 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Re
             e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
         }
         if obj.is_param() {
-            p.push_il(format!("\tldarg {}", obj.offset));
+            p.push_il_text(format!("\tldarg {}", obj.offset));
         } else if *p.ret_address.borrow() {
             if let Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..) = *obj.ty.borrow() {
-                p.push_il(format!("\tldloc {}", obj.offset));
+                p.push_il_text(format!("\tldloc {}", obj.offset));
             } else {
-                p.push_il(format!("\tldloca {}", obj.offset));
+                p.push_il_text(format!("\tldloca {}", obj.offset));
             }
         } else {
-            p.push_il(format!("\tldloc {}", obj.offset));
+            p.push_il_text(format!("\tldloc {}", obj.offset));
         }
     }
     if obj.is_mutable() {
@@ -571,12 +571,12 @@ fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: 
     let seq = label_seq();
     let else_label = format!("IL_else{}", seq);
     let end_label = format!("IL_end{}", seq);
-    p.push_il(format!("\tbrfalse {}", else_label));
+    p.push_il_text(format!("\tbrfalse {}", else_label));
     let then_type = gen_il(then, p)?;
-    p.push_il(format!("\tbr {}", end_label));
-    p.push_il(format!("{}:", else_label));
+    p.push_il_text(format!("\tbr {}", end_label));
+    p.push_il_text(format!("{}:", else_label));
     let els = els.map(|els| (els.token, gen_il(*els, p)));
-    p.push_il(format!("{}:", end_label));
+    p.push_il_text(format!("{}:", end_label));
     if let Some(els) = els {
         let els_token = els.0;
         let els_type = els.1?;
@@ -595,26 +595,26 @@ fn gen_il_if<'a>(current_token: &[Token], p: &'a Program<'a>, cond: Node, then: 
 fn gen_il_while<'a>(_current_token: &[Token], p: &'a Program<'a>, cond: Node, then: Node, brk_label_seq: usize) -> Result<Type> {
     let begin_label = format!("IL_begin{}", label_seq());
     let end_label = format!("IL_break{}", brk_label_seq);
-    p.push_il(format!("{}:", begin_label));
+    p.push_il_text(format!("{}:", begin_label));
     let token = cond.token;
     let cond_type = gen_il(cond, p)?;
     if cond_type != Type::Bool {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type);
     }
-    p.push_il(format!("\tbrfalse {}", end_label));
+    p.push_il_text(format!("\tbrfalse {}", end_label));
     let then_type = gen_il(then, p);
-    p.push_il(format!("\tbr {}", begin_label));
-    p.push_il(format!("{}:", end_label));
+    p.push_il_text(format!("\tbr {}", begin_label));
+    p.push_il_text(format!("{}:", end_label));
     then_type
 }
 
 fn gen_il_loop<'a>(_current_token: &[Token], p: &'a Program<'a>, then: Node, brk_label_seq: usize) -> Result<Type> {
     let begin_label = format!("IL_begin{}", label_seq());
     let end_label = format!("IL_break{}", brk_label_seq);
-    p.push_il(format!("{}:", begin_label));
+    p.push_il_text(format!("{}:", begin_label));
     let then_type = gen_il(then, p);
-    p.push_il(format!("\tbr {}", begin_label));
-    p.push_il(format!("{}:", end_label));
+    p.push_il_text(format!("\tbr {}", begin_label));
+    p.push_il_text(format!("{}:", end_label));
     then_type
 }
 
@@ -655,7 +655,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                     let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                     e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                                 }
-                                p.push_il(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                                p.push_il_text(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                             } else {
                                 e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                             }
@@ -680,9 +680,9 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.borrow(), &rty);
             }
             if obj.is_param() {
-                p.push_il(format!("\tstarg {}", obj.offset));
+                p.push_il_text(format!("\tstarg {}", obj.offset));
             } else {
-                p.push_il(format!("\tstloc {}", obj.offset));
+                p.push_il_text(format!("\tstloc {}", obj.offset));
             }
         }
         NodeKind::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
@@ -699,8 +699,8 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty, &rty);
             }
             match lty {
-                Type::Ptr(_) => p.push_il("\tstind.i"),
-                Type::Numeric(Numeric::I32) => p.push_il("\tstind.i4"),
+                Type::Ptr(_) => p.push_il_text("\tstind.i"),
+                Type::Numeric(Numeric::I32) => p.push_il_text("\tstind.i4"),
                 _ => unimplemented!(),
             }
         }
@@ -728,7 +728,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
-                            p.push_il(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                            p.push_il_text(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                         } else {
                             e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                         }
@@ -755,7 +755,7 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                             }
-                            p.push_il(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                            p.push_il_text(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
                         } else {
                             e0015(Rc::clone(&p.errors), (p.path, &p.lines, lhs.token), &ident, name);
                         }
@@ -779,12 +779,12 @@ fn gen_il_return<'a>(_current_token: &[Token], p: &'a Program<'a>, expr: Option<
     } else {
         Type::Void
     };
-    p.push_il("\tret");
+    p.push_il_text("\tret");
     Ok(rettype)
 }
 
 fn gen_il_break(_current_token: &[Token], p: &Program, brk_label_seq: usize) -> Result<Type> {
-    p.push_il(format!("\tbr IL_break{}", brk_label_seq));
+    p.push_il_text(format!("\tbr IL_break{}", brk_label_seq));
     Ok(Type::Void)
 }
 
@@ -796,29 +796,29 @@ fn gen_il_cast<'a>(current_token: &[Token], p: &'a Program<'a>, new_type: Type, 
                 Type::Numeric(..) | Type::Float(..) | Type::Enum(..) | Type::Bool | Type::Char => (),  // ok
                 _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Numeric(Numeric::I32)),
             }
-            p.push_il("\tconv.i4");
+            p.push_il_text("\tconv.i4");
         }
         Type::Float(Float::F32) => {
             match old_type {
                 Type::Numeric(..) | Type::Float(Float::F32) => (),  // ok
                 _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Float(Float::F32)),
             }
-            p.push_il("\tconv.r4");
+            p.push_il_text("\tconv.r4");
         }
         Type::Bool => {
             match old_type {
                 Type::Bool => (),  // ok
                 _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Bool),
             }
-            p.push_il("\tldc.i4.0");
-            p.push_il("\tcgt");
+            p.push_il_text("\tldc.i4.0");
+            p.push_il_text("\tcgt");
         }
         Type::Char => {
             match old_type {
                 Type::Char | Type::Numeric(_) => (),  // ok
                 _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Char),
             }
-            p.push_il("\tconv.u2");
+            p.push_il_text("\tconv.u2");
         }
         Type::Ptr(_) => {
             todo!("cast to ref type");
@@ -835,17 +835,17 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
             let ty = gen_il(expr, p)?;
             match ty {
                 Type::Bool => {
-                    p.push_il("\tldc.i4.0");
-                    p.push_il("\tceq");
+                    p.push_il_text("\tldc.i4.0");
+                    p.push_il_text("\tceq");
                 }
-                _ => p.push_il("\tnot")
+                _ => p.push_il_text("\tnot")
             }
             Ok(ty)
         }
         UnaryOpKind::Neg => {
             let ty= gen_il(expr, p)?;
             if let Type::Numeric(..) | Type::Float(..) = ty {
-                p.push_il("\tneg");
+                p.push_il_text("\tneg");
             } else {
                 e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
             }
@@ -855,9 +855,9 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
             if let NodeKind::Variable { obj } = expr.kind {
                 let obj = obj.borrow();
                 if obj.is_param() {
-                    p.push_il(format!("\tldarga {}", obj.offset));
+                    p.push_il_text(format!("\tldarga {}", obj.offset));
                 } else {
-                    p.push_il(format!("\tldloca {}", obj.offset));
+                    p.push_il_text(format!("\tldloca {}", obj.offset));
                 }
                 let x = Type::Ptr(RRType::new(obj.ty.borrow().clone()));
                 Ok(x)
@@ -874,9 +874,9 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                 Type::Ptr(ty) => {
                     let ty = ty.borrow().clone();
                     match ty {
-                        Type::Ptr(_) => p.push_il("\tldind.i"),
-                        Type::Numeric(Numeric::I32) => p.push_il("\tldind.i4"),
-                        Type::Float(Float::F32) => p.push_il("\tldind.r4"),
+                        Type::Ptr(_) => p.push_il_text("\tldind.i"),
+                        Type::Numeric(Numeric::I32) => p.push_il_text("\tldind.i4"),
+                        Type::Float(Float::F32) => p.push_il_text("\tldind.r4"),
                         _ => unimplemented!(),
                     }
                     Ok(ty)
@@ -884,8 +884,8 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                 Type::Box(ty) => {
                     let ty = ty.borrow().clone();
                     match ty {
-                        Type::Class(ClassKind::Struct, ..) => p.push_il(format!("\tunbox {}", ty.to_ilstr())),
-                        _ => p.push_il(format!("\tunbox.any {}", ty.to_ilstr())),
+                        Type::Class(ClassKind::Struct, ..) => p.push_il_text(format!("\tunbox {}", ty.to_ilstr())),
+                        _ => p.push_il_text(format!("\tunbox.any {}", ty.to_ilstr())),
                     }
                     Ok(ty)
                 }
@@ -904,83 +904,83 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
     let mut is_bool    = false;
     match &ltype {
         Type::Numeric(..) => match kind {
-            BinaryOpKind::Add    => p.push_il("\tadd"),
-            BinaryOpKind::Sub    => p.push_il("\tsub"),
-            BinaryOpKind::Mul    => p.push_il("\tmul"),
-            BinaryOpKind::Div    => p.push_il("\tdiv"),
-            BinaryOpKind::Rem    => p.push_il("\trem"),
-            BinaryOpKind::BitXor => p.push_il("\txor"),
-            BinaryOpKind::BitAnd => p.push_il("\tand"),
-            BinaryOpKind::BitOr  => p.push_il("\tor"),
-            BinaryOpKind::Shl    => p.push_il("\tshl"),
-            BinaryOpKind::Shr    => p.push_il("\tshr"),
+            BinaryOpKind::Add    => p.push_il_text("\tadd"),
+            BinaryOpKind::Sub    => p.push_il_text("\tsub"),
+            BinaryOpKind::Mul    => p.push_il_text("\tmul"),
+            BinaryOpKind::Div    => p.push_il_text("\tdiv"),
+            BinaryOpKind::Rem    => p.push_il_text("\trem"),
+            BinaryOpKind::BitXor => p.push_il_text("\txor"),
+            BinaryOpKind::BitAnd => p.push_il_text("\tand"),
+            BinaryOpKind::BitOr  => p.push_il_text("\tor"),
+            BinaryOpKind::Shl    => p.push_il_text("\tshl"),
+            BinaryOpKind::Shr    => p.push_il_text("\tshr"),
 
             BinaryOpKind::Eq => {
-                p.push_il("\tceq");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Lt => {
-                p.push_il("\tclt");
+                p.push_il_text("\tclt");
                 is_bool = true;
             }
             BinaryOpKind::Le => {
-                p.push_il("\tcgt");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tcgt");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Ne => {
-                p.push_il("\tceq");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tceq");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Gt => {
-                p.push_il("\tcgt");
+                p.push_il_text("\tcgt");
                 is_bool = true;
             }
             BinaryOpKind::Ge => {
-                p.push_il("\tclt");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tclt");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
         }
         Type::Float(..) => match kind {
-            BinaryOpKind::Add => p.push_il("\tadd"),
-            BinaryOpKind::Sub => p.push_il("\tsub"),
-            BinaryOpKind::Mul => p.push_il("\tmul"),
-            BinaryOpKind::Div => p.push_il("\tdiv"),
-            BinaryOpKind::Rem => p.push_il("\trem"),
+            BinaryOpKind::Add => p.push_il_text("\tadd"),
+            BinaryOpKind::Sub => p.push_il_text("\tsub"),
+            BinaryOpKind::Mul => p.push_il_text("\tmul"),
+            BinaryOpKind::Div => p.push_il_text("\tdiv"),
+            BinaryOpKind::Rem => p.push_il_text("\trem"),
 
             BinaryOpKind::Eq => {
-                p.push_il("\tceq");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Lt => {
-                p.push_il("\tclt");
+                p.push_il_text("\tclt");
                 is_bool = true;
             }
             BinaryOpKind::Le => {
-                p.push_il("\tcgt");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tcgt");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Ne => {
-                p.push_il("\tceq");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tceq");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Gt => {
-                p.push_il("\tcgt");
+                p.push_il_text("\tcgt");
                 is_bool = true;
             }
             BinaryOpKind::Ge => {
-                p.push_il("\tclt");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tclt");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             _ => {
@@ -998,33 +998,33 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 return Err(());
             }
             BinaryOpKind::Eq => {
-                p.push_il("\tceq");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Lt => {
-                p.push_il("\tclt");
+                p.push_il_text("\tclt");
                 is_bool = true;
             }
             BinaryOpKind::Le => {
-                p.push_il("\tcgt");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tcgt");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Ne => {
-                p.push_il("\tceq");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tceq");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Gt => {
-                p.push_il("\tcgt");
+                p.push_il_text("\tcgt");
                 is_bool = true;
             }
             BinaryOpKind::Ge => {
-                p.push_il("\tclt");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tclt");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             _ => {
@@ -1034,7 +1034,7 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
         }
         Type::String => match kind {
             BinaryOpKind::Add => {
-                p.push_il("\tcall string System.String::Concat(string, string)");
+                p.push_il_text("\tcall string System.String::Concat(string, string)");
             }
             BinaryOpKind::Sub |
             BinaryOpKind::Mul |
@@ -1044,39 +1044,39 @@ fn gen_il_binaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: Binary
                 return Err(());
             }
             BinaryOpKind::Eq => {
-                p.push_il("\tcall bool System.String::op_Equality(string, string)");
+                p.push_il_text("\tcall bool System.String::op_Equality(string, string)");
                 is_bool = true;
             }
             BinaryOpKind::Lt => {
-                p.push_il("\tcallvirt instance int32 System.String::CompareTo(string)");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tclt");
+                p.push_il_text("\tcallvirt instance int32 System.String::CompareTo(string)");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tclt");
                 is_bool = true;
             }
             BinaryOpKind::Le => {
-                p.push_il("\tcallvirt instance int32 System.String::CompareTo(string)");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tcgt");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tcallvirt instance int32 System.String::CompareTo(string)");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tcgt");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             BinaryOpKind::Ne => {
-                p.push_il("call bool System.String::op_Inequality(string, string)");
+                p.push_il_text("call bool System.String::op_Inequality(string, string)");
                 is_bool = true;
             }
             BinaryOpKind::Gt => {
-                p.push_il("\tcallvirt instance int32 System.String::CompareTo(string)");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tcgt");
+                p.push_il_text("\tcallvirt instance int32 System.String::CompareTo(string)");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tcgt");
                 is_bool = true;
             }
             BinaryOpKind::Ge => {
-                p.push_il("\tcallvirt instance int32 System.String::CompareTo(string)");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tclt");
-                p.push_il("\tldc.i4.0");
-                p.push_il("\tceq");
+                p.push_il_text("\tcallvirt instance int32 System.String::CompareTo(string)");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tclt");
+                p.push_il_text("\tldc.i4.0");
+                p.push_il_text("\tceq");
                 is_bool = true;
             }
             _ => {
@@ -1122,36 +1122,36 @@ fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind:
     let end_label  = format!("IL_end{}", label_seq());
     match kind {
         ShortCircuitOpKind::And => {
-            p.push_il("\tldc.i4.0");
+            p.push_il_text("\tldc.i4.0");
             let token = lhs.token;
             let ltype = gen_il(lhs, p)?;
             if ltype != Type::Bool {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype);
             }
-            p.push_il(format!("\tbrfalse {}", end_label));
-            p.push_il("\tpop");
+            p.push_il_text(format!("\tbrfalse {}", end_label));
+            p.push_il_text("\tpop");
             let token = rhs.token;
             let rtype = gen_il(rhs, p)?;
             if rtype != Type::Bool {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &rtype);
             }
-            p.push_il(format!("{}:", end_label));
+            p.push_il_text(format!("{}:", end_label));
         }
         ShortCircuitOpKind::Or => {
-            p.push_il("\tldc.i4.1");
+            p.push_il_text("\tldc.i4.1");
             let token = lhs.token;
             let ltype = gen_il(lhs, p)?;
             if ltype != Type::Bool {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype);
             }
-            p.push_il(format!("\tbrtrue {}", end_label));
-            p.push_il("\tpop");
+            p.push_il_text(format!("\tbrtrue {}", end_label));
+            p.push_il_text("\tpop");
             let token = rhs.token;
             let rtype = gen_il(rhs, p)?;
             if rtype != Type::Bool {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &rtype);
             }
-            p.push_il(format!("{}:", end_label));
+            p.push_il_text(format!("{}:", end_label));
         }
     }
     Ok(Type::Bool)
@@ -1160,7 +1160,7 @@ fn gen_il_shortcircuitop<'a>(_current_token: &[Token], p: &'a Program<'a>, kind:
 fn gen_il_semi<'a>(_current_token: &[Token], p: &'a Program<'a>, expr: Node) -> Result<Type> {
     let ty = gen_il(expr, p)?;
     if ty != Type::Void {
-        p.push_il("\tpop");
+        p.push_il_text("\tpop");
     }
     Ok(Type::Void)
 }
@@ -1215,7 +1215,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                     .map(|p|p.borrow().ty.borrow().to_ilstr())
                     .collect::<Vec<String>>()
                     .join(", ");
-                p.push_il(format!("\tcall {} '{}'::'{}'({})", func.rettype.borrow().to_ilstr(), p.name, name, params));
+                p.push_il_text(format!("\tcall {} '{}'::'{}'({})", func.rettype.borrow().to_ilstr(), p.name, name, params));
                 Ok(func.rettype.borrow().clone())
             } else if let Some(im) = ns.find_impl(full_path.last().unwrap()) {
                 let func = if let Some(func) = im
@@ -1256,12 +1256,12 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 if ns.is_foreign {
                     let reference = &im.reference.as_ref().unwrap();
                     if func.is_ctor {
-                        p.push_il(format!("\tnewobj instance void [{}]{}::'{}'({})", reference, full_path.join("."), name, params));
+                        p.push_il_text(format!("\tnewobj instance void [{}]{}::'{}'({})", reference, full_path.join("."), name, params));
                     } else {
-                        p.push_il(format!("\tcall {} [{}]{}::'{}'({})", func.rettype.borrow().to_ilstr(), reference, full_path.join("."), name, params));
+                        p.push_il_text(format!("\tcall {} [{}]{}::'{}'({})", func.rettype.borrow().to_ilstr(), reference, full_path.join("."), name, params));
                     }
                 } else {
-                    p.push_il(format!("\tcall {} {}::'{}'({})", func.rettype.borrow().to_ilstr(), segment, name, params));
+                    p.push_il_text(format!("\tcall {} {}::'{}'({})", func.rettype.borrow().to_ilstr(), segment, name, params));
                 }
                 Ok(func.rettype.borrow().clone())
             } else {
@@ -1280,7 +1280,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
             };
             if let Some(ed) = ns.find_enum(full_path.last().unwrap()) {
                 if let Some(f) = ed.fields.iter().find(|f| f.name == obj.name) {
-                    p.push_il(format!("\tldc.i4 {}", f.value));
+                    p.push_il_text(format!("\tldc.i4 {}", f.value));
                     Ok(Type::Enum(None, full_path[..full_path.len()-1].to_vec(), full_path.last().unwrap().to_string()))
                 } else {
                     e0007(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
