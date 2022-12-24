@@ -1182,7 +1182,9 @@ impl<'a> Parser<'a> {
             );  // <- こいつの.ctorを呼ぶ必要がある
             self.nested_class_instance = Some(nested_class_instance);
         }
-        self.current_lambda = Some(Function::new(&ident, false));
+        let mut lambda = Function::new(&ident, false);
+        lambda.is_static = false;
+        self.current_lambda = Some(lambda);
         let stmts = self.parse_expr();
         let mut lambda = self.current_lambda.take().unwrap();
         lambda.statements = stmts;

@@ -60,7 +60,7 @@ fn gen_manifest<'a>(program: &'a Program<'a>) {
     // externブロックで使用
     for assembly in &program.references {
         let name = assembly.find_value("name").unwrap();
-        ilman.push_asm(name, assembly.find_value("publickeytoken"));
+        ilman.push_asm(&name[..name.len()-4], assembly.find_value("publickeytoken"));
     }
 
     program.push_il_mani(ilman);
