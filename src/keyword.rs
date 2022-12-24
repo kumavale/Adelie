@@ -157,7 +157,7 @@ impl Type {
             Type::_Self(_, n, _)  => format!("valuetype '{}'", n),
             Type::Enum(r, p, n)   => {
                 if let Some(r) = r {
-                    format!("valuetype [{}]{}.'{}'", r, p.join("."), n)
+                    format!("valuetype [{}]'{}.{}'", r, p.join("."), n)
                 } else {
                     format!("valuetype '{}'", n)
                 }
@@ -166,21 +166,21 @@ impl Type {
                 match k {
                     ClassKind::Struct => {
                         if let Some(r) = r {
-                            format!("valuetype [{}]{}.'{}'", r, p.join("."), n)
+                            format!("valuetype [{}]'{}.{}'", r, p.join("."), n)
                         } else {
                             format!("valuetype '{}'", n)
                         }
                     }
                     ClassKind::Class => {
                         if let Some(r) = r {
-                            format!("class [{}]{}.'{}'", r, p.join("."), n)
+                            format!("class [{}]'{}.{}'", r, p.join("."), n)
                         } else {
                             format!("class '{}'", n)
                         }
                     }
                     ClassKind::NestedClass(name) => {
                         if let Some(r) = r {
-                            format!("class [{}]{}.'{}'/'{}'", r, p.join("."), name, n)
+                            format!("class [{}]'{}.{}'/'{}'", r, p.join("."), name, n)
                         } else {
                             //format!("class {}.'{}'", p.join("."), n)
                             format!("class '{}'/'{}'", name, n)
