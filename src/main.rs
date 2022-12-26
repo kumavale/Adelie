@@ -207,8 +207,9 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
         .filter(|obj| matches!(&*obj.borrow().ty.borrow(), Type::Class(ClassKind::NestedClass(_), ..)))
         .map(Rc::clone)
         .collect::<Vec<_>>();
+    let stmts = program.drain_il_stmts();
 
-    let ilfunc = IlFunc::new(&func.name, func.is_static, RRType::clone(&func.rettype), params, locals, inits);
+    let ilfunc = IlFunc::new(&func.name, func.is_static, RRType::clone(&func.rettype), params, locals, inits, stmts);
     program.push_il_func(ilfunc);
 
     // ひとまず直ぐに出力

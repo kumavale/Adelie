@@ -17,9 +17,18 @@ pub struct IlFunc {
     params: String,
     locals: String,
     inits: Vec<Rc<RefCell<Object>>>,
+    stmts: Vec<String>,
 }
 impl IlFunc {
-    pub fn new(name: &str, is_static: bool, rettype: RRType, params: String, locals: String, inits: Vec<Rc<RefCell<Object>>>) -> Self {
+    pub fn new(
+        name: &str,
+        is_static: bool,
+        rettype: RRType,
+        params: String,
+        locals: String,
+        inits: Vec<Rc<RefCell<Object>>>,
+        stmts: Vec<String>,
+    ) -> Self {
         IlFunc {
             name: name.to_string(),
             is_static,
@@ -27,6 +36,7 @@ impl IlFunc {
             params,
             locals,
             inits,
+            stmts,
         }
     }
     fn display_il(&self) {
@@ -52,6 +62,11 @@ impl IlFunc {
                 println!("\tstloc '{}'", obj.borrow().name);
             }
         });
+        for stmt in &self.stmts {
+            println!("{}", stmt);
+        }
+        println!("\tret");
+        println!("}}");
     }
 }
 
@@ -208,6 +223,10 @@ impl<'a> Program<'a> {
         self.il.borrow_mut().funcs.push(ilfunc);
     }
 
+    pub fn drain_il_stmts(&self) -> Vec<String> {
+        self.il.borrow_mut().stmts.drain(..).collect()
+    }
+
     pub fn clear_il(&self) {
         self.il.borrow_mut().mani.take();
         self.il.borrow_mut().stmts.clear();
@@ -224,11 +243,6 @@ impl<'a> Program<'a> {
         }
         for func in &self.il.borrow().funcs {
             func.display_il();
-            for stmt in &self.il.borrow().stmts {
-                println!("{}", stmt);
-            }
-            println!("\tret");
-            println!("}}");
         }
         self.clear_il();
     }
