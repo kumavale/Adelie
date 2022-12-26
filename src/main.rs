@@ -16,10 +16,10 @@ mod utils;
 use crate::class::ClassKind;
 use crate::error::Errors;
 use crate::function::Function;
-use crate::keyword::{Type, Numeric};
+use crate::keyword::{Type, RRType, Numeric};
 use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
-use crate::program::{Program, IlEnum, IlManifest};
+use crate::program::{Program, IlEnum, IlManifest, IlFunc};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -223,23 +223,6 @@ fn gen_method<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
 }
 
 fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
-    if func.name == "main" {
-        println!(".method static void Main() cil managed {{");
-        println!("\t.entrypoint");
-    } else {
-        let args = func
-            .symbol_table
-            .borrow()
-            .objs
-            .iter()
-            .filter(|o| o.borrow().kind == ObjectKind::Param)
-            .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
-            .collect::<Vec<String>>()
-            .join(", ");
-        println!(".method static {} '{}'({}) cil managed {{", func.rettype.borrow().to_ilstr(), func.name, args);
-    }
-    println!("\t.maxstack 32");
-
     if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
         match (&rettype, &*func.rettype.borrow()) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
@@ -248,40 +231,38 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
             }
         }
     }
-    program.push_il_text("\tret");
-
-    // prepare local variables
+    let params = func
+            .symbol_table
+            .borrow()
+            .objs
+            .iter()
+            .filter(|obj| obj.borrow().kind == ObjectKind::Param)
+            .map(|obj|format!("{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+            .collect::<Vec<String>>()
+            .join(", ");
     let locals = func
         .symbol_table
         .borrow()
         .objs
         .iter()
-        .filter(|o| o.borrow().kind == ObjectKind::Local)
-        .enumerate()
-        //.map(|(i, obj)| format!("\t\t{} V_{}", obj.borrow().ty.borrow().to_ilstr(), i))
-        .map(|(_, obj)| format!("\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+        .filter(|obj| obj.borrow().kind == ObjectKind::Local)
+        .map(|obj| format!("\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
         .collect::<Vec<String>>()
         .join(",\n");
-    if !locals.is_empty() {
-        println!("\t.locals init (");
-        println!("{}", locals);
-        println!("\t)");
-        func.symbol_table
-            .borrow()
-            .objs
-            .iter()
-            .filter(|o| o.borrow().kind == ObjectKind::Local)
-            .for_each(|obj| if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &*obj.borrow().ty.borrow() {
-                if name == "<>c__DisplayClass0_0" {
-                    println!("\tnewobj instance void '{}'/'<>c__DisplayClass0_0'::.ctor()", pn);
-                    println!("\tstloc '{}'", obj.borrow().name);
-                }
-            });
-    }
+    let inits = func.symbol_table
+        .borrow()
+        .objs
+        .iter()
+        .filter(|obj| obj.borrow().kind == ObjectKind::Local)
+        .filter(|obj| matches!(&*obj.borrow().ty.borrow(), Type::Class(ClassKind::NestedClass(_), ..)))
+        .map(Rc::clone)
+        .collect::<Vec<_>>();
 
+    let ilfunc = IlFunc::new(&func.name, RRType::clone(&func.rettype), params, locals, inits);
+    program.push_il_func(ilfunc);
+
+    // ひとまず直ぐに出力
     program.display_il();
-
-    println!("}}");
 }
 
 fn disp_errors(program: &Program) {

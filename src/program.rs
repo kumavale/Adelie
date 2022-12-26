@@ -1,10 +1,53 @@
 use crate::ast::Attribute;
+use crate::class::ClassKind;
 use crate::error::Errors;
+use crate::keyword::{Type, RRType};
 use crate::namespace::NameSpace;
+use crate::object::Object;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::{Rc, Weak};
+
+#[derive(Clone, Debug)]
+pub struct IlFunc {
+    name: String,
+    rettype: RRType,
+    params: String,
+    locals: String,
+    inits: Vec<Rc<RefCell<Object>>>,
+}
+impl IlFunc {
+    pub fn new(name: &str, rettype: RRType, params: String, locals: String, inits: Vec<Rc<RefCell<Object>>>) -> Self {
+        IlFunc {
+            name: name.to_string(),
+            rettype,
+            params,
+            locals,
+            inits,
+        }
+    }
+    fn display_il(&self) {
+        if self.name == "main" {
+            println!(".method static void Main() cil managed {{");
+            println!("\t.entrypoint");
+        } else {
+            println!(".method static {} '{}'({}) cil managed {{", self.rettype.borrow().to_ilstr(), self.name, self.params);
+        }
+        println!("\t.maxstack 32");
+        if !self.locals.is_empty() {
+            println!("\t.locals init (");
+            println!("{}", self.locals);
+            println!("\t)");
+        }
+        self.inits.iter().for_each(|obj| if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &*obj.borrow().ty.borrow() {
+            if name == "<>c__DisplayClass0_0" {
+                println!("\tnewobj instance void '{}'/'<>c__DisplayClass0_0'::.ctor()", pn);
+                println!("\tstloc '{}'", obj.borrow().name);
+            }
+        });
+    }
+}
 
 #[derive(Clone, Debug)]
 struct IlAsm {
@@ -76,6 +119,7 @@ pub struct Il {
     mani: Option<IlManifest>,
     stmts: Vec<String>,
     enums: Vec<IlEnum>,
+    funcs: Vec<IlFunc>,
 }
 impl Il {
     pub fn new() -> Self {
@@ -83,6 +127,7 @@ impl Il {
             mani: None,
             stmts: vec![],
             enums: vec![],
+            funcs: vec![],
         }
     }
 }
@@ -153,9 +198,14 @@ impl<'a> Program<'a> {
         self.il.borrow_mut().mani = Some(ilman);
     }
 
+    pub fn push_il_func(&self, ilfunc: IlFunc) {
+        self.il.borrow_mut().funcs.push(ilfunc);
+    }
+
     pub fn clear_il(&self) {
         self.il.borrow_mut().mani.take();
         self.il.borrow_mut().enums.clear();
+        self.il.borrow_mut().funcs.clear();
         self.il.borrow_mut().stmts.clear();
     }
 
@@ -166,8 +216,21 @@ impl<'a> Program<'a> {
         for enu in &self.il.borrow().enums {
             enu.display_il();
         }
-        for stmt in &self.il.borrow().stmts {
-            println!("{}", stmt);
+
+        // 仮実装
+        if self.il.borrow().funcs.is_empty() {
+            for stmt in &self.il.borrow().stmts {
+                println!("{}", stmt);
+            }
+        } else {
+            for func in &self.il.borrow().funcs {
+                func.display_il();
+                for stmt in &self.il.borrow().stmts {
+                    println!("{}", stmt);
+                }
+                println!("\tret");
+                println!("}}");
+            }
         }
         self.clear_il();
     }
