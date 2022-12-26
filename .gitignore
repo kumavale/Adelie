@@ -2,4 +2,5 @@ cargo.lock
 /target
 **/*.il
 **/*.exe
+**/*.dll
 */.vs

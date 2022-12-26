@@ -4,10 +4,13 @@ FLAGS=/QUIET
 TEST_SRCS=$(wildcard test/*.ad)
 TESTS=$(TEST_SRCS:.ad=.exe)
 
-all: clippy build
+all: clippy build build-std
 
 build:
 	cargo build
+
+build-std:
+	$(ILASM) /OUTPUT=test/adelie_std.dll /QUIET /DLL library/std.il
 
 check:
 	cargo check
@@ -15,16 +18,16 @@ check:
 clippy:
 	cargo clippy
 
-test/%.exe: build
-	./target/debug/adelie test/$*.ad > test/$*.il
+test/%.exe: build build-std
+	./target/debug/adelie test/$*.ad
 	$(ILASM) $(FLAGS) /OUTPUT=$@ test/$*.il
 
 test: $(TESTS)
 	for i in $^; do echo; echo $$i; ./$$i || exit 1; done
 
-%.ad: build
+%.ad: build build-std
 	@if [ -f "$@" ]; then \
-		./target/debug/adelie $*.ad > $*.il && \
+		./target/debug/adelie $*.ad && \
 		$(ILASM) $(FLAGS) /OUTPUT=$*.exe $*.il && \
 		$*.exe; \
 	else \
@@ -35,4 +38,4 @@ clean:
 	cargo clean
 	rm -rf tmp* $(TESTS) test/*.il test/*.exe example/*.il example/*.exe
 
-.PHONY: build check clippy test clean
+.PHONY: build build-std check clippy test clean
