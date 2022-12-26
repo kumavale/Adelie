@@ -118,15 +118,16 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                         gen_function(program, local_func);
                     }
                     let funcs = program.drain_il_funcs();
-                    let ilclass = IlClass::new(&nested_class.borrow().name, nested_class.borrow().kind.clone(), fields, funcs);
+                    let ilclass = IlClass::new(&nested_class.borrow().name, nested_class.borrow().kind.clone(), fields, funcs, vec![]);
 
                     program.push_il_class(ilclass);
                 }
                 gen_function(program, func);
             }
         }
-        let funcs = program.drain_il_funcs();
-        let ilclass = IlClass::new(&st.borrow().name, ClassKind::Struct, fields, funcs);
+        let funcs  = program.drain_il_funcs();
+        let nested = program.drain_il_nested_classes();
+        let ilclass = IlClass::new(&st.borrow().name, ClassKind::Struct, fields, funcs, nested);
         program.push_il_class(ilclass);
     }
 }
@@ -155,14 +156,15 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
                 gen_function(program, local_func);
             }
             let funcs = program.drain_il_funcs();
-            let ilclass = IlClass::new(&nested_class.borrow().name, nested_class.borrow().kind.clone(), fields, funcs);
+            let ilclass = IlClass::new(&nested_class.borrow().name, nested_class.borrow().kind.clone(), fields, funcs, vec![]);
 
             program.push_il_class(ilclass);
         }
         gen_function(program, func);
     }
-    let funcs = program.drain_il_funcs();
-    let ilclass = IlClass::new(&program.name, ClassKind::Class, vec![], funcs);
+    let funcs  = program.drain_il_funcs();
+    let nested = program.drain_il_nested_classes();
+    let ilclass = IlClass::new(&program.name, ClassKind::Class, vec![], funcs, nested);
     program.push_il_class(ilclass);
 }
 

@@ -15,14 +15,16 @@ pub struct IlClass {
     kind: ClassKind,
     fields: Vec<String>,
     funcs: Vec<IlFunc>,
+    nested: Vec<IlClass>,
 }
 impl IlClass {
-    pub fn new(name: &str, kind: ClassKind, fields: Vec<String>, funcs: Vec<IlFunc>) -> Self {
+    pub fn new(name: &str, kind: ClassKind, fields: Vec<String>, funcs: Vec<IlFunc>, nested: Vec<IlClass>) -> Self {
         IlClass {
             name: name.to_string(),
             kind,
             fields,
             funcs,
+            nested,
         }
     }
     pub fn display_il(&self) {
@@ -36,6 +38,10 @@ impl IlClass {
             ClassKind::NestedClass(_) => {
                 println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", self.name);
             }
+        }
+
+        for nc in &self.nested {
+            nc.display_il();
         }
 
         // TODO: classは全て`.ctor`を作成する。
@@ -192,6 +198,7 @@ pub struct Il {
     enums: Vec<IlEnum>,
     funcs: Vec<IlFunc>,
     classes: Vec<IlClass>,
+    nested_classes: Vec<IlClass>,
 }
 impl Il {
     pub fn new() -> Self {
@@ -201,6 +208,7 @@ impl Il {
             enums: vec![],
             funcs: vec![],
             classes: vec![],
+            nested_classes: vec![],
         }
     }
 }
@@ -276,7 +284,11 @@ impl<'a> Program<'a> {
     }
 
     pub fn push_il_class(&self, ilclass: IlClass) {
-        self.il.borrow_mut().classes.push(ilclass);
+        if let ClassKind::NestedClass(_) = ilclass.kind {
+            self.il.borrow_mut().nested_classes.push(ilclass);
+        } else {
+            self.il.borrow_mut().classes.push(ilclass);
+        }
     }
 
     pub fn drain_il_stmts(&self) -> Vec<String> {
@@ -285,6 +297,10 @@ impl<'a> Program<'a> {
 
     pub fn drain_il_funcs(&self) -> Vec<IlFunc> {
         self.il.borrow_mut().funcs.drain(..).collect()
+    }
+
+    pub fn drain_il_nested_classes(&self) -> Vec<IlClass> {
+        self.il.borrow_mut().nested_classes.drain(..).collect()
     }
 
     pub fn display_il(&self) {
