@@ -59,7 +59,7 @@ fn gen_il_builtin_assert<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Progra
     p.push_il_text(format!("\tbrtrue {}", end_label));
     p.push_il_text(format!("\tldstr \"assertion failed: {stringizing_arg}\""));
     p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
-    p.push_il_text("\tcall void '<adelie>panic'(string, string)");
+    p.push_il_text("\tcall void [adelie_std]std::'panic'(string, string)");
     p.push_il_text(format!("{}:", end_label));
     Ok(Type::Void)
 }
@@ -96,7 +96,7 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
     p.push_il_text(format!("    ldstr \" right: `{stringizing_right}`\""));
     p.push_il_text("    call string [mscorlib]System.String::Concat(string, string, string)");
     p.push_il_text(format!("    ldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
-    p.push_il_text("    call void '<adelie>panic'(string, string)");
+    p.push_il_text("    call void [adelie_std]std::'panic'(string, string)");
     p.push_il_text(format!("{}:", end_label));
     Ok(Type::Void)
     // MEMO
@@ -175,7 +175,7 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
         }
     }
     p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
-    p.push_il_text("\tcall void '<adelie>panic'(string, string)");
+    p.push_il_text("\tcall void [adelie_std]std::'panic'(string, string)");
 
     // TODO: Type::Never
     Ok(Type::Void)

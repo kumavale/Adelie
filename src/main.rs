@@ -43,7 +43,6 @@ fn main() {
     //eprintln!("{:#?}", program);
 
     gen_manifest(&program);
-    gen_builtin();
     gen_items(&program, &program.namespace.borrow());
 
     if !program.errors.borrow().is_empty() {
@@ -59,6 +58,7 @@ fn gen_manifest<'a>(program: &'a Program<'a>) {
 
     // 内部で使用
     ilman.push_asm("mscorlib", None);
+    ilman.push_asm("adelie_std", None);
 
     // externブロックで使用
     for assembly in &program.references {
@@ -67,22 +67,6 @@ fn gen_manifest<'a>(program: &'a Program<'a>) {
     }
 
     program.push_il_mani(ilman);
-}
-
-fn gen_builtin() {
-    // panic!()
-    println!(".method public static hidebysig specialname void '<adelie>panic'(string msg, string locate) cil managed {{");
-    println!("    .maxstack 4");
-    println!("    ldstr \"paniced at '\"");
-    println!("    ldarg msg");
-    println!("    ldstr \"', \"");
-    println!("    ldarg locate");
-    println!("    call string [mscorlib]System.String::Concat(string, string, string, string)");
-    println!("    call void [mscorlib]System.Console::WriteLine(string)");
-    println!("    ldc.i4 101");
-    println!("    call void [mscorlib]System.Environment::Exit(int32)");
-    println!("    ret");
-    println!("}}");
 }
 
 fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
