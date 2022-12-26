@@ -13,7 +13,7 @@ mod program;
 mod token;
 mod utils;
 
-use crate::class::ClassKind;
+use crate::class::{Class, ClassKind};
 use crate::error::Errors;
 use crate::function::Function;
 use crate::keyword::{Type, RRType, Numeric};
@@ -108,19 +108,7 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         for im in &st.borrow().impls {
             for func in &im.functions {
                 if let Some(nested_class) = &func.nested_class {
-                    let fields = nested_class.borrow()
-                        .field
-                        .objs
-                        .iter()
-                        .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
-                        .collect();
-                    for local_func in &func.local_funcs {
-                        gen_function(program, local_func);
-                    }
-                    let funcs = program.drain_il_funcs();
-                    let ilclass = IlClass::new(&nested_class.borrow().name, nested_class.borrow().kind.clone(), fields, funcs, vec![]);
-
-                    program.push_il_class(ilclass);
+                    gen_nested_class(program, nested_class, func);
                 }
                 gen_function(program, func);
             }
@@ -130,6 +118,22 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         let ilclass = IlClass::new(&st.borrow().name, ClassKind::Struct, fields, funcs, nested);
         program.push_il_class(ilclass);
     }
+}
+
+fn gen_nested_class<'a, 'b>(program: &'a Program<'a>, nested_class: &'b Rc<RefCell<Class>>, func: &'b Function<'a>) {
+    let fields = nested_class.borrow()
+        .field
+        .objs
+        .iter()
+        .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+        .collect();
+    for local_func in &func.local_funcs {
+        gen_function(program, local_func);
+    }
+    let funcs = program.drain_il_funcs();
+    let ilclass = IlClass::new(&nested_class.borrow().name, nested_class.borrow().kind.clone(), fields, funcs, vec![]);
+
+    program.push_il_class(ilclass);
 }
 
 fn gen_enums<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
@@ -146,19 +150,7 @@ fn gen_enums<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
 fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     for func in &namespace.functions {
         if let Some(nested_class) = &func.nested_class {
-            let fields = nested_class.borrow()
-                .field
-                .objs
-                .iter()
-                .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
-                .collect();
-            for local_func in &func.local_funcs {
-                gen_function(program, local_func);
-            }
-            let funcs = program.drain_il_funcs();
-            let ilclass = IlClass::new(&nested_class.borrow().name, nested_class.borrow().kind.clone(), fields, funcs, vec![]);
-
-            program.push_il_class(ilclass);
+            gen_nested_class(program, nested_class, func);
         }
         gen_function(program, func);
     }
