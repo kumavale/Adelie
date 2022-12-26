@@ -4,3 +4,5 @@ cargo.lock
 **/*.exe
 **/*.dll
 */.vs
+
+!library/*.il
