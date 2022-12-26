@@ -55,12 +55,9 @@ fn gen_il_builtin_assert<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Progra
     if ty != Type::Bool {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ty);
     }
-    let end_label = format!("\tIL_assert_end{}", crate::seq!());
-    p.push_il_text(format!("\tbrtrue {}", end_label));
-    p.push_il_text(format!("\tldstr \"assertion failed: {stringizing_arg}\""));
+    p.push_il_text(format!("\tldstr \"{stringizing_arg}\""));
     p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
-    p.push_il_text("\tcall void [adelie_std]std::'panic'(string, string)");
-    p.push_il_text(format!("{}:", end_label));
+    p.push_il_text("\tcall void [adelie_std]std::'assert'(bool, string, string)");
     Ok(Type::Void)
 }
 
@@ -81,56 +78,16 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
     }
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
-    let stringizing_left  = lhs.token.iter().map(|t|format!("{}",t.kind)).collect::<Vec<_>>().join(" ");
-    let stringizing_right = rhs.token.iter().map(|t|format!("{}",t.kind)).collect::<Vec<_>>().join(" ");
     let lty = gen_il(lhs, p)?;
+    p.push_il_text(format!("\tbox {}", lty.to_ilstr()));
     let rty = gen_il(rhs, p)?;
+    p.push_il_text(format!("\tbox {}", rty.to_ilstr()));
     if check_type(&lty, &rty).is_err() {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty, &rty);
     }
-    p.push_il_text("    ceq");
-    let end_label = format!("\tIL_assert_eq_end{}", crate::seq!());
-    p.push_il_text(format!("    brtrue {}", end_label));
-    p.push_il_text("    ldstr \"assertion failed: `(left == right)`\\n\"");
-    p.push_il_text(format!("    ldstr \"  left: `{stringizing_left}`\\n\""));
-    p.push_il_text(format!("    ldstr \" right: `{stringizing_right}`\""));
-    p.push_il_text("    call string [mscorlib]System.String::Concat(string, string, string)");
-    p.push_il_text(format!("    ldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
-    p.push_il_text("    call void [adelie_std]std::'panic'(string, string)");
-    p.push_il_text(format!("{}:", end_label));
+    p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
+    p.push_il_text("\tcall void [adelie_std]std::'assert_eq'(object, object, string)");
     Ok(Type::Void)
-    // MEMO
-    //($left:expr, $right:expr) => {
-    //    let left  = $left;
-    //    let right = $right;
-    //    if !(left == right) {
-    //        ldloc left
-    //        ldloc right
-    //        ldloc locate
-    //        call void '<adelie>assert_failed'(left, right, locate);
-    //    }
-    //};
-    //println!(".method public static hidebysig specialname void '<adelie>assert_eq'(object left, object right, string locate) cil managed {{");
-    //println!("    .maxstack 4");
-    //println!("    ldarg 0");
-    //println!("    unbox.any 型が分からない");
-    //println!("    ldarg 1");
-    //println!("    unbox.any 型が分からない");
-    //println!("    ceq");
-    //let end_label = format!("\tIL_assert_eq_end{}", crate::seq!());
-    //println!("    brtrue {}", end_label);
-    //println!("    ldstr \"assertion failed: `(left == right)`\\n\"");
-    //println!("    ldstr \"  left: `{{0}}`\\n\"");
-    //println!("    ldarg 0");
-    //println!("    call string [mscorlib]System.String::Format(string, object)");
-    //println!("    ldstr \" right: `{{0}}`\"");
-    //println!("    ldarg 1");
-    //println!("    call string [mscorlib]System.String::Format(string, object)");
-    //println!("    call string [mscorlib]System.String::Concat(string, string, string)");
-    //println!("    call void '<adelie>panic'(string, string)");
-    //println!("{}:", end_label);
-    //println!("    ret");
-    //println!("}}");
 }
 
 /// panicked at '{msg}', src/main.rs:2:5
