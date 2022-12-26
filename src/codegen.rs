@@ -398,7 +398,6 @@ fn gen_il_field<'a>(
             }
         }
         ty => {
-            p.display_il();
             unimplemented!("primitive type: {:?}", ty);
         }
     };

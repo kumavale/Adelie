@@ -49,8 +49,8 @@ fn main() {
         disp_errors(&program);
     }
 
-    // ひとまず標準出力
-    program.display_il();
+    // ilをファイルに出力
+    program.write_il().unwrap();
 }
 
 fn gen_manifest<'a>(program: &'a Program<'a>) {

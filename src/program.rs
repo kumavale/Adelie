@@ -6,6 +6,8 @@ use crate::namespace::NameSpace;
 use crate::object::Object;
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::fs::File;
+use std::io::{Write, BufWriter, Result};
 use std::path::Path;
 use std::rc::{Rc, Weak};
 
@@ -27,41 +29,42 @@ impl IlClass {
             nested,
         }
     }
-    pub fn display_il(&self) {
+    fn write_il<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<()> {
         match self.kind {
             ClassKind::Struct => {
-                println!(".class private sequential auto sealed beforefieldinit '{}' extends [mscorlib]System.ValueType {{", self.name);
+                writeln!(writer, ".class private sequential auto sealed beforefieldinit '{}' extends [mscorlib]System.ValueType {{", self.name)?;
             }
             ClassKind::Class => {
-                println!(".class private auto ansi abstract sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", self.name);
+                writeln!(writer, ".class private auto ansi abstract sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", self.name)?;
             }
             ClassKind::NestedClass(_) => {
-                println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", self.name);
+                writeln!(writer, ".class nested private auto ansi sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", self.name)?;
             }
         }
 
         for nc in &self.nested {
-            nc.display_il();
+            nc.write_il(writer)?;
         }
 
         // TODO: classは全て`.ctor`を作成する。
         if self.name == "<>c__DisplayClass0_0" {
-            println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
-            println!("\t\tldarg.0");
-            println!("\t\tcall instance void [mscorlib]System.Object::.ctor()");
-            println!("\t\tret");
-            println!("\t}}");
+            writeln!(writer, "\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{")?;
+            writeln!(writer, "\t\tldarg.0")?;
+            writeln!(writer, "\t\tcall instance void [mscorlib]System.Object::.ctor()")?;
+            writeln!(writer, "\t\tret")?;
+            writeln!(writer, "\t}}")?;
         }
 
         for field in &self.fields {
-            println!("\t{}", field);
+            writeln!(writer, "\t{}", field)?;
         }
 
         for func in &self.funcs {
-            func.display_il();
+            func.write_il(writer)?;
         }
 
-        println!("}}");
+        writeln!(writer, "}}")?;
+        Ok(())
     }
 }
 
@@ -95,34 +98,37 @@ impl IlFunc {
             stmts,
         }
     }
-    fn display_il(&self) {
+    fn write_il<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<()> {
         if self.name == "main" {
-            println!(".method static void Main() cil managed {{");
-            println!("\t.entrypoint");
+            writeln!(writer, ".method static void Main() cil managed {{")?;
+            writeln!(writer, "\t.entrypoint")?;
         } else {
-            println!(".method assembly {} {} '{}'({}) cil managed {{",
+            writeln!(writer, ".method assembly {} {} '{}'({}) cil managed {{",
                 if self.is_static { "static" } else { "instance" },
                 self.rettype.borrow().to_ilstr(),
                 self.name,
-                self.params);
+                self.params)?;
         }
-        println!("\t.maxstack 32");
+        writeln!(writer, "\t.maxstack 32")?;
         if !self.locals.is_empty() {
-            println!("\t.locals init (");
-            println!("{}", self.locals);
-            println!("\t)");
+            writeln!(writer, "\t.locals init (")?;
+            writeln!(writer, "{}", self.locals)?;
+            writeln!(writer, "\t)")?;
         }
-        self.inits.iter().for_each(|obj| if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &*obj.borrow().ty.borrow() {
-            if name == "<>c__DisplayClass0_0" {
-                println!("\tnewobj instance void '{}'/'<>c__DisplayClass0_0'::.ctor()", pn);
-                println!("\tstloc '{}'", obj.borrow().name);
+        for obj in self.inits.iter() {
+            if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &*obj.borrow().ty.borrow() {
+                if name == "<>c__DisplayClass0_0" {
+                    writeln!(writer, "\tnewobj instance void '{}'/'<>c__DisplayClass0_0'::.ctor()", pn)?;
+                    writeln!(writer, "\tstloc '{}'", obj.borrow().name)?;
+                }
             }
-        });
-        for stmt in &self.stmts {
-            println!("{}", stmt);
         }
-        println!("\tret");
-        println!("}}");
+        for stmt in &self.stmts {
+            writeln!(writer, "{}", stmt)?;
+        }
+        writeln!(writer, "\tret")?;
+        writeln!(writer, "}}")?;
+        Ok(())
     }
 }
 
@@ -155,15 +161,16 @@ impl IlManifest {
         let ilasm = IlAsm::new(name, pkt);
         self.asms.push(ilasm);
     }
-    pub fn display_il(&self) {
-        println!(".assembly '{}' {{}}",  self.name);
+    fn write_il<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<()> {
+        writeln!(writer, ".assembly '{}' {{}}", self.name)?;
         for asm in &self.asms {
-            println!(".assembly extern '{}' {{", asm.name);
+            writeln!(writer, ".assembly extern '{}' {{", asm.name)?;
             if let Some(pkt) = &asm.pkt {
-                println!("    .publickeytoken = ({})", pkt);
+                writeln!(writer, "    .publickeytoken = ({})", pkt)?;
             }
-            println!("}}");
+            writeln!(writer, "}}")?;
         }
+        Ok(())
     }
 }
 
@@ -182,12 +189,13 @@ impl IlEnum {
     pub fn push_field<'a, S: Into<Cow<'a, str>>>(&mut self, s: S) {
         self.fields.push(s.into().into_owned());
     }
-    pub fn display_il(&self) {
-        println!(".class private auto ansi sealed '{}' extends [mscorlib]System.Enum {{", self.name);
+    fn write_il<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<()> {
+        writeln!(writer, ".class private auto ansi sealed '{}' extends [mscorlib]System.Enum {{", self.name)?;
         for field in &self.fields {
-            println!("\t{}", field);
+            writeln!(writer, "\t{}", field)?;
         }
-        println!("}}");
+        writeln!(writer, "}}")?;
+        Ok(())
     }
 }
 
@@ -303,15 +311,20 @@ impl<'a> Program<'a> {
         self.il.borrow_mut().nested_classes.drain(..).collect()
     }
 
-    pub fn display_il(&self) {
+    pub fn write_il(&self) -> Result<()> {
+        let path = Path::new(&self.path).with_extension("il");
+        let mut writer = BufWriter::new(File::create(path)?);
+
         if let Some(mani) = &self.il.borrow().mani {
-            mani.display_il();
+            mani.write_il(&mut writer)?;
         }
         for enu in &self.il.borrow().enums {
-            enu.display_il();
+            enu.write_il(&mut writer)?;
         }
         for class in &self.il.borrow().classes {
-            class.display_il();
+            class.write_il(&mut writer)?;
         }
+        writer.flush()?;
+        Ok(())
     }
 }

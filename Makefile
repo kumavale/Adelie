@@ -19,7 +19,7 @@ clippy:
 	cargo clippy
 
 test/%.exe: build build-std
-	./target/debug/adelie test/$*.ad > test/$*.il
+	./target/debug/adelie test/$*.ad
 	$(ILASM) $(FLAGS) /OUTPUT=$@ test/$*.il
 
 test: $(TESTS)
@@ -27,7 +27,7 @@ test: $(TESTS)
 
 %.ad: build build-std
 	@if [ -f "$@" ]; then \
-		./target/debug/adelie $*.ad > $*.il && \
+		./target/debug/adelie $*.ad && \
 		$(ILASM) $(FLAGS) /OUTPUT=$*.exe $*.il && \
 		$*.exe; \
 	else \
