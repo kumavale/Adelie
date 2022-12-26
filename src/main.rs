@@ -19,7 +19,7 @@ use crate::function::Function;
 use crate::keyword::{Type, RRType, Numeric};
 use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
-use crate::program::{Program, IlEnum, IlManifest, IlFunc};
+use crate::program::{Program, IlEnum, IlManifest, IlFunc, IlClass};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -49,6 +49,9 @@ fn main() {
     if !program.errors.borrow().is_empty() {
         disp_errors(&program);
     }
+
+    // ひとまず標準出力
+    program.display_il();
 }
 
 fn gen_manifest<'a>(program: &'a Program<'a>) {
@@ -64,9 +67,6 @@ fn gen_manifest<'a>(program: &'a Program<'a>) {
     }
 
     program.push_il_mani(ilman);
-
-    // ひとまず直ぐに出力
-    program.display_il();
 }
 
 fn gen_builtin() {
@@ -99,37 +99,35 @@ fn gen_items<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
 
 fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
     for st in &namespace.classes {
-        if st.borrow().kind != ClassKind::Struct {
-            continue;
-        }
-        println!(".class private sequential auto sealed beforefieldinit '{}' extends [mscorlib]System.ValueType", st.borrow().name);
-        println!("{{");
-        for value in &st.borrow().field.objs {
-            println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
-        }
+        let fields = st.borrow()
+            .field
+            .objs
+            .iter()
+            .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+            .collect();
         for im in &st.borrow().impls {
             for func in &im.functions {
                 if let Some(nested_class) = &func.nested_class {
-                    println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", nested_class.borrow().name);
-                    for value in &nested_class.borrow().field.objs {
-                        println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
-                    }
-                    if nested_class.borrow().name == "<>c__DisplayClass0_0" {
-                        println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
-                        println!("\t\tldarg.0");
-                        println!("\t\tcall instance void [mscorlib]System.Object::.ctor()");
-                        println!("\t\tret");
-                        println!("\t}}");
-                    }
+                    let fields = nested_class.borrow()
+                        .field
+                        .objs
+                        .iter()
+                        .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+                        .collect();
                     for local_func in &func.local_funcs {
                         gen_function(program, local_func);
                     }
-                    println!("}}");
+                    let funcs = program.drain_il_funcs();
+                    let ilclass = IlClass::new(&nested_class.borrow().name, nested_class.borrow().kind.clone(), fields, funcs);
+
+                    program.push_il_class(ilclass);
                 }
                 gen_function(program, func);
             }
         }
-        println!("}}");
+        let funcs = program.drain_il_funcs();
+        let ilclass = IlClass::new(&st.borrow().name, ClassKind::Struct, fields, funcs);
+        program.push_il_class(ilclass);
     }
 }
 
@@ -142,33 +140,30 @@ fn gen_enums<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
         }
         program.push_il_enum(ilenum);
     }
-    // ひとまず直ぐに出力
-    program.display_il();
 }
 
 fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
-    println!(".class private auto ansi abstract sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", program.name);
     for func in &namespace.functions {
-        gen_function(program, func);
         if let Some(nested_class) = &func.nested_class {
-            println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", nested_class.borrow().name);
-            for value in &nested_class.borrow().field.objs {
-                println!("\t.field public {} '{}'", value.borrow().ty.borrow().to_ilstr(), value.borrow().name);
-            }
-            if nested_class.borrow().name == "<>c__DisplayClass0_0" {
-                println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
-                println!("\t\tldarg.0");
-                println!("\t\tcall instance void [mscorlib]System.Object::.ctor()");
-                println!("\t\tret");
-                println!("\t}}");
-            }
+            let fields = nested_class.borrow()
+                .field
+                .objs
+                .iter()
+                .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+                .collect();
             for local_func in &func.local_funcs {
                 gen_function(program, local_func);
             }
-            println!("}}");
+            let funcs = program.drain_il_funcs();
+            let ilclass = IlClass::new(&nested_class.borrow().name, nested_class.borrow().kind.clone(), fields, funcs);
+
+            program.push_il_class(ilclass);
         }
+        gen_function(program, func);
     }
-    println!("}}");
+    let funcs = program.drain_il_funcs();
+    let ilclass = IlClass::new(&program.name, ClassKind::Class, vec![], funcs);
+    program.push_il_class(ilclass);
 }
 
 fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
@@ -211,9 +206,6 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
 
     let ilfunc = IlFunc::new(&func.name, func.is_static, RRType::clone(&func.rettype), params, locals, inits, stmts);
     program.push_il_func(ilfunc);
-
-    // ひとまず直ぐに出力
-    program.display_il();
 }
 
 fn disp_errors(program: &Program) {

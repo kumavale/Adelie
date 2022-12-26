@@ -10,6 +10,56 @@ use std::path::Path;
 use std::rc::{Rc, Weak};
 
 #[derive(Clone, Debug)]
+pub struct IlClass {
+    name: String,
+    kind: ClassKind,
+    fields: Vec<String>,
+    funcs: Vec<IlFunc>,
+}
+impl IlClass {
+    pub fn new(name: &str, kind: ClassKind, fields: Vec<String>, funcs: Vec<IlFunc>) -> Self {
+        IlClass {
+            name: name.to_string(),
+            kind,
+            fields,
+            funcs,
+        }
+    }
+    pub fn display_il(&self) {
+        match self.kind {
+            ClassKind::Struct => {
+                println!(".class private sequential auto sealed beforefieldinit '{}' extends [mscorlib]System.ValueType {{", self.name);
+            }
+            ClassKind::Class => {
+                println!(".class private auto ansi abstract sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", self.name);
+            }
+            ClassKind::NestedClass(_) => {
+                println!(".class nested private auto ansi sealed beforefieldinit '{}' extends [mscorlib]System.Object {{", self.name);
+            }
+        }
+
+        // TODO: classは全て`.ctor`を作成する。
+        if self.name == "<>c__DisplayClass0_0" {
+            println!("\t.method public hidebysig specialname rtspecialname instance void .ctor() cil managed {{");
+            println!("\t\tldarg.0");
+            println!("\t\tcall instance void [mscorlib]System.Object::.ctor()");
+            println!("\t\tret");
+            println!("\t}}");
+        }
+
+        for field in &self.fields {
+            println!("\t{}", field);
+        }
+
+        for func in &self.funcs {
+            func.display_il();
+        }
+
+        println!("}}");
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct IlFunc {
     name: String,
     is_static: bool,
@@ -141,6 +191,7 @@ pub struct Il {
     stmts: Vec<String>,
     enums: Vec<IlEnum>,
     funcs: Vec<IlFunc>,
+    classes: Vec<IlClass>,
 }
 impl Il {
     pub fn new() -> Self {
@@ -149,6 +200,7 @@ impl Il {
             stmts: vec![],
             enums: vec![],
             funcs: vec![],
+            classes: vec![],
         }
     }
 }
@@ -223,15 +275,16 @@ impl<'a> Program<'a> {
         self.il.borrow_mut().funcs.push(ilfunc);
     }
 
+    pub fn push_il_class(&self, ilclass: IlClass) {
+        self.il.borrow_mut().classes.push(ilclass);
+    }
+
     pub fn drain_il_stmts(&self) -> Vec<String> {
         self.il.borrow_mut().stmts.drain(..).collect()
     }
 
-    pub fn clear_il(&self) {
-        self.il.borrow_mut().mani.take();
-        self.il.borrow_mut().stmts.clear();
-        self.il.borrow_mut().enums.clear();
-        self.il.borrow_mut().funcs.clear();
+    pub fn drain_il_funcs(&self) -> Vec<IlFunc> {
+        self.il.borrow_mut().funcs.drain(..).collect()
     }
 
     pub fn display_il(&self) {
@@ -241,9 +294,8 @@ impl<'a> Program<'a> {
         for enu in &self.il.borrow().enums {
             enu.display_il();
         }
-        for func in &self.il.borrow().funcs {
-            func.display_il();
+        for class in &self.il.borrow().classes {
+            class.display_il();
         }
-        self.clear_il();
     }
 }
