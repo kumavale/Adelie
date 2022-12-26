@@ -10,6 +10,47 @@ use std::path::Path;
 use std::rc::{Rc, Weak};
 
 #[derive(Clone, Debug)]
+pub struct IlMethod {
+    name: String,
+    is_static: bool,
+    rettype: RRType,
+    params: String,
+    locals: String,
+    inits: Vec<Rc<RefCell<Object>>>,
+}
+impl IlMethod {
+    pub fn new(name: &str, is_static: bool, rettype: RRType, params: String, locals: String, inits: Vec<Rc<RefCell<Object>>>) -> Self {
+        IlMethod {
+            name: name.to_string(),
+            is_static,
+            rettype,
+            params,
+            locals,
+            inits,
+        }
+    }
+    fn display_il(&self) {
+        println!("\t.method assembly {} {} '{}'({}) cil managed {{",
+            if self.is_static {"static"} else {"instance"},
+            self.rettype.borrow().to_ilstr(),
+            self.name,
+            self.params);
+        println!("\t.maxstack 32");
+        if !self.locals.is_empty() {
+            println!("\t.locals init (");
+            println!("{}", self.locals);
+            println!("\t)");
+        }
+        self.inits.iter().for_each(|obj| if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &*obj.borrow().ty.borrow() {
+            if name == "<>c__DisplayClass0_0" {
+                println!("\tnewobj instance void '{}'/'<>c__DisplayClass0_0'::.ctor()", pn);
+                println!("\tstloc '{}'", obj.borrow().name);
+            }
+        });
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct IlFunc {
     name: String,
     rettype: RRType,
@@ -120,6 +161,7 @@ pub struct Il {
     stmts: Vec<String>,
     enums: Vec<IlEnum>,
     funcs: Vec<IlFunc>,
+    methods: Vec<IlMethod>,
 }
 impl Il {
     pub fn new() -> Self {
@@ -128,6 +170,7 @@ impl Il {
             stmts: vec![],
             enums: vec![],
             funcs: vec![],
+            methods: vec![],
         }
     }
 }
@@ -202,11 +245,16 @@ impl<'a> Program<'a> {
         self.il.borrow_mut().funcs.push(ilfunc);
     }
 
+    pub fn push_il_method(&self, ilmethod: IlMethod) {
+        self.il.borrow_mut().methods.push(ilmethod);
+    }
+
     pub fn clear_il(&self) {
         self.il.borrow_mut().mani.take();
+        self.il.borrow_mut().stmts.clear();
         self.il.borrow_mut().enums.clear();
         self.il.borrow_mut().funcs.clear();
-        self.il.borrow_mut().stmts.clear();
+        self.il.borrow_mut().methods.clear();
     }
 
     pub fn display_il(&self) {
@@ -219,8 +267,13 @@ impl<'a> Program<'a> {
 
         // 仮実装
         if self.il.borrow().funcs.is_empty() {
-            for stmt in &self.il.borrow().stmts {
-                println!("{}", stmt);
+            for method in &self.il.borrow().methods {
+                method.display_il();
+                for stmt in &self.il.borrow().stmts {
+                    println!("{}", stmt);
+                }
+                println!("\tret");
+                println!("}}");
             }
         } else {
             for func in &self.il.borrow().funcs {
