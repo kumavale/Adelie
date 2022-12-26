@@ -19,7 +19,7 @@ use crate::function::Function;
 use crate::keyword::{Type, RRType, Numeric};
 use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
-use crate::program::{Program, IlEnum, IlManifest, IlFunc, IlMethod};
+use crate::program::{Program, IlEnum, IlManifest, IlFunc};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -122,11 +122,11 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
                         println!("\t}}");
                     }
                     for local_func in &func.local_funcs {
-                        gen_method(program, local_func);
+                        gen_function(program, local_func);
                     }
                     println!("}}");
                 }
-                gen_method(program, func);
+                gen_function(program, func);
             }
         }
         println!("}}");
@@ -163,49 +163,12 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
                 println!("\t}}");
             }
             for local_func in &func.local_funcs {
-                gen_method(program, local_func);
+                gen_function(program, local_func);
             }
             println!("}}");
         }
     }
     println!("}}");
-}
-
-fn gen_method<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
-    if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
-        match (&rettype, &*func.rettype.borrow()) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-            _ => if rettype != *func.rettype.borrow() {
-                panic!("{}: expected `{}`, found `{}`", func.name, func.rettype.borrow(), rettype);
-            }
-        }
-    }
-    let params = func
-        .symbol_table
-        .borrow()
-        .objs
-        .iter()
-        .filter(|obj| obj.borrow().kind == ObjectKind::Param)
-        .skip((!func.is_static) as usize)
-        .map(|o|format!("{} '{}'", o.borrow().ty.borrow().to_ilstr(), o.borrow().name))
-        .collect::<Vec<String>>()
-        .join(", ");
-    let locals = func
-        .symbol_table
-        .borrow()
-        .objs
-        .iter()
-        .filter(|obj| obj.borrow().kind == ObjectKind::Local)
-        .map(|obj| format!("\t\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
-        .collect::<Vec<String>>()
-        .join(",\n");
-    let inits = vec![];
-
-    let ilmethod = IlMethod::new(&func.name, func.is_static, RRType::clone(&func.rettype), params, locals, inits);
-    program.push_il_method(ilmethod);
-
-    // ひとまず直ぐに出力
-    program.display_il();
 }
 
 fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
@@ -223,6 +186,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
             .objs
             .iter()
             .filter(|obj| obj.borrow().kind == ObjectKind::Param)
+            .skip((!func.is_static) as usize)
             .map(|obj|format!("{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
             .collect::<Vec<String>>()
             .join(", ");
@@ -244,7 +208,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
         .map(Rc::clone)
         .collect::<Vec<_>>();
 
-    let ilfunc = IlFunc::new(&func.name, RRType::clone(&func.rettype), params, locals, inits);
+    let ilfunc = IlFunc::new(&func.name, func.is_static, RRType::clone(&func.rettype), params, locals, inits);
     program.push_il_func(ilfunc);
 
     // ひとまず直ぐに出力
