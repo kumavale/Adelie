@@ -65,9 +65,9 @@ fn main() {
 
     // コンパイル: il to exe
     let ilasm = if cfg!(windows) {
-        "%WINDIR%\\Microsoft.NET\\Framework64\\v4.0.30319\\ilasm.exe"
+        format!("{}/Microsoft.NET/Framework64/v4.0.30319/ilasm.exe", std::env::var("WINDIR").unwrap())
     } else if cfg!(unix) {
-        "ilasm"
+        "ilasm".to_string()
     } else {
         unimplemented!();
     };
@@ -79,8 +79,8 @@ fn main() {
         .args([&format!("/OUTPUT={}", outfile.to_string_lossy()), &infile.to_string_lossy().to_string()])
         .output()
         .unwrap();
-    io::stdout().write_all(&output.stdout).unwrap();
-    io::stderr().write_all(&output.stderr).unwrap();
+    let _ = io::stdout().write_all(&output.stdout);
+    let _ = io::stderr().write_all(&output.stderr);
 }
 
 fn gen_manifest<'a>(program: &'a Program<'a>) {
