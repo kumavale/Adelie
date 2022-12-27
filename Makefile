@@ -1,6 +1,13 @@
-ILASM=/mnt/c/Windows/Microsoft.NET/Framework/v4.0.30319/ilasm.exe
-FLAGS=/QUIET
-
+ifeq ($(OS), Windows_NT)
+	ILASM=$(windir)/Microsoft.NET/Framework/v4.0.30319/ilasm.exe
+	RUN_TEST=for %%i in ($^) do echo; && echo %%i && "%%i" || exit 1
+else
+	ifeq ($(shell uname), Linux)
+		ILASM=ilasm
+		RUN_TEST=for i in $^; do echo; echo $$i; ./$$i || exit 1; done
+	else
+	endif
+endif
 TEST_SRCS=$(wildcard test/*.ad)
 TESTS=$(TEST_SRCS:.ad=.exe)
 
@@ -19,18 +26,14 @@ clippy:
 	cargo clippy
 
 test/%.exe: build build-std
-	./target/debug/adelie test/$*.ad
+	@echo ######################################################################
+	"./target/debug/adelie" test/$*.ad
 
 test: $(TESTS)
-	for i in $^; do echo; echo $$i; ./$$i || exit 1; done
+	$(RUN_TEST)
 
 %.ad: build build-std
-	@if [ -f "$@" ]; then \
-		./target/debug/adelie $*.ad && \
-		$*.exe; \
-	else \
-		echo \`$@\` is not found.; \
-	fi
+	"./target/debug/adelie" $*.ad && $*.exe
 
 clean:
 	cargo clean
