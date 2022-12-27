@@ -21,10 +21,18 @@ use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
 use crate::program::{Program, IlEnum, IlManifest, IlFunc, IlClass};
 use std::cell::RefCell;
+use std::io::{self, Write};
+use std::path::Path;
+use std::process::Command;
 use std::rc::Rc;
 
 fn main() {
+    // 引数解析
     let path = std::env::args().nth(1).unwrap();
+
+
+    // コンパイル: Adelie to il
+    println!(" Compiling '{}'", &path);
     let input = std::fs::read_to_string(&path).unwrap();
 
     let mut lexer = lexer::Lexer::new(&input);
@@ -37,20 +45,42 @@ fn main() {
     let mut parser = parser::Parser::new(&path, &input, &tokens, &mut g_symbol_table, errors);
     let program = parser.gen_ast();
 
+    // パース段階のエラーを表示
     if !program.errors.borrow().is_empty() {
         disp_errors(&program);
     }
-    //eprintln!("{:#?}", program);
 
+    // il生成
     gen_manifest(&program);
     gen_items(&program, &program.namespace.borrow());
 
+    // il生成段階のエラーを表示
     if !program.errors.borrow().is_empty() {
         disp_errors(&program);
     }
 
     // ilをファイルに出力
     program.write_il().unwrap();
+
+
+    // コンパイル: il to exe
+    let ilasm = if cfg!(windows) {
+        "%WINDIR%\\Microsoft.NET\\Framework64\\v4.0.30319\\ilasm.exe"
+    } else if cfg!(unix) {
+        "ilasm"
+    } else {
+        unimplemented!();
+    };
+    let infile = Path::new(&path)
+        .with_extension("il");
+    let outfile = Path::new(&path)
+        .with_extension("exe");
+    let output = Command::new(ilasm)
+        .args([&format!("/OUTPUT={}", outfile.to_string_lossy()), &infile.to_string_lossy().to_string()])
+        .output()
+        .unwrap();
+    io::stdout().write_all(&output.stdout).unwrap();
+    io::stderr().write_all(&output.stderr).unwrap();
 }
 
 fn gen_manifest<'a>(program: &'a Program<'a>) {

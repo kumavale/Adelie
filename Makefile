@@ -10,7 +10,7 @@ build:
 	cargo build
 
 build-std:
-	$(ILASM) /OUTPUT=test/adelie_std.dll /QUIET /DLL library/std.il
+	$(ILASM) /OUTPUT=test/adelie_std.dll /DLL library/std.il
 
 check:
 	cargo check
@@ -20,7 +20,6 @@ clippy:
 
 test/%.exe: build build-std
 	./target/debug/adelie test/$*.ad
-	$(ILASM) $(FLAGS) /OUTPUT=$@ test/$*.il
 
 test: $(TESTS)
 	for i in $^; do echo; echo $$i; ./$$i || exit 1; done
@@ -28,7 +27,6 @@ test: $(TESTS)
 %.ad: build build-std
 	@if [ -f "$@" ]; then \
 		./target/debug/adelie $*.ad && \
-		$(ILASM) $(FLAGS) /OUTPUT=$*.exe $*.il && \
 		$*.exe; \
 	else \
 		echo \`$@\` is not found.; \
