@@ -1,10 +1,8 @@
 ifeq ($(OS), Windows_NT)
 	ILASM=$(windir)/Microsoft.NET/Framework/v4.0.30319/ilasm.exe
-	RUN_TEST=for %%i in ($^) do echo; && echo %%i && "%%i" || exit 1
 else
 	ifeq ($(shell uname), Linux)
 		ILASM=ilasm
-		RUN_TEST=for i in $^; do echo; echo $$i; ./$$i || exit 1; done
 	else
 	endif
 endif
@@ -30,7 +28,7 @@ test/%.exe: build build-std
 	"./target/debug/adelie" test/$*.ad
 
 test: $(TESTS)
-	$(RUN_TEST)
+	@for i in $^; do echo; echo $$i; ./$$i || exit 1; done
 
 %.ad: build build-std
 	"./target/debug/adelie" $*.ad && $*.exe
