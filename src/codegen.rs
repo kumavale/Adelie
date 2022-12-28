@@ -1255,7 +1255,7 @@ fn gen_il_path<'a>(current_token: &[Token], p: &'a Program<'a>, segment: &str, m
                 if ns.is_foreign {
                     let reference = &im.reference.as_ref().unwrap();
                     if func.is_ctor {
-                        p.push_il_text(format!("\tnewobj instance void [{}]{}::'{}'({})", reference, full_path.join("."), name, params));
+                        p.push_il_text(format!("\tnewobj instance void {}::'{}'({})", func.rettype.borrow().to_ilstr(), name, params));
                     } else {
                         p.push_il_text(format!("\tcall {} [{}]{}::'{}'({})", func.rettype.borrow().to_ilstr(), reference, full_path.join("."), name, params));
                     }
