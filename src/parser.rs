@@ -1090,7 +1090,7 @@ impl<'a> Parser<'a> {
         } else if self.eat_keyword(Keyword::While) {
             self.parse_predicate_loop_expr()
         } else if self.eat(TokenKind::Or) {
-            let args = self.parse_lambda_args();
+            let args = self.parse_lambda_params();
             self.parse_lambda_expr(args)
         } else if self.eat(TokenKind::OrOr) {
             self.parse_lambda_expr(vec![])
@@ -1144,8 +1144,11 @@ impl<'a> Parser<'a> {
         new_while_node(cond, then, brk_label_seq, &self.tokens[begin..self.idx])
     }
 
-    fn parse_lambda_args(&mut self) -> Vec<Rc<RefCell<Object>>> {
-        let mut args = vec![];
+    fn parse_lambda_params(&mut self) -> Vec<Rc<RefCell<Object>>> {
+        let mut params = vec![
+            // `self`のダミー
+            Rc::new(RefCell::new(Object::new("".to_string(), 0, ObjectKind::Param, RRType::new(Type::Void), false))),
+        ];
         while !self.eat(TokenKind::Or) {
             if self.eat(TokenKind::And) {
                 e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
@@ -1155,73 +1158,60 @@ impl<'a> Parser<'a> {
             let ident = self.expect_ident();
             if ident.is_empty() {
                 self.bump();
-                return args;
+                return params;
             }
-            if args.iter().find(|arg| arg.borrow().name == ident).is_some() {
+            if params.iter().any(|arg| arg.borrow().name == ident) {
                 e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
             }
             self.expect(TokenKind::Colon);
             if let Some(ty) = self.type_no_bounds() {
-                let obj = Rc::new(RefCell::new(Object::new(ident, args.len(), ObjectKind::Param, ty, is_mutable)));
+                let obj = Rc::new(RefCell::new(Object::new(ident, params.len(), ObjectKind::Param, ty, is_mutable)));
                 obj.borrow_mut().assigned = true;
-                args.push(Rc::clone(&obj));
+                params.push(Rc::clone(&obj));
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::Or) {
                 e0009(Rc::clone(&self.errors), self.errorset());
                 break;
             }
         }
-        args
+        params
     }
 
     // WIP
-    fn parse_lambda_expr(&mut self, _args: Vec<Rc<RefCell<Object>>>) -> Node<'a> {
-        // とりあえず引数も戻り値もなし
+    fn parse_lambda_expr(&mut self, params: Vec<Rc<RefCell<Object>>>) -> Node<'a> {
+        // とりあえず戻り値なし
         // とりあえず型をSystem.EventHandlerにしてしまう
         let begin = self.idx - 1;
         let ident = format!("<{}>lambda_{}", self.current_fn().name, crate::seq!());
         let ty = Type::Class(ClassKind::Class, Some("System.Runtime".to_string()), vec!["System".to_string()], "EventHandler".to_string(), None, false);
         if self.current_fn().nested_class.is_none() {
             // nestedクラスを初期化
-            // コンストラクタを自動生成
-            // let mut ctor = Function::new(".ctor", true);
             let ty = RRType::new(Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true));
-            // let mut selfobj = Object::new("".to_string(), 0, ObjectKind::Param, RRType::clone(&ty), true);
-            // selfobj.assigned = true;
-            // let instance = new_variable_node(&Rc::new(RefCell::new(selfobj)), &[]);
-            // ctor.statements = new_method_call_node(instance, ".ctor".to_string(), vec![], &[]);
-            //self.current_fn_mut().local_funcs.push(ctor.clone());
-            //let mut im = Impl::new("<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None);
-            //im.functions.push(Rc::new(ctor));
-            // クラスの生成
             let displayclass = Class::new(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None);
-            //let self_ty = RRType::new(Type::_Self(self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), true));
-            //let self_obj = Rc::new(RefCell::new(Object::new("self".to_string(), 0, ObjectKind::Param, self_ty, true)));
-            //self_obj.borrow_mut().assigned = true;
-            //displayclass.field.push(self_obj);
-            //displayclass.impls.push(Rc::new(im));
             self.current_fn_mut().nested_class = Some(Rc::new(RefCell::new(displayclass)));
             let instance_name = format!("<{}>nested_class", self.current_fn().name);
             let nested_class_instance = new_variable_node_with_let(
                 &mut self.current_fn_mut().symbol_table.borrow_mut(),
-                //format!("<{}>nested_class", current_fn_name),
                 instance_name,
                 RRType::clone(&ty),
                 &[],
                 true,
                 true,
                 ObjectKind::Local,
-            );  // <- こいつの.ctorを呼ぶ必要がある
+            );
             self.nested_class_instance = Some(nested_class_instance);
         }
         let mut lambda = Function::new(&ident, false);
+        for param in params {
+            lambda.symbol_table.borrow_mut().push(Rc::clone(&param));
+        }
         lambda.is_static = false;
         self.current_lambda = Some(lambda);
         let stmts = self.parse_expr();
         let mut lambda = self.current_lambda.take().unwrap();
         lambda.statements = stmts;
         self.current_fn_mut().local_funcs.push(lambda);
-        new_lambda_node(ty, ident, &self.tokens[begin..self.idx])
+        new_lambda_node(ty, ident, &self.current_fn().name, &self.tokens[begin..self.idx])
     }
 
     fn parse_cond(&mut self) -> Node<'a> {

@@ -37,8 +37,8 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Result<Type> {
         NodeKind::Method { expr, ident, args } => {
             gen_il_method(node.token, p, *expr, &ident, args)
         }
-        NodeKind::Lambda { ty, ident } => {
-            gen_il_lambda(node.token, p, ty, &ident)
+        NodeKind::Lambda { ty, ident, parent } => {
+            gen_il_lambda(node.token, p, ty, &ident, &parent)
         }
         NodeKind::Struct { obj, field } => {
             gen_il_struct(node.token, p, obj.borrow(), field)
@@ -320,20 +320,30 @@ fn gen_il_lambda<'a>(
     p: &'a Program<'a>,
     ty: Type,
     ident: &str,
+    parent: &str,
 ) -> Result<Type> {
-    //println!("\tldc.i4.0");  // 本当は`sender`のobjectをロードする必要がある？
-    //println!("\tldftn instance void '{}'()", ident);  // インターナルclass内に定義していないから`instance`は要らない
-    // めっちゃ強引に書いているだけ
-    //println!("\tldftn void Form1/'<>c__DisplayClass0_0'::'{}'()", ident);
-    p.push_il_text(format!("\tldloc '{}'", "<main>nested_class"));
-    //let end_label = format!("\tIL_lambda_ctor_end{}", crate::seq!());
-    //println!("\tbrtrue {}", end_label);
-    //println!("\tnewobj instance void [System.Runtime]System.Object::.ctor()");
-    //println!("\tstloc '{}'", format!("<main>nested_class"));
-    //println!("\tldloc '{}'", format!("<main>nested_class"));
-    //println!("{}:", end_label);
-    p.push_il_text(format!("\tldftn instance void '{}'/'<>c__DisplayClass0_0'::'{}'()", p.name, ident));
-    p.push_il_text("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
+    //println!("\tldc.i4.0");  // FIXME: EventHandlerの第一引数がよく分からない
+    if let Some(func) = p.namespace.borrow().find_fn(parent) {
+        if let Some(func) = func.local_funcs.iter().find(|f|f.name == ident) {
+            let params = &func
+                .symbol_table
+                .borrow()
+                .objs
+                .iter()
+                .filter(|o| o.borrow().kind == ObjectKind::Param)
+                .skip((!func.is_static) as usize)
+                .map(|p|p.borrow().ty.borrow().to_ilstr())
+                .collect::<Vec<String>>()
+                .join(", ");
+            p.push_il_text(format!("\tldloc '{}'", "<main>nested_class"));
+            p.push_il_text(format!("\tldftn instance void '{}'/'<>c__DisplayClass0_0'::'{}'({})", p.name, ident, params));
+            p.push_il_text("\tnewobj instance void [mscorlib]System.EventHandler::.ctor(object, native int)");
+        } else {
+            unreachable!();
+        }
+    } else {
+        unimplemented!();
+    }
     Ok(ty)
 }
 

@@ -39,7 +39,7 @@ extern {
         }
     }
 }
-#[link(name="System.Runtime.dll", publickeytoken="B0 3F 5F 7F 11 D5 0A 3A")]
+#[link(name="mscorlib.dll")]
 extern {
     mod System {
         class EventHandler {}
