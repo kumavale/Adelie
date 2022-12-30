@@ -1089,9 +1089,11 @@ impl<'a> Parser<'a> {
             self.parse_infinite_loop_expr()
         } else if self.eat_keyword(Keyword::While) {
             self.parse_predicate_loop_expr()
+        } else if self.eat(TokenKind::Or) {
+            let args = self.parse_lambda_args();
+            self.parse_lambda_expr(args)
         } else if self.eat(TokenKind::OrOr) {
-            // WIP: とりあえず引数なしのクロージャのみ実装
-            self.parse_lambda_expr(None)
+            self.parse_lambda_expr(vec![])
         } else {
             self.parse_assign()
         }
@@ -1142,8 +1144,38 @@ impl<'a> Parser<'a> {
         new_while_node(cond, then, brk_label_seq, &self.tokens[begin..self.idx])
     }
 
+    fn parse_lambda_args(&mut self) -> Vec<Rc<RefCell<Object>>> {
+        let mut args = vec![];
+        while !self.eat(TokenKind::Or) {
+            if self.eat(TokenKind::And) {
+                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
+                    "variable declaration cannot be a reference");
+            }
+            let is_mutable = self.eat_keyword(Keyword::Mut);
+            let ident = self.expect_ident();
+            if ident.is_empty() {
+                self.bump();
+                return args;
+            }
+            if args.iter().find(|arg| arg.borrow().name == ident).is_some() {
+                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            }
+            self.expect(TokenKind::Colon);
+            if let Some(ty) = self.type_no_bounds() {
+                let obj = Rc::new(RefCell::new(Object::new(ident, args.len(), ObjectKind::Param, ty, is_mutable)));
+                obj.borrow_mut().assigned = true;
+                args.push(Rc::clone(&obj));
+            }
+            if !self.eat(TokenKind::Comma) && !self.check(TokenKind::Or) {
+                e0009(Rc::clone(&self.errors), self.errorset());
+                break;
+            }
+        }
+        args
+    }
+
     // WIP
-    fn parse_lambda_expr(&mut self, _args: Option<Rc<RefCell<Object>>>) -> Node<'a> {
+    fn parse_lambda_expr(&mut self, _args: Vec<Rc<RefCell<Object>>>) -> Node<'a> {
         // とりあえず引数も戻り値もなし
         // とりあえず型をSystem.EventHandlerにしてしまう
         let begin = self.idx - 1;
