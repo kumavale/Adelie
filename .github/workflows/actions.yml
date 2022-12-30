@@ -47,6 +47,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - uses: GabrielBB/xvfb-action@v1
 
       - name: Run adelie tests
         run: make test
