@@ -120,6 +120,7 @@ pub enum NodeKind<'a> {
     },
     Return {
         expr: Option<Box<Node<'a>>>,
+        func_retty: RRType,
     },
     Break {
         brk_label_seq: usize,
@@ -272,11 +273,13 @@ pub fn new_block_node<'a>(
 
 pub fn new_return_node<'a>(
     expr: Option<Node<'a>>,
+    func_retty: RRType,
     token: &'a [Token],
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Return {
             expr: expr.map(Box::new),
+            func_retty,
         },
         token,
     }

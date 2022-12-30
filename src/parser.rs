@@ -987,12 +987,8 @@ impl<'a> Parser<'a> {
         self.current_fn_mut().symbol_table.borrow_mut().enter_scope();
         let except_struct_expression = self.except_struct_expression;
         self.except_struct_expression = false;
-        let begin = self.idx;
-        let mut stmts = if self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-            vec![new_empty_node()]
-        } else {
-            vec![]
-        };
+        let begin = self.idx - 1;
+        let mut stmts = vec![];
         while !self.check(TokenKind::CloseDelim(Delimiter::Brace)) && !self.is_eof() {
             stmts.push(self.parse_stmt());
         }
@@ -1023,16 +1019,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_return_expr(&mut self) -> Node<'a> {
-        let begin = self.idx;
+        let begin = self.idx - 1;
         if self.eat(TokenKind::Semi) {
-            new_return_node(None, &self.tokens[begin..self.idx])
+            new_return_node(None, RRType::clone(&self.current_fn().rettype), &self.tokens[begin..self.idx])
         } else {
-            let node = new_return_node(
-                Some(self.parse_expr()),
-                &self.tokens[begin..self.idx],
-            );
-            self.eat(TokenKind::Semi);
-            new_return_node(Some(node), &self.tokens[begin..self.idx])
+            let expr = self.parse_expr();
+            self.expect(TokenKind::Semi);
+            new_return_node(Some(expr), RRType::clone(&self.current_fn().rettype), &self.tokens[begin..self.idx])
         }
     }
 

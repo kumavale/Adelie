@@ -67,8 +67,8 @@ pub fn gen_il<'a>(node: Node, p: &'a Program<'a>) -> Result<Type> {
         NodeKind::Assign { lhs, rhs } => {
             gen_il_assign(node.token, p, *lhs, *rhs)
         }
-        NodeKind::Return { expr } => {
-            gen_il_return(node.token, p, expr)
+        NodeKind::Return { expr, func_retty } => {
+            gen_il_return(node.token, p, expr, func_retty)
         }
         NodeKind::Break { brk_label_seq } => {
             gen_il_break(node.token, p, brk_label_seq)
@@ -782,12 +782,24 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
     Ok(Type::Void)
 }
 
-fn gen_il_return<'a>(_current_token: &[Token], p: &'a Program<'a>, expr: Option<Box<Node>>) -> Result<Type> {
+fn gen_il_return<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Option<Box<Node>>, func_retty: RRType) -> Result<Type> {
+    fn check_type(arg: &Type, param: &Type) -> Result<()> {
+        match (arg, param) {
+            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
+            (Type::Box(l), Type::Box(r)) |
+            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
+            _ if arg == param => Ok(()),
+            _ => Err(())
+        }
+    }
     let rettype = if let Some(expr) = expr {
         gen_il(*expr, p)?
     } else {
         Type::Void
     };
+    if check_type(&rettype, &*func_retty.borrow()).is_err() {
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &func_retty.borrow(), &rettype);
+    }
     p.push_il_text("\tret");
     Ok(rettype)
 }
