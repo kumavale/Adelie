@@ -48,8 +48,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Run adelie tests
-        run: make test
+      - uses: GabrielBB/xvfb-action@v1
+        with:
+            name: Run adelie tests
+            run: make test
 
   clippy:
     name: Clippy
