@@ -797,7 +797,7 @@ fn gen_il_return<'a>(current_token: &[Token], p: &'a Program<'a>, expr: Option<B
     } else {
         Type::Void
     };
-    if check_type(&rettype, &*func_retty.borrow()).is_err() {
+    if check_type(&rettype, &func_retty.borrow()).is_err() {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &func_retty.borrow(), &rettype);
     }
     p.push_il_text("\tret");
