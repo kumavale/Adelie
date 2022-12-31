@@ -18,8 +18,8 @@ fn main() {
 
     print!("println!(12.34f32) => ");
             println!(12.34f32);
-    print!("println!({ let a: f32 = 12.34f32; a }) => ");
-            println!({ let a: f32 = 12.34f32; a });
+    print!("println!({{ let a: f32 = 12.34f32; a }}) => ");
+            println!( { let a: f32 = 12.34f32; a } );
 
     assert_eq!(1.1f32, foo());
     assert_eq!(1.1f32, bar(1.1f32));

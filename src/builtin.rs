@@ -99,7 +99,7 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
             let format = args.drain(..1).next().unwrap();
             let token = format.token;
             // check arg counts
-            if format_arg_count(&format) != argc-1 {
+            if format_placeholder_count(&format) != argc-1 {
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
             p.push_il_text("\tldstr \"{{0}}\"");
@@ -115,7 +115,7 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "format argument must be a string literal");
             }
             // check arg counts
-            if format_arg_count(&format) != argc-1 {
+            if format_placeholder_count(&format) != argc-1 {
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
             gen_il(format_shaping(format), p)?;
@@ -139,11 +139,13 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
 }
 
 fn gen_il_builtin_print<'a>(_token: &[Token], args: Vec<Node>, p: &'a Program<'a>) -> Result<Type> {
-    format_args(_token, args, p, false)
+    format_args(_token, args, p)
 }
 
 fn gen_il_builtin_println<'a>(_token: &[Token], args: Vec<Node>, p: &'a Program<'a>) -> Result<Type> {
-    format_args(_token, args, p, true)
+    let ty = format_args(_token, args, p);
+    p.push_il_text("\tcall void [mscorlib]System.Console::WriteLine()");
+    ty
 }
 
 fn gen_il_builtin_read_line<'a>(token: &[Token], args: Vec<Node>, p: &'a Program) -> Result<Type> {
@@ -154,30 +156,39 @@ fn gen_il_builtin_read_line<'a>(token: &[Token], args: Vec<Node>, p: &'a Program
     Ok(Type::String)
 }
 
-fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl: bool) -> Result<Type> {
-    let nl = if nl { "Line" } else { "" };
+fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Result<Type> {
     let argc = args.len();
     match argc {
-        0 => p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write{nl}()")),
+        0 => p.push_il_text("\tcall void [mscorlib]System.Console::Write()"),
         1 => {
             let format = args.drain(..1).next().unwrap();
             let token = format.token;
-            // check arg counts
-            if format_arg_count(&format) != argc-1 {
+            // check place holder counts
+            if format_placeholder_count(&format) != argc-1 {
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
-            let ty = gen_il(format_shaping(format), p)?;
-            p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write{nl}({})",
-                match ty {
-                    Type::Numeric(n) => n.to_ilstr(),
-                    Type::Float(f) => f.to_ilstr(),
-                    Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
-                    b @ Type::Box(_) => b.to_ilstr(),
-                    _ => {
-                        dbg!(ty);
-                        unimplemented!();
-                    }
-                }));
+            if let NodeKind::String{..} = &format.kind {
+                if let Some(FmtKind::Literal(s)) = &fmt_tokenize(token, p, format).first() {
+                    p.push_il_text(format!("\tldstr \"{}\"", s));
+                    p.push_il_text("\tcall void [mscorlib]System.Console::Write(string)");
+                } else {
+                    // maybe compile error
+                    debug_assert!(!p.errors.borrow().is_empty());
+                }
+            } else {
+                let ty = gen_il(format, p)?;
+                p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})",
+                    match ty {
+                        Type::Numeric(n) => n.to_ilstr(),
+                        Type::Float(f) => f.to_ilstr(),
+                        Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
+                        b @ Type::Box(_) => b.to_ilstr(),
+                        _ => {
+                            dbg!(ty);
+                            unimplemented!();
+                        }
+                    }));
+            }
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
@@ -186,30 +197,34 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>, nl
                 // format argument must be a string literal
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "format argument must be a string literal");
             }
-            // check arg counts
-            if format_arg_count(&format) != argc-1 {
+            // check place holder counts
+            if format_placeholder_count(&format) != argc-1 {
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
-            gen_il(format_shaping(format), p)?;
-            p.push_il_text(format!("\tldc.i4 {}", argc));
-            p.push_il_text("\tnewarr object");
-            for (i, arg) in args.into_iter().enumerate() {
-                p.push_il_text("\tdup");
-                p.push_il_text(format!("\tldc.i4 {}", i));
-                let ty = gen_il(arg, p)?;
-                p.push_il_text(format!("\tbox {}", ty.to_ilstr()));
-                p.push_il_text("\tstelem.ref");
+            let fmt_tokens = fmt_tokenize(token, p, format);
+            let mut args = args.into_iter();
+            for tok in fmt_tokens {
+                match tok {
+                    FmtKind::Literal(s) => {
+                        p.push_il_text(format!("\tldstr \"{}\"", s));
+                        p.push_il_text("\tcall void [mscorlib]System.Console::Write(string)");
+                    }
+                    FmtKind::PlaceHolder => {
+                        let ty = gen_il(args.next().unwrap(), p)?;
+                        p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})", ty.to_ilstr()));
+                    }
+                }
             }
-            p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write{nl}(string, object[])"));
         }
     }
     Ok(Type::Void)
 }
 
 /// Return `{}` count
-fn format_arg_count(node: &Node) -> usize {
+// TODO: `{.*}`
+fn format_placeholder_count(node: &Node) -> usize {
     match &node.kind {
-        NodeKind::String{ ty: _, str } => str.matches("{}").count(),
+        NodeKind::String{ ty: _, str } => str.replace("{{", "").matches("{}").count(),
         _ => 0,
     }
 }
@@ -230,5 +245,86 @@ fn format_shaping(mut node: Node) -> Node {
             node
         }
         _ => node
+    }
+}
+
+#[derive(Debug)]
+enum FmtKind {
+    Literal(String),
+    PlaceHolder,
+}
+
+/// e.g.
+///
+/// ```
+/// let t = fmt_tokennize("1+1={}")
+/// assert_eq!(t, &[FmtKind::Literal("1+1="), FmtKind::PlaceHolder]);
+/// ```
+///
+/// ```
+/// let t = fmt_tokennize("{{}}")
+/// assert_eq!(t, &[FmtKind::Literal("{}")]);
+/// ```
+///
+/// ```
+/// let t = fmt_tokennize("{{{}}}")
+/// assert_eq!(t, &[FmtKind::Literal("{"), FmtKind::PlaceHolder, FmtKind::Literal("}")]);
+/// ```
+fn fmt_tokenize<'a>(token: &[Token], p: &'a Program<'a>, node: Node) -> Vec<FmtKind> {
+    match &node.kind {
+        NodeKind::String { ty: _, str } => {
+            let mut tokens = vec![];
+            let mut chars = str.chars().peekable();
+            while let Some(c) = chars.next() {
+                match c {
+                    '{' => match chars.next() {
+                        Some('}') => {
+                            tokens.push(FmtKind::PlaceHolder);
+                        }
+                        Some('{') => {
+                            if let Some(FmtKind::Literal(s)) = tokens.last_mut() {
+                                s.push('{');
+                            } else {
+                                tokens.push(FmtKind::Literal("{".to_string()));
+                            }
+                        }
+                        _ => {
+                            // TODO: Formatting Parameters
+                            let message = "unimplemented formatting parameters";
+                            e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), message);
+                            // skip until close
+                            while chars.next_if(|&c|c!='}').is_some() {}
+                            chars.next();
+                        }
+                    }
+                    '}' => match chars.next() {
+                        Some('}') => {
+                            if let Some(FmtKind::Literal(s)) = tokens.last_mut() {
+                                s.push('}');
+                            } else {
+                                tokens.push(FmtKind::Literal("}".to_string()));
+                            }
+                        }
+                        _ => {
+                            let message = "invalid format string: unmatched `}` found";
+                            e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), message);
+                        }
+                    }
+                    _ => {
+                        let mut lit = c.to_string();
+                        while let Some(c) = chars.next_if(|&c|c!='{'&&c!='}') {
+                            lit.push(c);
+                        }
+                        if let Some(FmtKind::Literal(s)) = tokens.last_mut() {
+                            s.push_str(&lit);
+                        } else {
+                            tokens.push(FmtKind::Literal(lit));
+                        }
+                    }
+                }
+            }
+            tokens
+        }
+        _ => vec![]
     }
 }
