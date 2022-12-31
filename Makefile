@@ -1,6 +1,6 @@
 ifeq ($(OS), Windows_NT)
 	RUN=
-	ILASM=$(SYSTEMROOT)/Microsoft.NET/Framework/v4.0.30319/ilasm.exe
+	ILASM=C:/Windows/Microsoft.NET/Framework/v4.0.30319/ilasm.exe
 else
 	ifeq ($(shell uname), Linux)
 		RUN=mono
