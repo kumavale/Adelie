@@ -65,9 +65,9 @@ fn main() {
 
     // コンパイル: il to exe
     let ilasm = if cfg!(windows) {
-        format!("{}/Microsoft.NET/Framework64/v4.0.30319/ilasm.exe", std::env::var("WINDIR").unwrap())
+        "C:/Windows/Microsoft.NET/Framework64/v4.0.30319/ilasm.exe"
     } else if cfg!(unix) {
-        "ilasm".to_string()
+        "ilasm"
     } else {
         unimplemented!();
     };
