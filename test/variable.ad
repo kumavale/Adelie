@@ -1,3 +1,4 @@
+fn ignore_param(_: i32, _: char) -> i32 { 1 }
 fn main() {
     assert_eq!(3, { let a : i32 = 3; a });
     assert_eq!(8, { let a: i32=3; let b: i32=5; a+b });
@@ -13,12 +14,15 @@ fn main() {
     assert_eq!(8, { let foo_123: i32=3; let bar: i32=5; foo_123+bar });
     assert_eq!(1, { let f1: i32=-1; let f2: i32=2; f1+f2 });
     assert_eq!(3, { let A: i32=1; let _B: i32=2; let c99: i32=A+_B; c99 });
-
     assert_eq!(2, { let a:i32=1; let a:i32=2; a });
+
+    assert_eq!(1, ignore_param(2, 'a'));
+    assert_eq!(1, { let _:i32=1; let _:char='a'; 1 });
 
     // should compile error
     // let a: i32; a += 1;
     // let a: i32; a = 1; a = 1;
+    // let _: i32 = 42; _;
 
     println!("ok");
 }

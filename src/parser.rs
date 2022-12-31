@@ -961,11 +961,14 @@ impl<'a> Parser<'a> {
                 "variable declaration cannot be a reference");
         }
         let is_mutable = self.eat_keyword(Keyword::Mut);
-        let ident = self.expect_ident();
-        if ident.is_empty() {
-            self.bump();
-            return;
-        }
+        let ident = match &*self.expect_ident() {
+            "" => {
+                self.bump();
+                return;
+            }
+            "_" => format!("<ignored>param_{}", crate::seq!()),
+            ident => ident.to_string(),
+        };
         if self.current_fn_mut().symbol_table.borrow().find(&ident).is_some() {
             e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
         }
@@ -1046,7 +1049,10 @@ impl<'a> Parser<'a> {
     fn parse_let_stmt(&mut self) -> Node<'a> {
         let begin = self.idx;
         let is_mutable = self.eat_keyword(Keyword::Mut);
-        let ident = self.expect_ident();
+        let ident = match &*self.expect_ident() {
+            "_" => format!("<ignored>local_{}", crate::seq!()),
+            ident => ident.to_string(),
+        };
         self.expect(TokenKind::Colon);
         let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Void));
         let token = &self.tokens[begin..self.idx];
