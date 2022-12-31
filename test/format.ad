@@ -1,3 +1,16 @@
 fn main() {
-    println!("{}", "ok");
+    println!("{{}}");           // {}
+    println!("{{{}}}", 42);     // {42}
+    println!("a{{b}}{}", 'c');  // a{b}c
+    println!("{}{}", 1, '2');   // 12
+
+    // until compile error
+    //println!("{:x}", 42);
+    //println!("{foo}", foo=42);
+
+    // should compile error
+    //println!("{}}", 42);
+    //println!("}");
+
+    println!("{}", "ok");  // ok
 }
