@@ -173,7 +173,7 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) ->
                     p.push_il_text("\tcall void [mscorlib]System.Console::Write(string)");
                 } else {
                     // maybe compile error
-                    debug_assert!(!p.errors.borrow().is_empty());
+                    debug_assert!(p.errors.borrow().any_deny());
                 }
             } else {
                 let ty = gen_il(format, p)?;
