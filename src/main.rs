@@ -46,8 +46,9 @@ fn main() {
     let program = parser.gen_ast();
 
     // パース段階のエラーを表示
-    if !program.errors.borrow().is_empty() {
-        disp_errors(&program);
+    program.errors.borrow().display();
+    if program.errors.borrow().any_deny() {
+        error_exit(&program);
     }
 
     // il生成
@@ -55,8 +56,9 @@ fn main() {
     gen_items(&program, &program.namespace.borrow());
 
     // il生成段階のエラーを表示
-    if !program.errors.borrow().is_empty() {
-        disp_errors(&program);
+    program.errors.borrow().display();
+    if program.errors.borrow().any_deny() {
+        error_exit(&program);
     }
 
     // ilをファイルに出力
@@ -225,9 +227,8 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     program.push_il_func(ilfunc);
 }
 
-fn disp_errors(program: &Program) {
+fn error_exit(program: &Program) {
     let err_count = program.errors.borrow().err_count();
-    program.errors.borrow().display();
     eprintln!("\x1b[31merror\x1b[0m: could not compile due to {} previous errors", err_count);
     std::process::exit(1);
 }

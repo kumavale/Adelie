@@ -445,8 +445,7 @@ impl<'a> Parser<'a> {
             }
             self.idx += 1;
         }
-        e0000(Rc::clone(&self.errors), (self.path, &self.lines, &[start_brace]),
-            "this file contains an unclosed delimiter");
+        e0000(Rc::clone(&self.errors), (self.path, &self.lines, &[start_brace]), "this file contains an unclosed delimiter");
     }
 
     fn is_eof(&self) -> bool {
@@ -512,8 +511,7 @@ impl<'a> Parser<'a> {
             }
         } else if self.eat_keyword(Keyword::SelfUpper) {
             if self.current_impl.is_none() {
-                let message = "`Self` is only available in impls";
-                e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), message);
+                e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "`Self` is only available in impls");
                 None
             } else {
                 let org_name = self.current_impl.as_ref().unwrap().name.to_string();
@@ -587,7 +585,8 @@ impl<'a> Parser<'a> {
                     cl.borrow_mut().impls.push(Rc::new(impl_item));
                 } else {
                     // TODO: クラス定義より先にimplしても大丈夫なように
-                    e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), "TODO");
+                    let message = "[compiler unimplemented!()] impl def before class def";
+                    e0000(Rc::clone(&self.errors), self.errorset(begin..self.idx), message);
                 }
             }
             ItemKind::Mod(mod_item) => {
@@ -600,8 +599,7 @@ impl<'a> Parser<'a> {
             }
             ItemKind::ForeignMod(foreign_mod_item) => {
                 if self.foreign_reference.is_none() {
-                    let message = "specify the `.dll` file";
-                    e0000(Rc::clone(&self.errors), self.errorset(begin..=begin+1), message);
+                    e0000(Rc::clone(&self.errors), self.errorset(begin..=begin+1), "specify the `.dll` file");
                 }
                 self.foreign_reference = None;
                 program.references.extend_from_slice(&item.attrs.iter()
@@ -619,7 +617,8 @@ impl<'a> Parser<'a> {
                                 cl.borrow_mut().impls.push(Rc::new(i));
                             } else {
                                 // TODO: クラス定義より先にimplしても大丈夫なように
-                                e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), "TODO");
+                                let message = "[compiler unimplemented!()] impl def before class def";
+                                e0000(Rc::clone(&self.errors), self.errorset(begin..self.idx), message);
                             }
                         }
                         ForeignItemKind::Mod((ident, items)) => {
@@ -741,8 +740,7 @@ impl<'a> Parser<'a> {
                 ItemKind::Impl(i)   => ForeignItemKind::Impl(i),
                 ItemKind::Enum(e)   => ForeignItemKind::Enum(e),
                 _ => {
-                    let message = "not supported in `extern` blocks";
-                    e0000(Rc::clone(&self.errors), self.errorset(item.0..=item.0), message);
+                    e0000(Rc::clone(&self.errors), self.errorset(item.0..=item.0), "not supported in `extern` blocks");
                     continue;
                 }
             };
@@ -844,7 +842,8 @@ impl<'a> Parser<'a> {
                     cl.impls.push(Rc::new(impl_item));
                 } else {
                     // TODO: クラス定義より先にimplしても大丈夫なように
-                    e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), "TODO");
+                    let message = "[compiler unimplemented!()] impl def before class def";
+                    e0000(Rc::clone(&self.errors), self.errorset(start_brace..self.idx), message);
                 }
                 self.eat(TokenKind::Comma);
             } else {
@@ -902,8 +901,16 @@ impl<'a> Parser<'a> {
             if !self.is_foreign {
                 e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "`.ctor` must be inside an extern block");
             } else if let Some(ref im) = self.current_impl {
-                let ty = self.ident_types.get(&(self.current_mod.to_vec(), im.name.to_string())).unwrap();
-                self.current_fn_mut().rettype = RRType::clone(ty);
+                let key = (self.current_mod.to_vec(), im.name.to_string());
+                self.current_fn_mut().rettype = if let Some(ty) = self.ident_types.get(&key) {
+                    // known ident
+                    RRType::clone(ty)
+                } else {
+                    // insert
+                    let tmp_ty = RRType::new(Type::RRIdent(self.current_mod.to_vec(), im.name.to_string()));
+                    self.ident_types.insert(key, RRType::clone(&tmp_ty));
+                    tmp_ty
+                };
             } else {
                 e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "`.ctor` must be an impl");
             }
@@ -980,8 +987,8 @@ impl<'a> Parser<'a> {
     fn parse_fn_ret_ty(&mut self) {
         if let Some(ty) = self.type_no_bounds() {
             if self.current_fn().name == "main" && *ty.borrow() != Type::Void {
-                let message = "`main` can only return void type";
-                e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), message);
+                // TODO: std::process::Termination
+                e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "`main` can only return void type");
             }
             self.current_fn_mut().rettype = ty;
         }
@@ -1042,7 +1049,10 @@ impl<'a> Parser<'a> {
         if self.eat(TokenKind::Semi) {
             new_break_node(self.brk_label_seq, &self.tokens[begin..self.idx])
         } else {
-            unimplemented!();
+            // TODO: `break 'label`, `break EXPR`, `break 'label EXPR`
+            let message = "[compiler unimplemented!()] `break 'label`, `break EXPR`, `break 'label EXPR`";
+            e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), message);
+            return new_empty_node();
         }
     }
 
@@ -1750,6 +1760,7 @@ impl<'a> Parser<'a> {
                     let f = s.parse::<f32>().unwrap();
                     new_float_node(FloatNum::Float32(f), &self.tokens[self.idx-2..=self.idx-1])
                 } else {
+                    // TODO: 型推論実装後はリテラルを明示しなくても良くなる
                     let message = "float literal must be suffixed with `f32` or `f64`";
                     e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), message);
                     new_empty_node()

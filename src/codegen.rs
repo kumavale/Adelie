@@ -309,8 +309,9 @@ fn gen_il_method<'a>(
             Ok(Type::String)
         }
         ty => {
-            p.errors.borrow().display();
-            unimplemented!("primitive type: {:?}", ty);
+            let message = format!("[compiler unimplemented!()] primitive type methods: {:?}", ty);
+            e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+            Err(())
         }
     }
 }
@@ -403,12 +404,16 @@ fn gen_il_field<'a>(
                     (path.to_vec(), name.to_string(), None, *is_mutable)
                 }
                 _ => {
-                    unimplemented!()
+                    let message = format!("[compiler unimplemented!()] primitive type field: {:?}", ty);
+                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                    return Err(());
                 }
             }
         }
         ty => {
-            unimplemented!("primitive type: {:?}", ty);
+            let message = format!("[compiler unimplemented!()] primitive type field: {:?}", ty);
+            e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+            return Err(());
         }
     };
     let ns = p.namespace.borrow();
@@ -485,7 +490,8 @@ fn gen_il_variable(current_token: &[Token], p: &Program, obj: Ref<Object>) -> Re
         if !obj.assigned {
             // TODO: objのis_assignedを再帰的にtrueにする必要がある
             //dbg!(&obj);
-            //e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
+            let message = format!("[compiler unimplemented!()] use of possibly-uninitialized variable: `{}`", obj.name);
+            warning(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
         }
         let parent_ty = gen_il_variable(current_token, p, parent.borrow())?;
         let ident = obj.name.to_string();
@@ -673,7 +679,8 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                         }
                     }
                     ty => {
-                        unimplemented!("primitive type: {:?}", ty);
+                        let message = format!("[compiler unimplemented!()] primitive type: {:?}", ty);
+                        e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                     }
                 }
                 return Ok(Type::Void);
@@ -710,7 +717,10 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
             match lty {
                 Type::Ptr(_) => p.push_il_text("\tstind.i"),
                 Type::Numeric(Numeric::I32) => p.push_il_text("\tstind.i4"),
-                _ => unimplemented!(),
+                _ => {
+                    let message = format!("[compiler unimplemented!()] dereference {:?}", lty);
+                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                }
             }
         }
         NodeKind::Field { expr, ident } => {
@@ -773,7 +783,8 @@ fn gen_il_assign<'a>(current_token: &[Token], p: &'a Program<'a>, lhs: Node, rhs
                     }
                 }
                 ty => {
-                    unimplemented!("primitive type: {:?}", ty);
+                    let message = format!("[compiler unimplemented!()] primitive type field: {:?}", ty);
+                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
                 }
             }
         }
@@ -898,7 +909,10 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                         Type::Ptr(_) => p.push_il_text("\tldind.i"),
                         Type::Numeric(Numeric::I32) => p.push_il_text("\tldind.i4"),
                         Type::Float(Float::F32) => p.push_il_text("\tldind.r4"),
-                        _ => unimplemented!(),
+                        _ => {
+                            let message = format!("[compiler unimplemented!()] dereferenced {:?}", ty);
+                            e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                        }
                     }
                     Ok(ty)
                 }
