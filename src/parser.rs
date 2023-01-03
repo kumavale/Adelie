@@ -399,7 +399,7 @@ impl<'a> Parser<'a> {
         if self.tokens[self.idx].kind == kind {
             self.idx += 1;
         } else if !self.is_eof() {
-            e0001(Rc::clone(&self.errors), self.errorset(), kind);
+            e0001(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), kind);
             self.idx += 1;
         }
     }
@@ -408,7 +408,7 @@ impl<'a> Parser<'a> {
         if let Some(ident) = self.eat_ident() {
             ident
         } else {
-            e0003(Rc::clone(&self.errors), self.errorset());
+            e0003(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
             "".to_string()
         }
     }
@@ -419,7 +419,7 @@ impl<'a> Parser<'a> {
             s.to_string()
         } else {
             let message = format!("expect string literal, but got {}", self.tokens[self.idx].kind);
-            e0000(Rc::clone(&self.errors), self.errorset(), &message);
+            e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), &message);
             self.idx += 1;
             "".to_string()
         }
@@ -455,10 +455,6 @@ impl<'a> Parser<'a> {
 
     fn token_kind(&self) -> &TokenKind {
         &self.tokens[self.idx].kind
-    }
-
-    fn current_token(&self) -> &[Token] {
-        &self.tokens[self.idx..=self.idx]
     }
 
     fn current_fn(&self) -> &Function<'a> {
@@ -517,7 +513,7 @@ impl<'a> Parser<'a> {
         } else if self.eat_keyword(Keyword::SelfUpper) {
             if self.current_impl.is_none() {
                 let message = "`Self` is only available in impls";
-                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), message);
+                e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), message);
                 None
             } else {
                 let org_name = self.current_impl.as_ref().unwrap().name.to_string();
@@ -532,7 +528,7 @@ impl<'a> Parser<'a> {
                 }
             }
         } else {
-            e0002(Rc::clone(&self.errors), self.errorset());
+            e0002(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
             None
         }
 
@@ -550,8 +546,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn errorset(&self) -> (&str, &[&'a str], &[Token]) {
-        (self.path, &self.lines, self.current_token())
+    fn errorset<R>(&self, token_range: R) -> (&str, &[&'a str], &[Token])
+    where
+        R: std::ops::RangeBounds<usize> + std::slice::SliceIndex<[Token], Output = [Token]>,
+    {
+        (self.path, &self.lines, &self.tokens[token_range])
     }
 
     fn program(&mut self) -> Program<'a> {
@@ -568,18 +567,18 @@ impl<'a> Parser<'a> {
             ItemKind::Class(cl) => {
                 for nested_class in &cl.nested_class {
                     if program.current_namespace.borrow().find_class(|k|matches!(k,ClassKind::NestedClass(_)), &nested_class.name).is_some() {
-                        e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &nested_class.name);
+                        e0005(Rc::clone(&self.errors), self.errorset(begin..=begin+1), &nested_class.name);
                     }
                     program.current_namespace.borrow_mut().push_class(nested_class.clone());
                 }
                 if program.current_namespace.borrow().find_class(|k|matches!(k,ClassKind::Struct|ClassKind::Class), &cl.name).is_some() {
-                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &cl.name);
+                    e0005(Rc::clone(&self.errors), self.errorset(begin..=begin+1), &cl.name);
                 }
                 program.current_namespace.borrow_mut().push_class(cl);
             }
             ItemKind::Enum(ed) => {
                 if program.current_namespace.borrow().find_enum(&ed.name).is_some() {
-                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &ed.name);
+                    e0005(Rc::clone(&self.errors), self.errorset(begin..=begin+1), &ed.name);
                 }
                 program.current_namespace.borrow_mut().push_enum(ed);
             }
@@ -588,7 +587,7 @@ impl<'a> Parser<'a> {
                     cl.borrow_mut().impls.push(Rc::new(impl_item));
                 } else {
                     // TODO: クラス定義より先にimplしても大丈夫なように
-                    e0000(Rc::clone(&self.errors), self.errorset(), "TODO");
+                    e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), "TODO");
                 }
             }
             ItemKind::Mod(mod_item) => {
@@ -602,7 +601,7 @@ impl<'a> Parser<'a> {
             ItemKind::ForeignMod(foreign_mod_item) => {
                 if self.foreign_reference.is_none() {
                     let message = "specify the `.dll` file";
-                    e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), message);
+                    e0000(Rc::clone(&self.errors), self.errorset(begin..=begin+1), message);
                 }
                 self.foreign_reference = None;
                 program.references.extend_from_slice(&item.attrs.iter()
@@ -620,7 +619,7 @@ impl<'a> Parser<'a> {
                                 cl.borrow_mut().impls.push(Rc::new(i));
                             } else {
                                 // TODO: クラス定義より先にimplしても大丈夫なように
-                                e0000(Rc::clone(&self.errors), self.errorset(), "TODO");
+                                e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), "TODO");
                             }
                         }
                         ForeignItemKind::Mod((ident, items)) => {
@@ -637,7 +636,7 @@ impl<'a> Parser<'a> {
             }
             ItemKind::Fn(f) => {
                 if program.current_namespace.borrow().find_fn(&f.name).is_some() {
-                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[begin..=begin+1]), &f.name);
+                    e0005(Rc::clone(&self.errors), self.errorset(begin..=begin+1), &f.name);
                 }
                 program.current_namespace.borrow_mut().push_fn(f);
             }
@@ -680,7 +679,7 @@ impl<'a> Parser<'a> {
         } else if self.is_eof() || self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
             return None;
         } else {
-            e0004(Rc::clone(&self.errors), self.errorset());
+            e0004(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
             return None;
         };
         Some((begin, Item { attrs, kind, }))
@@ -743,7 +742,7 @@ impl<'a> Parser<'a> {
                 ItemKind::Enum(e)   => ForeignItemKind::Enum(e),
                 _ => {
                     let message = "not supported in `extern` blocks";
-                    e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[item.0..=item.0]), message);
+                    e0000(Rc::clone(&self.errors), self.errorset(item.0..=item.0), message);
                     continue;
                 }
             };
@@ -779,7 +778,7 @@ impl<'a> Parser<'a> {
                 break;
             }
             if ed.fields.iter().any(|o|o.name==ident) {
-                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                e0005(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), &ident);
             }
 
             if self.eat(TokenKind::Assign) {
@@ -787,7 +786,7 @@ impl<'a> Parser<'a> {
                     value = *new_value as usize;
                 } else {
                     let message = format!("expected `isize`, found `{}`", self.token_kind());
-                    e0000(Rc::clone(&self.errors), self.errorset(), &message);
+                    e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), &message);
                 }
                 self.bump();
             }
@@ -796,7 +795,7 @@ impl<'a> Parser<'a> {
             value += 1;
 
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-                e0008(Rc::clone(&self.errors), self.errorset());
+                e0008(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
             }
         }
         ed
@@ -804,7 +803,7 @@ impl<'a> Parser<'a> {
 
     fn parse_item_class(&mut self, kind: ClassKind) -> Class<'a> {
         if !self.is_foreign && matches!(kind, ClassKind::Class | ClassKind::NestedClass(_)) {
-            e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]), "`class` must be inside an extern block");
+            e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..=self.idx), "`class` must be inside an extern block");
         }
         let name = self.expect_ident();
         self.current_class.push(name.to_string());
@@ -845,7 +844,7 @@ impl<'a> Parser<'a> {
                     cl.impls.push(Rc::new(impl_item));
                 } else {
                     // TODO: クラス定義より先にimplしても大丈夫なように
-                    e0000(Rc::clone(&self.errors), self.errorset(), "TODO");
+                    e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), "TODO");
                 }
                 self.eat(TokenKind::Comma);
             } else {
@@ -860,14 +859,14 @@ impl<'a> Parser<'a> {
                 let ty = self.type_no_bounds();
 
                 if cl.field.find(&ident).is_some() {
-                    e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                    e0005(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), &ident);
                 }
                 if let Some(ty) = ty {
                     let obj = Object::new(ident, cl.field.offset(ObjectKind::Field), ObjectKind::Field, ty, false);
                     cl.field.push(Rc::new(RefCell::new(obj)));
                 }
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-                    e0008(Rc::clone(&self.errors), self.errorset());
+                    e0008(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
                 }
             }
         }
@@ -901,12 +900,12 @@ impl<'a> Parser<'a> {
 
         if is_ctor {
             if !self.is_foreign {
-                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be inside an extern block");
+                e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "`.ctor` must be inside an extern block");
             } else if let Some(ref im) = self.current_impl {
                 let ty = self.ident_types.get(&(self.current_mod.to_vec(), im.name.to_string())).unwrap();
                 self.current_fn_mut().rettype = RRType::clone(ty);
             } else {
-                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), "`.ctor` must be an impl");
+                e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "`.ctor` must be an impl");
             }
         }
 
@@ -925,17 +924,16 @@ impl<'a> Parser<'a> {
                     obj.borrow_mut().assigned = true;
                     self.current_fn_mut().symbol_table.borrow_mut().push(Rc::clone(&obj));
                     if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
-                        e0009(Rc::clone(&self.errors), self.errorset());
+                        e0009(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
                     }
                 } else {
-                    e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
-                        "variable declaration cannot be a reference");
+                    e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..=self.idx), "variable declaration cannot be a reference");
                 }
             }
             while !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                 self.parse_fn_params();
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
-                    e0009(Rc::clone(&self.errors), self.errorset());
+                    e0009(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
                     self.close_delimiter(Delimiter::Parenthesis, self.tokens[start_brace].clone());
                     break;
                 }
@@ -943,7 +941,7 @@ impl<'a> Parser<'a> {
         }
 
         if is_ctor && self.check(TokenKind::RArrow) {
-            e0000(Rc::clone(&self.errors), self.errorset(), "`.ctor` cannot have a return type");
+            e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), "`.ctor` cannot have a return type");
         }
 
         if self.eat(TokenKind::RArrow) {
@@ -957,8 +955,7 @@ impl<'a> Parser<'a> {
 
     fn parse_fn_params(&mut self) {
         if self.eat(TokenKind::And) {
-            e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
-                "variable declaration cannot be a reference");
+            e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..=self.idx), "variable declaration cannot be a reference");
         }
         let is_mutable = self.eat_keyword(Keyword::Mut);
         let ident = match &*self.expect_ident() {
@@ -970,7 +967,7 @@ impl<'a> Parser<'a> {
             ident => ident.to_string(),
         };
         if self.current_fn_mut().symbol_table.borrow().find(&ident).is_some() {
-            e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+            e0005(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), &ident);
         }
         self.expect(TokenKind::Colon);
         if let Some(ty) = self.type_no_bounds() {
@@ -984,7 +981,7 @@ impl<'a> Parser<'a> {
         if let Some(ty) = self.type_no_bounds() {
             if self.current_fn().name == "main" && *ty.borrow() != Type::Void {
                 let message = "`main` can only return void type";
-                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), message);
+                e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), message);
             }
             self.current_fn_mut().rettype = ty;
         }
@@ -1038,8 +1035,7 @@ impl<'a> Parser<'a> {
 
     fn parse_break_expr(&mut self) -> Node<'a> {
         if !self.inside_of_a_loop() {
-            e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]),
-                "cannot `break` outside of a loop");
+            e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "cannot `break` outside of a loop");
             return new_empty_node();
         }
         let begin = self.idx;
@@ -1154,8 +1150,7 @@ impl<'a> Parser<'a> {
         ];
         while !self.eat(TokenKind::Or) {
             if self.eat(TokenKind::And) {
-                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..=self.idx]),
-                    "variable declaration cannot be a reference");
+                e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..=self.idx), "variable declaration cannot be a reference");
             }
             let is_mutable = self.eat_keyword(Keyword::Mut);
             let ident = self.expect_ident();
@@ -1164,7 +1159,7 @@ impl<'a> Parser<'a> {
                 return params;
             }
             if params.iter().any(|arg| arg.borrow().name == ident) {
-                e0005(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), &ident);
+                e0005(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), &ident);
             }
             self.expect(TokenKind::Colon);
             if let Some(ty) = self.type_no_bounds() {
@@ -1173,7 +1168,7 @@ impl<'a> Parser<'a> {
                 params.push(Rc::clone(&obj));
             }
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::Or) {
-                e0009(Rc::clone(&self.errors), self.errorset());
+                e0009(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
                 break;
             }
         }
@@ -1665,7 +1660,7 @@ impl<'a> Parser<'a> {
                     while !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) && !self.is_eof() {
                         args.push(self.parse_expr());
                         if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
-                            e0010(Rc::clone(&self.errors), self.errorset());
+                            e0010(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
                             self.close_delimiter(Delimiter::Parenthesis, self.tokens[start_paren].clone());
                             break;
                         }
@@ -1731,7 +1726,7 @@ impl<'a> Parser<'a> {
                 self.parse_builtin(kind)
             }
             _ => {
-                e0006(Rc::clone(&self.errors), self.errorset());
+                e0006(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
                 self.idx += 1;
                 new_empty_node()
             }
@@ -1756,7 +1751,7 @@ impl<'a> Parser<'a> {
                     new_float_node(FloatNum::Float32(f), &self.tokens[self.idx-2..=self.idx-1])
                 } else {
                     let message = "float literal must be suffixed with `f32` or `f64`";
-                    e0000(Rc::clone(&self.errors), self.errorset(), message);
+                    e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), message);
                     new_empty_node()
                 }
             }
@@ -1773,7 +1768,7 @@ impl<'a> Parser<'a> {
             while !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                 args.push(self.parse_expr());
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
-                    e0010(Rc::clone(&self.errors), self.errorset());
+                    e0010(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
                     self.close_delimiter(Delimiter::Parenthesis, self.tokens[begin+1].clone());
                     break;
                 }
@@ -1787,7 +1782,7 @@ impl<'a> Parser<'a> {
                 let start_brace = self.idx-1;
                 field.push(self.parse_expr());
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Brace)) {
-                    e0009(Rc::clone(&self.errors), self.errorset());
+                    e0009(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
                     self.close_delimiter(Delimiter::Brace, self.tokens[start_brace].clone());
                     break;
                 }
@@ -1916,7 +1911,7 @@ impl<'a> Parser<'a> {
         while !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
             args.push(self.parse_expr());
             if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
-                e0010(Rc::clone(&self.errors), self.errorset());
+                e0010(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
             }
         }
         new_builtin_call_node(*kind, args, &self.tokens[begin..self.idx])
