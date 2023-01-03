@@ -982,6 +982,10 @@ impl<'a> Parser<'a> {
 
     fn parse_fn_ret_ty(&mut self) {
         if let Some(ty) = self.type_no_bounds() {
+            if self.current_fn().name == "main" && *ty.borrow() != Type::Void {
+                let message = "`main` can only return void type";
+                e0000(Rc::clone(&self.errors), (self.path, &self.lines, &self.tokens[self.idx-1..self.idx]), message);
+            }
             self.current_fn_mut().rettype = ty;
         }
     }
