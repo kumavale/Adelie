@@ -586,7 +586,7 @@ impl<'a> Parser<'a> {
                 } else {
                     // TODO: クラス定義より先にimplしても大丈夫なように
                     let message = "[compiler unimplemented!()] impl def before class def";
-                    warning(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), message);
+                    e0000(Rc::clone(&self.errors), self.errorset(begin..self.idx), message);
                 }
             }
             ItemKind::Mod(mod_item) => {
@@ -618,7 +618,7 @@ impl<'a> Parser<'a> {
                             } else {
                                 // TODO: クラス定義より先にimplしても大丈夫なように
                                 let message = "[compiler unimplemented!()] impl def before class def";
-                                warning(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), message);
+                                e0000(Rc::clone(&self.errors), self.errorset(begin..self.idx), message);
                             }
                         }
                         ForeignItemKind::Mod((ident, items)) => {
@@ -843,7 +843,7 @@ impl<'a> Parser<'a> {
                 } else {
                     // TODO: クラス定義より先にimplしても大丈夫なように
                     let message = "[compiler unimplemented!()] impl def before class def";
-                    warning(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), message);
+                    e0000(Rc::clone(&self.errors), self.errorset(start_brace..self.idx), message);
                 }
                 self.eat(TokenKind::Comma);
             } else {
@@ -901,8 +901,16 @@ impl<'a> Parser<'a> {
             if !self.is_foreign {
                 e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "`.ctor` must be inside an extern block");
             } else if let Some(ref im) = self.current_impl {
-                let ty = self.ident_types.get(&(self.current_mod.to_vec(), im.name.to_string())).unwrap();
-                self.current_fn_mut().rettype = RRType::clone(ty);
+                let key = (self.current_mod.to_vec(), im.name.to_string());
+                self.current_fn_mut().rettype = if let Some(ty) = self.ident_types.get(&key) {
+                    // known ident
+                    RRType::clone(ty)
+                } else {
+                    // insert
+                    let tmp_ty = RRType::new(Type::RRIdent(self.current_mod.to_vec(), im.name.to_string()));
+                    self.ident_types.insert(key, RRType::clone(&tmp_ty));
+                    tmp_ty
+                };
             } else {
                 e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "`.ctor` must be an impl");
             }
