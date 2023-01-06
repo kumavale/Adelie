@@ -870,7 +870,13 @@ fn gen_il_unaryop<'a>(current_token: &[Token], p: &'a Program<'a>, kind: UnaryOp
                     p.push_il_text("\tldc.i4.0");
                     p.push_il_text("\tceq");
                 }
-                _ => p.push_il_text("\tnot")
+                Type::Numeric(_) => {
+                    p.push_il_text("\tnot");
+                }
+                _ => {
+                    let message = format!("cannot apply unary operator `!` to type `{}`", ty);
+                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                }
             }
             Ok(ty)
         }
