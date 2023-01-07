@@ -1066,15 +1066,7 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Colon);
         let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Void));
         let token = &self.tokens[begin..self.idx];
-        let node = new_variable_node_with_let(
-            &mut self.current_fn_mut().symbol_table.borrow_mut(),
-            ident,
-            ty,
-            token,
-            is_mutable,
-            false,
-            ObjectKind::Local,
-        );
+        let node = new_let_node(ident, ty, token, is_mutable);
         if self.eat(TokenKind::Assign) {
             let node = new_assign_node(
                 node,
@@ -1198,15 +1190,7 @@ impl<'a> Parser<'a> {
             let displayclass = Class::new(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None);
             self.current_fn_mut().nested_class = Some(Rc::new(RefCell::new(displayclass)));
             let instance_name = format!("<{}>nested_class", self.current_fn().name);
-            let nested_class_instance = new_variable_node_with_let(
-                &mut self.current_fn_mut().symbol_table.borrow_mut(),
-                instance_name,
-                RRType::clone(&ty),
-                &[],
-                true,
-                true,
-                ObjectKind::Local,
-            );
+            let nested_class_instance = new_let_node(instance_name, ty, &[], true);
             self.nested_class_instance = Some(nested_class_instance);
         }
         let mut lambda = Function::new(&ident, false);

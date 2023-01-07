@@ -2,6 +2,7 @@ use crate::ast::*;
 use crate::codegen::*;
 use crate::error::*;
 use crate::keyword::{Type, RRType, Numeric};
+use crate::object::SymbolTable;
 use crate::program::Program;
 use crate::token::{LiteralKind, Token, TokenKind};
 use std::fmt;
@@ -32,26 +33,26 @@ impl fmt::Display for Builtin {
     }
 }
 
-pub fn gen_il_builtin<'a>(token: &[Token], kind: Builtin, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+pub fn gen_il_builtin<'a>(token: &[Token], st: &SymbolTable, kind: Builtin, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
     match kind {
-        Builtin::Assert   => gen_il_builtin_assert(token, args, p),
-        Builtin::AssertEq => gen_il_builtin_assert_eq(token, args, p),
-        Builtin::Panic    => gen_il_builtin_panic(token, args, p),
-        Builtin::Print    => gen_il_builtin_print(token, args, p),
-        Builtin::Println  => gen_il_builtin_println(token, args, p),
-        Builtin::ReadLine => gen_il_builtin_read_line(token, args, p),
+        Builtin::Assert   => gen_il_builtin_assert(token, st, args, p),
+        Builtin::AssertEq => gen_il_builtin_assert_eq(token, st, args, p),
+        Builtin::Panic    => gen_il_builtin_panic(token, st, args, p),
+        Builtin::Print    => gen_il_builtin_print(token, st, args, p),
+        Builtin::Println  => gen_il_builtin_println(token, st, args, p),
+        Builtin::ReadLine => gen_il_builtin_read_line(token, st, args, p),
     }
 }
 
 /// assertion failed: {arg}
-fn gen_il_builtin_assert<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+fn gen_il_builtin_assert<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
     if args.len() != 1 {
         e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 1, args.len());
         return Err(());
     }
     let arg = args.pop().unwrap();
     let stringizing_arg = arg.token.iter().map(|t|format!("{}",t.kind)).collect::<Vec<_>>().join(" ");
-    let ty = gen_il(arg, p)?;
+    let ty = gen_il(arg, st, p)?;
     if *ty.borrow() != Type::Bool {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ty.borrow());
     }
@@ -61,7 +62,7 @@ fn gen_il_builtin_assert<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Progra
     Ok(RRType::new(Type::Void))
 }
 
-fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+fn gen_il_builtin_assert_eq<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
     fn check_type(lty: &Type, rty: &Type) -> std::result::Result<(), ()> {
         match (&lty, &rty) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
@@ -78,9 +79,9 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
     }
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
-    let lty = gen_il(lhs, p)?;
+    let lty = gen_il(lhs, st, p)?;
     p.push_il_text(format!("\tbox {}", lty.borrow().to_ilstr()));
-    let rty = gen_il(rhs, p)?;
+    let rty = gen_il(rhs, st, p)?;
     p.push_il_text(format!("\tbox {}", rty.borrow().to_ilstr()));
     if check_type(&lty.borrow(), &rty.borrow()).is_err() {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty.borrow(), &rty.borrow());
@@ -91,7 +92,7 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Pro
 }
 
 /// panicked at '{msg}', src/main.rs:2:5
-fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+fn gen_il_builtin_panic<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
     let argc = args.len();
     match argc {
         0 => p.push_il_text("\tldstr \"explicit panic\""),
@@ -103,7 +104,7 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
             p.push_il_text("\tldstr \"{{0}}\"");
-            let ty = gen_il(format_shaping(format), p)?;
+            let ty = gen_il(format_shaping(format), st, p)?;
             p.push_il_text(format!("\tbox {}", ty.borrow().to_ilstr()));
             p.push_il_text("\tcall string [mscorlib]System.String::Format(string, object)");
         }
@@ -118,13 +119,13 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
             if format_placeholder_count(&format) != argc-1 {
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
-            gen_il(format_shaping(format), p)?;
+            gen_il(format_shaping(format), st, p)?;
             p.push_il_text(format!("\tldc.i4 {}", argc));
             p.push_il_text("\tnewarr object");
             for (i, arg) in args.into_iter().enumerate() {
                 p.push_il_text("\tdup");
                 p.push_il_text(format!("\tldc.i4 {}", i));
-                let ty = gen_il(arg, p)?;
+                let ty = gen_il(arg, st, p)?;
                 p.push_il_text(format!("\tbox {}", ty.borrow().to_ilstr()));
                 p.push_il_text("\tstelem.ref");
             }
@@ -138,17 +139,17 @@ fn gen_il_builtin_panic<'a>(token: &[Token], mut args: Vec<Node>, p: &'a Program
     Ok(RRType::new(Type::Void))
 }
 
-fn gen_il_builtin_print<'a>(_token: &[Token], args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    format_args(_token, args, p)
+fn gen_il_builtin_print<'a>(_token: &[Token], st: &SymbolTable, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    format_args(_token, st, args, p)
 }
 
-fn gen_il_builtin_println<'a>(_token: &[Token], args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    let ty = format_args(_token, args, p);
+fn gen_il_builtin_println<'a>(_token: &[Token], st: &SymbolTable, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    let ty = format_args(_token, st, args, p);
     p.push_il_text("\tcall void [mscorlib]System.Console::WriteLine()");
     ty
 }
 
-fn gen_il_builtin_read_line<'a>(token: &[Token], args: Vec<Node>, p: &'a Program) -> Result<RRType> {
+fn gen_il_builtin_read_line<'a>(token: &[Token], _st: &SymbolTable, args: Vec<Node>, p: &'a Program) -> Result<RRType> {
     if !args.is_empty() {
         e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "read_line! takes no arguments");
     }
@@ -156,7 +157,7 @@ fn gen_il_builtin_read_line<'a>(token: &[Token], args: Vec<Node>, p: &'a Program
     Ok(RRType::new(Type::String))
 }
 
-fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+fn format_args<'a>(_token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
     let argc = args.len();
     match argc {
         0 => p.push_il_text("\tcall void [mscorlib]System.Console::Write()"),
@@ -176,7 +177,7 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) ->
                     debug_assert!(p.errors.borrow().any_deny());
                 }
             } else {
-                let ty = gen_il(format, p)?;
+                let ty = gen_il(format, st, p)?;
                 p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})",
                     match &*ty.borrow() {
                         Type::Numeric(n) => n.to_ilstr(),
@@ -210,7 +211,7 @@ fn format_args<'a>(_token: &[Token], mut args: Vec<Node>, p: &'a Program<'a>) ->
                         p.push_il_text("\tcall void [mscorlib]System.Console::Write(string)");
                     }
                     FmtKind::PlaceHolder => {
-                        let ty = gen_il(args.next().unwrap(), p)?;
+                        let ty = gen_il(args.next().unwrap(), st, p)?;
                         p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})", ty.borrow().to_ilstr()));
                     }
                 }

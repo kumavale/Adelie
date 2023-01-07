@@ -69,6 +69,9 @@ pub enum NodeKind<'a> {
         kind: Builtin,
         args: Vec<Node<'a>>,
     },
+    Let {
+        obj: Rc<RefCell<Object>>,
+    },
     Call {
         name: String,
         args: Vec<Node<'a>>,
@@ -507,20 +510,15 @@ pub fn new_enum_node(
     }
 }
 
-pub fn new_variable_node_with_let<'a>(
-    symbol_table: &mut SymbolTable,
+pub fn new_let_node(
     ident: String,
     ty: RRType,
-    token: &'a [Token],
+    token: &[Token],
     mutable: bool,
-    assigned: bool,
-    kind: ObjectKind,
-) -> Node<'a> {
-    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.offset(ObjectKind::Local), kind, ty, mutable)));
-    obj.borrow_mut().assigned = assigned;
-    symbol_table.push(Rc::clone(&obj));
+) -> Node {
+    let obj = Rc::new(RefCell::new(Object::new(ident, 0, ObjectKind::Local, ty, mutable)));
     Node {
-        kind: NodeKind::Variable {
+        kind: NodeKind::Let {
             obj,
         },
         token,
