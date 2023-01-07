@@ -17,6 +17,7 @@ pub struct Object {
     pub ty: RRType,
     pub assigned: bool,
     pub mutable: bool,
+    pub used: bool,
     pub parent: Option<Rc<RefCell<Object>>>,
 }
 
@@ -29,6 +30,7 @@ impl Object {
             ty,
             assigned: false,
             mutable,
+            used: false,
             parent: None,
         }
     }
@@ -43,6 +45,10 @@ impl Object {
 
     pub fn is_param(&self) -> bool {
         self.kind == ObjectKind::Param
+    }
+
+    pub fn consume(&mut self) {
+        self.used = true;
     }
 }
 

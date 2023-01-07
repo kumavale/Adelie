@@ -1077,7 +1077,7 @@ impl<'a> Parser<'a> {
             node
         } else {
             self.expect(TokenKind::Semi);
-            new_empty_node()
+            node
         }
     }
 
