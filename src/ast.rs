@@ -51,15 +51,15 @@ pub struct Node<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeKind<'a> {
     Integer {
-        ty: Type,
+        ty: RRType,
         num: i128,  // -?[1-9][0-9]*
     },
     Float {
-        ty: Type,
+        ty: RRType,
         num: FloatNum,  // -?[1-9][0-9]*\.[0-9]+
     },
     String {
-        ty: Type,
+        ty: RRType,
         str: String,  // ".*"
     },
     Box {
@@ -79,7 +79,7 @@ pub enum NodeKind<'a> {
         args: Vec<Node<'a>>,
     },
     Lambda {
-        ty: Type,
+        ty: RRType,
         ident: String,
         parent: String,
     },
@@ -303,7 +303,7 @@ pub fn new_num_node(
 ) -> Node<'_> {
     Node {
         kind: NodeKind::Integer {
-            ty: Type::Numeric(Numeric::Integer),
+            ty: RRType::new(Type::Numeric(Numeric::Integer)),
             num,
         },
         token,
@@ -315,7 +315,7 @@ pub fn new_float_node(
     token: &[Token],
 ) -> Node<'_> {
     let ty = match num {
-        FloatNum::Float32(..) => Type::Float(Float::F32),
+        FloatNum::Float32(..) => RRType::new(Type::Float(Float::F32)),
     };
     Node {
         kind: NodeKind::Float {
@@ -332,7 +332,7 @@ pub fn new_char_node(
 ) -> Node<'_> {
     Node {
         kind: NodeKind::Integer {
-            ty: Type::Char,
+            ty: RRType::new(Type::Char),
             num: c as i128
         },
         token,
@@ -345,7 +345,7 @@ pub fn new_string_node<'a>(
 ) -> Node<'a> {
     Node {
         kind: NodeKind::String {
-            ty: Type::String,
+            ty: RRType::new(Type::String),
             str: s.to_string(),
         },
         token,
@@ -358,7 +358,7 @@ pub fn new_bool_node(
 ) -> Node<'_> {
     Node {
         kind: NodeKind::Integer {
-            ty: Type::Bool,
+            ty: RRType::new(Type::Bool),
             num: match b {
                 Keyword::True  => 1,
                 Keyword::False => 0,
@@ -468,7 +468,7 @@ pub fn new_method_call_node<'a>(
 }
 
 pub fn new_lambda_node<'a>(
-    ty: Type,
+    ty: RRType,
     ident: String,
     parent: &str,
     token: &'a [Token],

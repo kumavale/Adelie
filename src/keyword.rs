@@ -249,4 +249,7 @@ impl RRType {
     pub fn borrow_mut(&mut self) -> RefMut<'_, Type> {
         self.inner.borrow_mut()
     }
+    pub fn into_mutable(self) -> RRType {
+        RRType::new(self.inner.borrow().clone().into_mutable())
+    }
 }

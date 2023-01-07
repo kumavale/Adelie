@@ -1219,7 +1219,7 @@ impl<'a> Parser<'a> {
         let mut lambda = self.current_lambda.take().unwrap();
         lambda.statements = stmts;
         self.current_fn_mut().local_funcs.push(lambda);
-        new_lambda_node(ty, ident, &self.current_fn().name, &self.tokens[begin..self.idx])
+        new_lambda_node(RRType::new(ty), ident, &self.current_fn().name, &self.tokens[begin..self.idx])
     }
 
     fn parse_cond(&mut self) -> Node<'a> {

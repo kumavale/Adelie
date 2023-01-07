@@ -178,16 +178,16 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
 
 fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
-        match (&rettype, &*func.rettype.borrow()) {
+        match (&*rettype.borrow(), &*func.rettype.borrow()) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-            _ => if rettype != *func.rettype.borrow() {
+            (lty, rty) => if lty != rty {
                 if let ast::NodeKind::Block { stmts } = &func.statements.kind {
                     let token = if stmts.is_empty() {
                         func.statements.token
                     } else {
                         stmts.last().unwrap().token
                     };
-                    error::e0012(Rc::clone(&program.errors), (program.path, &program.lines, token), &func.rettype.borrow(), &rettype);
+                    error::e0012(Rc::clone(&program.errors), (program.path, &program.lines, token), rty, lty);
                 } else {
                     unreachable!();
                 }
