@@ -938,7 +938,7 @@ impl<'a> Parser<'a> {
                 }
             }
             while !self.eat(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
-                self.parse_fn_params();
+                self.parse_fn_param();
                 if !self.eat(TokenKind::Comma) && !self.check(TokenKind::CloseDelim(Delimiter::Parenthesis)) {
                     e0009(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx));
                     self.close_delimiter(Delimiter::Parenthesis, self.tokens[start_brace].clone());
@@ -960,7 +960,7 @@ impl<'a> Parser<'a> {
         self.current_fn.take().unwrap()
     }
 
-    fn parse_fn_params(&mut self) {
+    fn parse_fn_param(&mut self) {
         if self.eat(TokenKind::And) {
             e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..=self.idx), "variable declaration cannot be a reference");
         }
@@ -1064,21 +1064,19 @@ impl<'a> Parser<'a> {
             ident => ident.to_string(),
         };
         self.expect(TokenKind::Colon);
-        let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Void));
+        let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Unknown));
         let token = &self.tokens[begin..self.idx];
-        let node = new_let_node(ident, ty, token, is_mutable);
-        if self.eat(TokenKind::Assign) {
-            let node = new_assign_node(
-                node,
-                self.parse_expr(),
-                &self.tokens[begin..self.idx],
-            );
-            self.expect(TokenKind::Semi);
-            node
-        } else {
-            self.expect(TokenKind::Semi);
-            node
-        }
+        let init = self.eat(TokenKind::Assign).then(|| self.parse_expr());
+        let node = new_let_node(
+            &mut self.current_fn_mut().symbol_table.borrow_mut(),
+            ident,
+            ty,
+            token,
+            is_mutable,
+            init,
+        );
+        self.expect(TokenKind::Semi);
+        node
     }
 
     fn parse_expr(&mut self) -> Node<'a> {
@@ -1190,7 +1188,7 @@ impl<'a> Parser<'a> {
             let displayclass = Class::new(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), "<>c__DisplayClass0_0".to_string(), self.current_mod.to_vec(), None);
             self.current_fn_mut().nested_class = Some(Rc::new(RefCell::new(displayclass)));
             let instance_name = format!("<{}>nested_class", self.current_fn().name);
-            let nested_class_instance = new_let_node(instance_name, ty, &[], true);
+            let nested_class_instance = new_let_node(&mut self.current_fn_mut().symbol_table.borrow_mut(), instance_name, ty, &[], true, None);
             self.nested_class_instance = Some(nested_class_instance);
         }
         let mut lambda = Function::new(&ident, false);
@@ -1836,6 +1834,15 @@ impl<'a> Parser<'a> {
                         let ty = RRType::new(Type::Class(ClassKind::NestedClass(self.current_class.last().unwrap().to_string()), None, self.current_mod.to_vec(), "<>c__DisplayClass0_0".to_string(), None, true));
                         let self_obj = Rc::new(RefCell::new(Object::new("self".to_string(), 0, ObjectKind::Param, ty, true)));
                         self_obj.borrow_mut().assigned = true;
+                        current_fn.symbol_table.borrow_mut().push(Rc::clone(&self_obj));
+                        //let self_node = new_let_node(
+                        //    &mut self.current_fn_mut().symbol_table.borrow_mut(),
+                        //    "self".to_string(),
+                        //    ty,
+                        //    &[],
+                        //    is_mutable,
+                        //    init,
+                        //);
                         let self_node = new_variable_node(&self_obj, &[]);
                         new_field_node(
                             self_node,
@@ -1866,6 +1873,8 @@ impl<'a> Parser<'a> {
                 }
             } else {
                 // クロージャ外部の場合
+                //let obj = Rc::new(RefCell::new(Object::new(name.to_string(), 0, ObjectKind::Local, RRType::new(Type::Unknown), false)));
+                //new_variable_node(&obj, &self.tokens[self.idx-1..self.idx])
                 if let Some(obj) = self.current_fn().symbol_table.borrow().find(name) {
                     new_variable_node(obj, &self.tokens[self.idx-1..self.idx])
                 } else if let Some(nested_class) = self.current_fn().nested_class.as_ref() {

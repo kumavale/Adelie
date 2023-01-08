@@ -71,6 +71,7 @@ pub enum NodeKind<'a> {
     },
     Let {
         obj: Rc<RefCell<Object>>,
+        init: Option<Box<Node<'a>>>,
     },
     Call {
         name: String,
@@ -510,16 +511,20 @@ pub fn new_enum_node(
     }
 }
 
-pub fn new_let_node(
+pub fn new_let_node<'a>(
+    symbol_table: &mut SymbolTable,
     ident: String,
     ty: RRType,
-    token: &[Token],
+    token: &'a [Token],
     mutable: bool,
-) -> Node {
-    let obj = Rc::new(RefCell::new(Object::new(ident, 0, ObjectKind::Local, ty, mutable)));
+    init: Option<Node<'a>>,
+) -> Node<'a> {
+    let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.offset(ObjectKind::Local), ObjectKind::Local, ty, mutable)));
+    symbol_table.push(Rc::clone(&obj));
     Node {
         kind: NodeKind::Let {
             obj,
+            init: init.map(|node| Box::new(node)),
         },
         token,
     }

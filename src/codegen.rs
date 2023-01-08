@@ -31,8 +31,8 @@ pub fn gen_il<'a>(node: Node, st: &SymbolTable, p: &'a Program<'a>) -> Result<RR
         NodeKind::Builtin { kind, args } => {
             gen_il_builtin(node.token, st, kind, args, p)
         }
-        NodeKind::Let { obj } => {
-            gen_il_let(node.token, st, p, obj.borrow())
+        NodeKind::Let { obj, init } => {
+            gen_il_let(node.token, st, p, obj.borrow(), init)
         }
         NodeKind::Call { name, args } => {
             gen_il_call(node.token, st, p, &name, args)
@@ -153,9 +153,15 @@ fn gen_il_box<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>
     }
 }
 
-fn gen_il_let(current_token: &[Token], st: &SymbolTable, p: &Program, obj: Ref<Object>) -> Result<RRType> {
-    // TODO
-    gen_il_variable(current_token, st, p, obj)
+fn gen_il_let<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>, obj: Ref<Object>, init: Option<Box<Node>>) -> Result<RRType> {
+    if let Some(init) = init {
+        let _rty = gen_il(*init, st, p)?;
+        p.push_il_text(format!("\tstloc {}", obj.offset));
+        Ok(RRType::new(Type::Void))
+    } else {
+        //gen_il_variable(current_token, st, p, obj)
+        gen_il_empty()
+    }
 }
 
 fn gen_il_call<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>, name: &str, args: Vec<Node>) -> Result<RRType> {
@@ -700,20 +706,11 @@ fn gen_il_assign<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'
                 }
                 return Ok(RRType::new(Type::Void));
             }
-            let rty = gen_il(rhs, st, p)?;
-            let is_assigned = obj.borrow().is_assigned();
-            obj.borrow_mut().assigned = true;
-            let obj = obj.borrow();
-            if !obj.is_mutable() && is_assigned {
-                e0028(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
-            }
-            if check_type(&obj.ty.borrow(), &rty.borrow()).is_err() {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.borrow(), &rty.borrow());
-            }
-            if obj.is_param() {
-                p.push_il_text(format!("\tstarg {}", obj.offset));
+            let _rty = gen_il(rhs, st, p)?;
+            if obj.borrow().is_param() {
+                p.push_il_text(format!("\tstarg {}", obj.borrow().offset));
             } else {
-                p.push_il_text(format!("\tstloc {}", obj.offset));
+                p.push_il_text(format!("\tstloc {}", obj.borrow().offset));
             }
         }
         NodeKind::UnaryOp { kind: UnaryOpKind::Deref, expr } => {

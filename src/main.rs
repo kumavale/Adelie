@@ -179,7 +179,13 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
 
 fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     // 型検査
-    typing::typing(func.statements.clone(), &mut func.symbol_table.borrow_mut(), program);
+    if typing::typing(func.statements.clone(), &mut func.symbol_table.borrow_mut(), program).is_err() {
+        // 型検査段階のエラーを表示
+        program.errors.borrow().display();
+        if program.errors.borrow().any_deny() {
+            error_exit(&program);
+        }
+    }
 
     // コード生成
     if let Ok(rettype) = codegen::gen_il(func.statements.clone(), &func.symbol_table.borrow(), program) {

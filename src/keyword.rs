@@ -76,6 +76,7 @@ pub enum Type {
     Box(RRType),
     Ptr(RRType),
     Void,
+    Unknown,
 
     /// enum, struct or class
     RRIdent(Vec<String>, String),  // (path, name) //pathは将来的には要らないかも
@@ -141,6 +142,7 @@ impl fmt::Display for Type {
             Type::Box(t)                    => write!(f, "Box<{}>", t.borrow()),
             Type::Ptr(t)                    => write!(f, "&{}", t.borrow()),
             Type::Void                      => write!(f, "void"),
+            Type::Unknown                   => write!(f, "{{unknown}}"),
             Type::RRIdent(_, n)             => write!(f, "RRIdent<{}>", n),
         }
     }
@@ -191,7 +193,27 @@ impl Type {
             Type::Box(_)          => "object".to_string(),
             Type::Ptr(t)          => format!("{}&", t.borrow().to_ilstr()),
             Type::Void            => "void".to_string(),
+            Type::Unknown         |
             Type::RRIdent(..)     => panic!("cannot to ilstr: {}", &self),
+        }
+    }
+
+    // 仮実装
+    pub fn copyable(&self) -> bool {
+        match &self {
+            Type::Numeric(_)  |
+            Type::Float(_)    |
+            Type::Bool        |
+            Type::Char        |
+            Type::String      |
+            Type::Ptr(_)      => true,
+            Type::_Self(..)   |
+            Type::Enum(..)    |
+            Type::Class(..)   |
+            Type::Box(_)      |
+            Type::Void        |
+            Type::Unknown     |
+            Type::RRIdent(..) => false,
         }
     }
 }
