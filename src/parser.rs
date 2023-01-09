@@ -1079,7 +1079,6 @@ impl<'a> Parser<'a> {
             ty,
             ObjectKind::Local,
             is_mutable,
-            false,
             init,
             token,
         );
@@ -1196,14 +1195,14 @@ impl<'a> Parser<'a> {
             let instance_name = format!("<{}>nested_class", self.current_fn().name);
             let nested_class_instance = new_let_node(
                 &mut self.current_fn_mut().symbol_table.borrow_mut(),
-                instance_name,
+                instance_name.to_string(),
                 ty,
                 ObjectKind::Local,
-                true,
                 true,
                 None,
                 &[],
             );
+            self.current_fn().symbol_table.borrow_mut().find_mut(&instance_name).unwrap().borrow_mut().assigned = true;
             self.nested_class_instance = Some(nested_class_instance);
         }
         let mut lambda = Function::new(&ident, false);

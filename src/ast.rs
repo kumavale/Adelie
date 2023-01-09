@@ -517,17 +517,15 @@ pub fn new_let_node<'a>(
     ty: RRType,
     kind: ObjectKind,
     mutable: bool,
-    assigned: bool,
     init: Option<Node<'a>>,
     token: &'a [Token],
 ) -> Node<'a> {
     let obj = Rc::new(RefCell::new(Object::new(ident, symbol_table.offset(kind), kind, ty, mutable)));
-    obj.borrow_mut().assigned = assigned;
     symbol_table.push(Rc::clone(&obj));
     Node {
         kind: NodeKind::Let {
             obj,
-            init: init.map(|node| Box::new(node)),
+            init: init.map(Box::new),
         },
         token,
     }

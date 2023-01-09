@@ -407,7 +407,7 @@ pub fn e0029(
 
 fn nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<String, ()> {
     let begin  = &token.get(0).ok_or(())?;
-    let end    = &token.get(token.len()-1).ok_or(())?;
+    let end    = &token.last().ok_or(())?;
     let digits = usize::digits(end.line);
     let mut message = String::new();
 

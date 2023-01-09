@@ -526,7 +526,7 @@ fn gen_il_field<'a>(
     }
 }
 
-fn gen_il_variable(current_token: &[Token], st: &SymbolTable, p: &Program, obj: Ref<Object>) -> Result<RRType> {
+fn gen_il_variable(current_token: &[Token], _st: &SymbolTable, p: &Program, obj: Ref<Object>) -> Result<RRType> {
     if let Some(parent) = &obj.parent {
         if !obj.assigned {
             // TODO: objのis_assignedを再帰的にtrueにする必要がある
@@ -534,7 +534,7 @@ fn gen_il_variable(current_token: &[Token], st: &SymbolTable, p: &Program, obj: 
             let message = format!("[compiler unimplemented!()] use of possibly-uninitialized variable: `{}`", obj.name);
             warning(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
         }
-        let parent_ty = gen_il_variable(current_token, st, p, parent.borrow())?;
+        let parent_ty = gen_il_variable(current_token, _st, p, parent.borrow())?;
         let parent_ty = parent_ty.borrow();
         let ident = obj.name.to_string();
         if let Type::Class(_, _, ref path, ref parent_name, _base, _is_mutable) = &*parent_ty {

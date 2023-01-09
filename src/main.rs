@@ -192,7 +192,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
         // 型検査段階のエラーを表示
         program.errors.borrow().display();
         if program.errors.borrow().any_deny() {
-            error_exit(&program);
+            error_exit(program);
         }
     }
     func.symbol_table.borrow_mut().repair_offset();

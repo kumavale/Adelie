@@ -35,7 +35,7 @@ pub fn typing<'a>(node: Node, st: &mut SymbolTable, p: &'a Program<'a>) -> Resul
             typing_builtin(node.token, st, kind, args, p)
         }
         NodeKind::Let { obj, init } => {
-            typing_let(node.token, st, p, obj.clone(), init)
+            typing_let(node.token, st, p, obj, init)
         }
         NodeKind::Call { name, args } => {
             typing_call(node.token, st, p, &name, args)
@@ -47,13 +47,13 @@ pub fn typing<'a>(node: Node, st: &mut SymbolTable, p: &'a Program<'a>) -> Resul
             typing_lambda(node.token, st, p, ty, &ident, &parent)
         }
         NodeKind::Struct { obj, field } => {
-            typing_struct(node.token, st, p, obj.clone(), field)
+            typing_struct(node.token, st, p, obj, field)
         }
         NodeKind::Field { expr, ident } => {
             typing_field(node.token, st, p, *expr, &ident)
         }
         NodeKind::Variable { obj } => {
-            typing_variable(node.token, st, p, obj.clone())
+            typing_variable(node.token, st, p, obj)
         }
         NodeKind::Enum { obj } => {
             typing_enum(node.token, st, p, obj)
@@ -185,7 +185,7 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
             e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.borrow(), &rty.borrow());
         }
     }
-    st.push(obj.clone());
+    st.push(obj);
     //Ok(obj.borrow().ty.clone())
     Ok(RRType::new(Type::Void))
 }
@@ -239,8 +239,8 @@ fn typing_call<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
             let arg_ty = typing(arg, st, p)?;
             let param = param.borrow();
             let param_ty = &param.ty.borrow();
-            if check_type(&arg_ty.borrow(), &*param_ty).is_err() {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &*param_ty, &arg_ty.borrow());
+            if check_type(&arg_ty.borrow(), param_ty).is_err() {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.borrow());
             }
         }
         Ok(func.rettype.clone())
@@ -474,7 +474,7 @@ fn typing_field<'a>(
             }
         } else {
             // baseクラスから検索
-            fn search_from_base(base_ty: &Option<RRType>, parent_ty: &Type, p: &Program, ident: &str, is_mutable: bool) -> Result<RRType> {
+            fn search_from_base(base_ty: &Option<RRType>, p: &Program, ident: &str, is_mutable: bool) -> Result<RRType> {
                 if let Some(base_ty) = base_ty {
                     let ns = p.namespace.borrow();
                     let base_ty = base_ty.borrow();
@@ -490,11 +490,11 @@ fn typing_field<'a>(
                             }
                         }
                     }
-                    return search_from_base(base, parent_ty, p, ident, is_mutable);
+                    return search_from_base(base, p, ident, is_mutable);
                 }
                 Err(())
             }
-            search_from_base(base, &parent_ty, p, ident, is_mutable)
+            search_from_base(base, p, ident, is_mutable)
                 .map_err(|()| e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ident, &parent_name))
         }
     } else {
@@ -883,7 +883,7 @@ fn typing_unaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Prog
             match &*ty.borrow() {
                 Type::Numeric(..) | Type::Float(..) => (),
                 ty => {
-                    e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
+                    e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ty);
                 }
             }
             Ok(ty)
@@ -918,7 +918,7 @@ fn typing_unaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Prog
                     Ok(ty.clone())
                 }
                 ty =>  {
-                    e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ty);
+                    e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ty);
                     Err(())
                 }
             }
@@ -1172,7 +1172,7 @@ fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
                 return Err(());
             };
             if let Some(ed) = ns.find_enum(full_path.last().unwrap()) {
-                if ed.fields.iter().find(|f| f.name == obj.name).is_some() {
+                if ed.fields.iter().any(|f| f.name == obj.name) {
                     Ok(RRType::new(Type::Enum(None, full_path[..full_path.len()-1].to_vec(), full_path.last().unwrap().to_string())))
                 } else {
                     e0007(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);

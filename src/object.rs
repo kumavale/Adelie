@@ -117,7 +117,7 @@ impl SymbolTable {
     }
 
     pub fn clear_local(&mut self) {
-        self.objs = self.objs.iter().filter(|o|o.borrow().kind != ObjectKind::Local).cloned().collect();
+        self.objs.retain(|o|o.borrow().kind != ObjectKind::Local);
     }
 
     pub fn repair_offset(&mut self) {
