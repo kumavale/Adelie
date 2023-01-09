@@ -1,0 +1,60 @@
+/// # MEMO
+/// ```rust:keyword.rs
+/// pub fn copyable(&self) -> bool {
+///     match &self {
+///         Type::Numeric(_)  |
+///         Type::Float(_)    |
+///         Type::Bool        |
+///         Type::Char        |
+///         Type::String      |
+///         Type::Class(..)   |
+///         Type::Void        |
+///         Type::Ptr(_)      => true,
+///         Type::_Self(..)   |
+///         Type::Enum(..)    |
+///         Type::Box(_)      |
+///         Type::Unknown     |
+///         Type::RRIdent(..) => false,
+///     }
+/// }
+/// ```
+#[link(name="System.Windows.Forms.dll", publickeytoken="B7 7A 5C 56 19 34 E0 89")]
+extern {
+    mod System {
+        mod Windows {
+            mod Forms {
+                class Control {
+                    class ControlCollection {}
+                    impl ControlCollection {
+                        fn .ctor(owner: Control) {}
+                    }
+                }
+                impl Control {
+                    fn .ctor() {}
+                }
+            }
+        }
+    }
+}
+struct S {}
+enum E { a }
+fn main() {
+    let x: i32       = 42;            x;  x;
+    let x: f32       = 42.0f32;       x;  x;
+    let x: bool      = true;          x;  x;
+    let x: char      = 'x';           x;  x;
+    let x: string    = "str";         x;  x;
+    let x: &string   = &x;            x;  x;
+    let x: Box<i32>  = Box::new(42); *x; *x;
+    let x: &Box<i32> = &x;           &x; &x;
+
+    let x: System::Windows::Forms::Control           = System::Windows::Forms::Control::.ctor();            x; x;
+    let x: System::Windows::Forms::ControlCollection = System::Windows::Forms::ControlCollection::.ctor(x); x; x;
+
+    // should compile error
+    // let x: S      = S {};    x; x;
+    // let x: E = E::a; x; x;
+    // let x: Box<i32> = Box::new(42); x; x;
+
+    println!({let ok:string="ok";ok;ok});
+}

@@ -104,7 +104,12 @@ pub fn typing<'a>(node: Node, st: &mut SymbolTable, p: &'a Program<'a>) -> Resul
 }
 
 fn typing_integer(_current_token: &[Token], _st: &mut SymbolTable, _p: &Program, ty: RRType, _num: i128) -> Result<RRType> {
-    // TODO: リテラルもシンボルテーブルに入れる必要がある
+    // TODO: リテラルもシンボルテーブルに入れる必要がある?
+    // let x = 42;      // 42: Integer, x: Integer
+    // let y: i32 = x;  //  x: Integer, y: I32
+    // `x`が`y`に束縛される段階で、`x`の型が決定される。
+    // `42`の`RRType`を`x`にRcして、`x`を`y`に束縛するときに`x`の`RRType`を`i32`にすれば、
+    // `42`,`x`,`y`のすべてが`i32`になる。
     Ok(ty)
 }
 
@@ -893,8 +898,10 @@ fn typing_unaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Prog
         UnaryOpKind::Deref => {
             let ret_address = *p.ret_address.borrow();
             *p.ret_address.borrow_mut() = false;
+            *p.consume.borrow_mut() = false;
             let ty = typing(expr, st, p)?;
             let ty = ty.borrow();
+            *p.consume.borrow_mut() = true;
             *p.ret_address.borrow_mut() = ret_address;
             match &*ty {
                 Type::Ptr(ty) => {

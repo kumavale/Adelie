@@ -201,19 +201,22 @@ impl Type {
     // 仮実装
     pub fn copyable(&self) -> bool {
         match &self {
-            Type::Numeric(_)  |
-            Type::Float(_)    |
-            Type::Bool        |
-            Type::Char        |
-            Type::String      |
-            Type::Class(..)   |
-            Type::Void        |
-            Type::Ptr(_)      => true,
-            Type::_Self(..)   |
-            Type::Enum(..)    |
-            Type::Box(_)      |
-            Type::Unknown     |
-            Type::RRIdent(..) => false,
+            Type::Numeric(_)                           |
+            Type::Float(_)                             |
+            Type::Bool                                 |
+            Type::Char                                 |
+            Type::String                               |
+            Type::Class(ClassKind::Class, ..)          |
+            Type::Class(ClassKind::NestedClass(_), ..) |
+            Type::Void                                 |
+            Type::Ptr(_)                               => true,
+
+            Type::Class(ClassKind::Struct, ..)         |
+            Type::_Self(..)                            |
+            Type::Enum(..)                             |
+            Type::Box(_)                               |
+            Type::Unknown                              |
+            Type::RRIdent(..)                          => false,
         }
     }
 }
