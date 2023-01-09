@@ -76,6 +76,7 @@ pub enum Type {
     Box(RRType),
     Ptr(RRType),
     Void,
+    Unknown,
 
     /// enum, struct or class
     RRIdent(Vec<String>, String),  // (path, name) //pathは将来的には要らないかも
@@ -141,6 +142,7 @@ impl fmt::Display for Type {
             Type::Box(t)                    => write!(f, "Box<{}>", t.borrow()),
             Type::Ptr(t)                    => write!(f, "&{}", t.borrow()),
             Type::Void                      => write!(f, "void"),
+            Type::Unknown                   => write!(f, "{{unknown}}"),
             Type::RRIdent(_, n)             => write!(f, "RRIdent<{}>", n),
         }
     }
@@ -191,7 +193,30 @@ impl Type {
             Type::Box(_)          => "object".to_string(),
             Type::Ptr(t)          => format!("{}&", t.borrow().to_ilstr()),
             Type::Void            => "void".to_string(),
+            Type::Unknown         |
             Type::RRIdent(..)     => panic!("cannot to ilstr: {}", &self),
+        }
+    }
+
+    // 仮実装
+    pub fn copyable(&self) -> bool {
+        match &self {
+            Type::Numeric(_)                           |
+            Type::Float(_)                             |
+            Type::Bool                                 |
+            Type::Char                                 |
+            Type::String                               |
+            Type::Class(ClassKind::Class, ..)          |
+            Type::Class(ClassKind::NestedClass(_), ..) |
+            Type::Void                                 |
+            Type::Ptr(_)                               => true,
+
+            Type::Class(ClassKind::Struct, ..)         |
+            Type::_Self(..)                            |
+            Type::Enum(..)                             |
+            Type::Box(_)                               |
+            Type::Unknown                              |
+            Type::RRIdent(..)                          => false,
         }
     }
 }
@@ -248,5 +273,8 @@ impl RRType {
     }
     pub fn borrow_mut(&mut self) -> RefMut<'_, Type> {
         self.inner.borrow_mut()
+    }
+    pub fn into_mutable(self) -> RRType {
+        RRType::new(self.inner.borrow().clone().into_mutable())
     }
 }

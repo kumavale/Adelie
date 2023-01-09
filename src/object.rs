@@ -2,7 +2,7 @@ use crate::keyword::RRType;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjectKind {
     Field,
     Local,
@@ -17,6 +17,7 @@ pub struct Object {
     pub ty: RRType,
     pub assigned: bool,
     pub mutable: bool,
+    pub used: bool,
     pub parent: Option<Rc<RefCell<Object>>>,
 }
 
@@ -29,6 +30,7 @@ impl Object {
             ty,
             assigned: false,
             mutable,
+            used: false,
             parent: None,
         }
     }
@@ -43,6 +45,10 @@ impl Object {
 
     pub fn is_param(&self) -> bool {
         self.kind == ObjectKind::Param
+    }
+
+    pub fn consume(&mut self) {
+        self.used = true;
     }
 }
 
@@ -61,10 +67,12 @@ impl EnumObject {
     }
 }
 
+type Vars = Vec<Rc<RefCell<Object>>>;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
-    pub objs: Vec<Rc<RefCell<Object>>>,
-    pub scopes: Vec<Vec<Rc<RefCell<Object>>>>,
+    pub objs: Vars,
+    pub scopes: Vec<Vars>,
 }
 
 impl SymbolTable {
@@ -72,6 +80,7 @@ impl SymbolTable {
         SymbolTable {
             objs: vec![],
             scopes: vec![vec![]],
+            //           ^^^^^^ 仮引数用
         }
     }
 
@@ -94,16 +103,6 @@ impl SymbolTable {
         self.objs.iter().fold(0, |acc, x| if x.borrow().kind == kind { acc+1 } else { acc })
     }
 
-    pub fn repair_offset(&mut self) {
-        // とりあえずObjectKind::Localだけ修正
-        self.objs.iter()
-            .filter(|o|o.borrow().kind == ObjectKind::Local)
-            .fold(0, |acc, o| {
-                o.borrow_mut().offset = acc;
-                acc + 1
-            });
-    }
-
     pub fn drain(&mut self, name: &str) -> Option<Rc<RefCell<Object>>> {
         for scope in self.scopes.iter_mut().rev() {
             if let Some((i, _)) = scope.iter().enumerate().find(|(_,o)|o.borrow().name == name) {
@@ -115,6 +114,20 @@ impl SymbolTable {
             }
         }
         None
+    }
+
+    pub fn clear_local(&mut self) {
+        self.objs.retain(|o|o.borrow().kind != ObjectKind::Local);
+    }
+
+    pub fn repair_offset(&mut self) {
+        // とりあえずObjectKind::Localだけ修正
+        self.objs.iter()
+            .filter(|o|o.borrow().kind == ObjectKind::Local)
+            .fold(0, |acc, o| {
+                o.borrow_mut().offset = acc;
+                acc + 1
+            });
     }
 }
 

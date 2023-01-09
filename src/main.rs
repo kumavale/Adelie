@@ -11,6 +11,7 @@ mod object;
 mod parser;
 mod program;
 mod token;
+mod typing;
 mod utils;
 
 use crate::class::{Class, ClassKind};
@@ -83,6 +84,13 @@ fn main() {
         .unwrap();
     let _ = io::stdout().write_all(&output.stdout);
     let _ = io::stderr().write_all(&output.stderr);
+
+    if !output.status.success() {
+        match output.status.code() {
+            Some(code) => std::process::exit(code),
+            None       => std::process::exit(1),
+        }
+    }
 }
 
 fn gen_manifest<'a>(program: &'a Program<'a>) {
@@ -177,17 +185,30 @@ fn gen_functions<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>)
 }
 
 fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
-    if let Ok(rettype) = codegen::gen_il(func.statements.clone(), program) {
-        match (&rettype, &*func.rettype.borrow()) {
+    // 型検査
+    //dbg!(&func.symbol_table.borrow());
+    func.symbol_table.borrow_mut().clear_local();
+    if typing::typing(func.statements.clone(), &mut func.symbol_table.borrow_mut(), program).is_err() {
+        // 型検査段階のエラーを表示
+        program.errors.borrow().display();
+        if program.errors.borrow().any_deny() {
+            error_exit(program);
+        }
+    }
+    func.symbol_table.borrow_mut().repair_offset();
+
+    // コード生成
+    if let Ok(rettype) = codegen::gen_il(func.statements.clone(), &func.symbol_table.borrow(), program) {
+        match (&*rettype.borrow(), &*func.rettype.borrow()) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-            _ => if rettype != *func.rettype.borrow() {
+            (lty, rty) => if lty != rty {
                 if let ast::NodeKind::Block { stmts } = &func.statements.kind {
                     let token = if stmts.is_empty() {
                         func.statements.token
                     } else {
                         stmts.last().unwrap().token
                     };
-                    error::e0012(Rc::clone(&program.errors), (program.path, &program.lines, token), &func.rettype.borrow(), &rettype);
+                    error::e0012(Rc::clone(&program.errors), (program.path, &program.lines, token), rty, lty);
                 } else {
                     unreachable!();
                 }

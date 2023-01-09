@@ -233,6 +233,7 @@ pub struct Program<'a> {
     pub il: RefCell<Il>,
     pub references: Vec<Attribute>,
     pub ret_address: RefCell<bool>,
+    pub consume: RefCell<bool>,
 }
 
 impl<'a> Program<'a> {
@@ -252,6 +253,7 @@ impl<'a> Program<'a> {
             il: RefCell::new(Il::new()),
             references: vec![],
             ret_address: RefCell::new(false),
+            consume: RefCell::new(true),
         }
     }
 
