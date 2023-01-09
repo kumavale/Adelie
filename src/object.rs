@@ -2,7 +2,7 @@ use crate::keyword::RRType;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjectKind {
     Field,
     Local,
@@ -80,6 +80,7 @@ impl SymbolTable {
         SymbolTable {
             objs: vec![],
             scopes: vec![vec![]],
+            //           ^^^^^^ 仮引数用
         }
     }
 
@@ -115,7 +116,11 @@ impl SymbolTable {
         None
     }
 
-    fn repair_offset(&mut self) {
+    pub fn clear_local(&mut self) {
+        self.objs = self.objs.iter().filter(|o|o.borrow().kind != ObjectKind::Local).cloned().collect();
+    }
+
+    pub fn repair_offset(&mut self) {
         // とりあえずObjectKind::Localだけ修正
         self.objs.iter()
             .filter(|o|o.borrow().kind == ObjectKind::Local)

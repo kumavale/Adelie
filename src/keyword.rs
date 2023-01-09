@@ -206,12 +206,12 @@ impl Type {
             Type::Bool        |
             Type::Char        |
             Type::String      |
+            Type::Class(..)   |
+            Type::Void        |
             Type::Ptr(_)      => true,
             Type::_Self(..)   |
             Type::Enum(..)    |
-            Type::Class(..)   |
             Type::Box(_)      |
-            Type::Void        |
             Type::Unknown     |
             Type::RRIdent(..) => false,
         }

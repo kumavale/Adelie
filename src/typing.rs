@@ -10,7 +10,7 @@ use crate::program::Program;
 use crate::token::Token;
 use crate::utils::remove_seq;
 use std::rc::Rc;
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -47,7 +47,7 @@ pub fn typing<'a>(node: Node, st: &mut SymbolTable, p: &'a Program<'a>) -> Resul
             typing_lambda(node.token, st, p, ty, &ident, &parent)
         }
         NodeKind::Struct { obj, field } => {
-            typing_struct(node.token, st, p, obj.borrow(), field)
+            typing_struct(node.token, st, p, obj.clone(), field)
         }
         NodeKind::Field { expr, ident } => {
             typing_field(node.token, st, p, *expr, &ident)
@@ -126,17 +126,63 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
             _ => Err(())
         }
     }
-    st.push(obj.clone());
     if let Some(init) = init {
-        let rty = typing(*init, st, p)?;
-        obj.borrow_mut().assigned = true;
-        if check_type(&*obj.borrow().ty.borrow(), &*rty.borrow()).is_err() {
-            e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.borrow().ty.borrow(), &rty.borrow());
+        if let Some(parent) = &obj.borrow().parent {
+            // let文の左辺が{ident}.{field}の形になるのは、クロージャの自由変数を参照している場合のみ
+            let ident = obj.borrow().name.to_string();
+            *p.ret_address.borrow_mut() = true;
+            let parent_ty = typing_variable(current_token, st, p, parent.clone())?;
+            let parent_ty = parent_ty.borrow();
+            *p.ret_address.borrow_mut() = false;
+            match &*parent_ty {
+                Type::Class(_, _, ref path, ref name, _, is_mutable) => {
+                    let namespace = p.namespace.borrow();
+                    let ns = if let Some(ns) = namespace.find(path) {
+                        ns
+                    } else {
+                        let message = format!("failed to resolve: use of undeclared crate or module `{}`", path.join("::"));
+                        e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                        return Err(());
+                    };
+                    if let Some(cl) = ns.find_class(|_|true, name) {
+                        if let Some(field) = cl.borrow().field.find(&ident) {
+                            let rty = typing(*init, st, p)?;
+                            if check_type(&field.borrow().ty.borrow(), &rty.borrow()).is_err() {
+                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty.borrow());
+                            }
+                            if !is_mutable {
+                                let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
+                                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                            }
+                        } else {
+                            e0015(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ident, name);
+                        }
+                    } else {
+                        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), name);
+                    }
+                }
+                ty => {
+                    let message = format!("[compiler unimplemented!()] primitive type: {:?}", ty);
+                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                }
+            }
+            // 変数をシンボルテーブルに格納する必要はないので早期リターン
+            return Ok(RRType::new(Type::Void));
         }
-        Ok(RRType::new(Type::Void))
-    } else {
-        Ok(RRType::new(Type::Void))
+        let rty = typing(*init, st, p)?;
+        let is_assigned = obj.borrow().is_assigned();
+        obj.borrow_mut().assigned = true;
+        let obj = obj.borrow();
+        if !obj.is_mutable() && is_assigned {
+            e0028(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
+        }
+        if check_type(&obj.ty.borrow(), &rty.borrow()).is_err() {
+            e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.borrow(), &rty.borrow());
+        }
     }
+    st.push(obj.clone());
+    //Ok(obj.borrow().ty.clone())
+    Ok(RRType::new(Type::Void))
 }
 
 fn typing_box<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, method: Node) -> Result<RRType> {
@@ -328,7 +374,7 @@ fn typing_lambda<'a>(
     Ok(ty)
 }
 
-fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Result<RRType> {
+fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, obj: Rc<RefCell<Object>>, field: Vec<Node>) -> Result<RRType> {
     fn check_type(then: &Type, els: &Type) -> Result<RRType> {
         match (then, els) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(RRType::new(els.clone())),
@@ -340,7 +386,7 @@ fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
         }
     }
     let ns = p.namespace.borrow();
-    let (ns, name) = if let Type::Class(ClassKind::Struct, _, path, name, ..) = &*obj.ty.borrow() {
+    let (ns, name) = if let Type::Class(ClassKind::Struct, _, path, name, ..) = &*obj.borrow().ty.borrow() {
         if let Some(ns) = ns.find(path) {
             (ns, name.to_string())
         } else {
@@ -349,7 +395,7 @@ fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             return Err(());
         }
     } else {
-        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.name));
+        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.borrow().name));
         return Err(());
     };
     if let Some(cl) = ns.find_class(|k|k==&ClassKind::Struct, &name) {
@@ -364,9 +410,10 @@ fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             }
         }
     } else {
-        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.name));
+        e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.borrow().name));
     }
-    Ok(obj.ty.clone())
+    st.push(obj.clone());
+    Ok(obj.borrow().ty.clone())
 }
 
 fn typing_field<'a>(
@@ -480,8 +527,13 @@ fn typing_variable(current_token: &[Token], st: &mut SymbolTable, p: &Program, o
         }
     } else {
         if st.find_mut(&obj.borrow().name).is_none() {
-            e0007(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.borrow().name);
-            return Err(());
+            if obj.borrow().name.ends_with(">nested_class") {
+                let message = format!("[compiler unimplemented!()] cannot find value: `{}`", &obj.borrow().name);
+                warning(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+            } else {
+                e0007(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.borrow().name);
+                return Err(());
+            }
         }
         if !obj.borrow().ty.borrow().copyable() && obj.borrow().used {
             let message = format!("use of moved value: `{}`", obj.borrow().name);

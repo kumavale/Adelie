@@ -153,15 +153,38 @@ fn gen_il_box<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>
     }
 }
 
-fn gen_il_let<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>, obj: Ref<Object>, init: Option<Box<Node>>) -> Result<RRType> {
+fn gen_il_let<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>, obj: Ref<Object>, init: Option<Box<Node>>) -> Result<RRType> {
     if let Some(init) = init {
-        let _rty = gen_il(*init, st, p)?;
-        p.push_il_text(format!("\tstloc {}", obj.offset));
-        Ok(RRType::new(Type::Void))
+        //let _rty = gen_il(*init, st, p)?;
+        //p.push_il_text(format!("\tstloc {}", obj.offset));
+        if let Some(parent) = &obj.parent {
+            let ident = obj.name.to_string();
+            *p.ret_address.borrow_mut() = true;
+            let parent_ty = gen_il_variable(current_token, st, p, parent.borrow())?;
+            let parent_ty = parent_ty.borrow();
+            *p.ret_address.borrow_mut() = false;
+            match &*parent_ty {
+                Type::Class(_, _, ref path, ref name, _, _) => {
+                    let namespace = p.namespace.borrow();
+                    let ns = namespace.find(path).unwrap();
+                    if let Some(cl) = ns.find_class(|_|true, name) {
+                        if let Some(field) = cl.borrow().field.find(&ident) {
+                            let _rty = gen_il(*init, st, p)?;
+                            p.push_il_text(format!("\tstfld {} {}::'{}'", field.borrow().ty.borrow().to_ilstr(), parent_ty.to_ilstr(), ident));
+                        }
+                    }
+                }
+                _ => unreachable!(),
+            }
+        } else {
+            let _rty = gen_il(*init, st, p)?;
+            p.push_il_text(format!("\tstloc {}", obj.offset));
+        }
     } else {
         //gen_il_variable(current_token, st, p, obj)
-        gen_il_empty()
     }
+    //Ok(obj.ty.clone())
+    Ok(RRType::new(Type::Void))
 }
 
 fn gen_il_call<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>, name: &str, args: Vec<Node>) -> Result<RRType> {
