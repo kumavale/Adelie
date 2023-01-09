@@ -73,10 +73,6 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], st: &SymbolTable, mut args: Vec
             _ => Err(())
         }
     }
-    if args.len() != 2 {
-        e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 2, args.len());
-        return Err(());
-    }
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
     let lty = gen_il(lhs, st, p)?;
@@ -149,10 +145,7 @@ fn gen_il_builtin_println<'a>(_token: &[Token], st: &SymbolTable, args: Vec<Node
     ty
 }
 
-fn gen_il_builtin_read_line<'a>(token: &[Token], _st: &SymbolTable, args: Vec<Node>, p: &'a Program) -> Result<RRType> {
-    if !args.is_empty() {
-        e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "read_line! takes no arguments");
-    }
+fn gen_il_builtin_read_line<'a>(_token: &[Token], _st: &SymbolTable, _args: Vec<Node>, p: &'a Program) -> Result<RRType> {
     p.push_il_text("\tcall string [mscorlib]System.Console::ReadLine()");
     Ok(RRType::new(Type::String))
 }
