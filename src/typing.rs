@@ -104,7 +104,6 @@ pub fn typing<'a>(node: Node, st: &mut SymbolTable, p: &'a Program<'a>) -> Resul
 }
 
 fn typing_integer(_current_token: &[Token], _st: &mut SymbolTable, _p: &Program, ty: RRType, _num: i128) -> Result<RRType> {
-    // TODO: リテラルもシンボルテーブルに入れる必要がある?
     // 型推論の流れ
     // let x = 42;      // 42: Integer, x: Integer
     // let y: i32 = x;  //  x: Integer, y: I32
@@ -807,6 +806,20 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
 }
 
 fn typing_return<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, expr: Option<Box<Node>>, func_retty: RRType) -> Result<RRType> {
+    fn type_inference(source: &RRType, target: &mut RRType) {
+        match (&*source.borrow(), &mut *target.borrow_mut()) {
+            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+            (Type::Box(l), Type::Box(r)) |
+            (Type::Ptr(l), Type::Ptr(r)) => type_inference(l, r),
+            _ => {
+                /* TODO */
+                return;
+            }
+        }
+        // TODO: 本当はRc<RefCell<Rc<RefCell<Type>>>>なんだよなぁ🤔
+        // sourceのRRTypeのシャローコピーをtargetに入れて、codegen.rsからもRRTypeを参照するべき
+        *target.borrow_mut() = source.borrow().clone();
+    }
     fn check_type(arg: &Type, param: &Type) -> Result<()> {
         match (arg, param) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
@@ -816,11 +829,15 @@ fn typing_return<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             _ => Err(())
         }
     }
-    let rettype = if let Some(expr) = expr {
+    let mut rettype = if let Some(expr) = expr {
         typing(*expr, st, p)?
     } else {
         RRType::new(Type::Void)
     };
+
+    type_inference(&func_retty, &mut rettype);
+    debug_assert_ne!(&*rettype.borrow(), &Type::Numeric(Numeric::Integer));
+
     if check_type(&rettype.borrow(), &func_retty.borrow()).is_err() {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &func_retty.borrow(), &rettype.borrow());
     }

@@ -774,6 +774,9 @@ fn gen_il_return<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'
     if check_type(&rettype.borrow(), &func_retty.borrow()).is_err() {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &func_retty.borrow(), &rettype.borrow());
     }
+
+    debug_assert_ne!(&*rettype.borrow(), &Type::Numeric(Numeric::Integer));
+
     p.push_il_text("\tret");
     // TODO: Type::Never(rettype)
     Ok(rettype)
