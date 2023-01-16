@@ -755,12 +755,12 @@ impl<'a> Parser<'a> {
         let mut ed = EnumDef::new(name, self.current_mod.to_vec());
         if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), ed.name.to_string())) {
             // replace
-            let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
+            let (path, name) = if let Type::RRIdent(path, name) = &ty.get_type() {
                 (path.to_vec(), name.to_string())
             } else {
                 unreachable!();
             };
-            *ty.borrow_mut() = Type::Enum(self.foreign_reference.clone(), path, name);
+            ty.set_type(Type::Enum(self.foreign_reference.clone(), path, name));
         } else {
             // insert
             let ty = RRType::new(Type::Enum(self.foreign_reference.clone(), self.current_mod.to_vec(), ed.name.to_string()));
@@ -815,12 +815,12 @@ impl<'a> Parser<'a> {
 
         if let Some(ty) = self.ident_types.get_mut(&(self.current_mod.to_vec(), cl.name.to_string())) {
             // replace
-            let (path, name) = if let Type::RRIdent(path, name) = &*ty.borrow() {
+            let (path, name) = if let Type::RRIdent(path, name) = &ty.get_type() {
                 (path.to_vec(), name.to_string())
             } else {
                 unreachable!();
             };
-            *ty.borrow_mut() = Type::Class(kind, self.foreign_reference.clone(), path, name, cl.base.clone(), false);
+            ty.set_type(Type::Class(kind, self.foreign_reference.clone(), path, name, cl.base.clone(), false));
         } else {
             // insert
             let ty = RRType::new(Type::Class(kind, self.foreign_reference.clone(), self.current_mod.to_vec(), cl.name.to_string(), cl.base.clone(), false));
@@ -992,7 +992,7 @@ impl<'a> Parser<'a> {
 
     fn parse_fn_ret_ty(&mut self) {
         if let Some(ty) = self.type_no_bounds() {
-            if self.current_fn().name == "main" && *ty.borrow() != Type::Void {
+            if self.current_fn().name == "main" && ty.get_type() != Type::Void {
                 // TODO: std::process::Termination
                 e0000(Rc::clone(&self.errors), self.errorset(self.idx-1..self.idx), "`main` can only return void type");
             }

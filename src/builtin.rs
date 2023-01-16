@@ -53,8 +53,8 @@ fn gen_il_builtin_assert<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<No
     let arg = args.pop().unwrap();
     let stringizing_arg = arg.token.iter().map(|t|format!("{}",t.kind)).collect::<Vec<_>>().join(" ");
     let ty = gen_il(arg, st, p)?;
-    if *ty.borrow() != Type::Bool {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ty.borrow());
+    if ty.get_type() != Type::Bool {
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ty.get_type());
     }
     p.push_il_text(format!("\tldstr \"{stringizing_arg}\""));
     p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
@@ -68,7 +68,7 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], st: &SymbolTable, mut args: Vec
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
+            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
             _ if lty == rty => Ok(()),
             _ => Err(())
         }
@@ -76,11 +76,11 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], st: &SymbolTable, mut args: Vec
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
     let lty = gen_il(lhs, st, p)?;
-    p.push_il_text(format!("\tbox {}", lty.borrow().to_ilstr()));
+    p.push_il_text(format!("\tbox {}", lty.to_ilstr()));
     let rty = gen_il(rhs, st, p)?;
-    p.push_il_text(format!("\tbox {}", rty.borrow().to_ilstr()));
-    if check_type(&lty.borrow(), &rty.borrow()).is_err() {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty.borrow(), &rty.borrow());
+    p.push_il_text(format!("\tbox {}", rty.to_ilstr()));
+    if check_type(&lty.get_type(), &rty.get_type()).is_err() {
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty.get_type(), &rty.get_type());
     }
     p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
     p.push_il_text("\tcall void [adelie_std]std::'assert_eq'(object, object, string)");
@@ -101,7 +101,7 @@ fn gen_il_builtin_panic<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Nod
             }
             p.push_il_text("\tldstr \"{{0}}\"");
             let ty = gen_il(format_shaping(format), st, p)?;
-            p.push_il_text(format!("\tbox {}", ty.borrow().to_ilstr()));
+            p.push_il_text(format!("\tbox {}", ty.to_ilstr()));
             p.push_il_text("\tcall string [mscorlib]System.String::Format(string, object)");
         }
         _ => {
@@ -122,7 +122,7 @@ fn gen_il_builtin_panic<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Nod
                 p.push_il_text("\tdup");
                 p.push_il_text(format!("\tldc.i4 {}", i));
                 let ty = gen_il(arg, st, p)?;
-                p.push_il_text(format!("\tbox {}", ty.borrow().to_ilstr()));
+                p.push_il_text(format!("\tbox {}", ty.to_ilstr()));
                 p.push_il_text("\tstelem.ref");
             }
             p.push_il_text("\tcall string [mscorlib]System.String::Format(string, object[])");
@@ -172,10 +172,10 @@ fn format_args<'a>(_token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &
             } else {
                 let ty = gen_il(format, st, p)?;
                 p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})",
-                    match &*ty.borrow() {
+                    match &ty.get_type() {
                         Type::Numeric(n) => n.to_ilstr(),
                         Type::Float(f) => f.to_ilstr(),
-                        Type::Char | Type::Bool | Type::String => ty.borrow().to_ilstr(),
+                        Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
                         b @ Type::Box(_) => b.to_ilstr(),
                         _ => {
                             dbg!(&ty);
@@ -205,7 +205,7 @@ fn format_args<'a>(_token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &
                     }
                     FmtKind::PlaceHolder => {
                         let ty = gen_il(args.next().unwrap(), st, p)?;
-                        p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})", ty.borrow().to_ilstr()));
+                        p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})", ty.to_ilstr()));
                     }
                 }
             }

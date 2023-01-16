@@ -105,7 +105,7 @@ impl IlFunc {
         } else {
             writeln!(writer, ".method assembly {} {} '{}'({}) cil managed {{",
                 if self.is_static { "static" } else { "instance" },
-                self.rettype.borrow().to_ilstr(),
+                self.rettype.to_ilstr(),
                 self.name,
                 self.params)?;
         }
@@ -116,7 +116,7 @@ impl IlFunc {
             writeln!(writer, "\t)")?;
         }
         for obj in self.inits.iter() {
-            if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &*obj.borrow().ty.borrow() {
+            if let Type::Class(ClassKind::NestedClass(pn), .., name, _, _) = &obj.borrow().ty.get_type() {
                 if name == "<>c__DisplayClass0_0" {
                     writeln!(writer, "\tnewobj instance void '{}'/'<>c__DisplayClass0_0'::.ctor()", pn)?;
                     writeln!(writer, "\tstloc '{}'", obj.borrow().name)?;

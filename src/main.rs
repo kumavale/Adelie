@@ -127,7 +127,7 @@ fn gen_structs<'a, 'b>(program: &'a Program<'a>, namespace: &'b NameSpace<'a>) {
             .field
             .objs
             .iter()
-            .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+            .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.to_ilstr(), obj.borrow().name))
             .collect();
         for im in &st.borrow().impls {
             for func in &im.functions {
@@ -149,7 +149,7 @@ fn gen_nested_class<'a, 'b>(program: &'a Program<'a>, nested_class: &'b Rc<RefCe
         .field
         .objs
         .iter()
-        .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+        .map(|obj| format!("\t.field public {} '{}'", obj.borrow().ty.to_ilstr(), obj.borrow().name))
         .collect();
     for local_func in &func.local_funcs {
         gen_function(program, local_func);
@@ -199,7 +199,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
 
     // コード生成
     if let Ok(rettype) = codegen::gen_il(func.statements.clone(), &func.symbol_table.borrow(), program) {
-        match (&*rettype.borrow(), &*func.rettype.borrow()) {
+        match (&rettype.get_type(), &func.rettype.get_type()) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
             (lty, rty) => if lty != rty {
                 if let ast::NodeKind::Block { stmts } = &func.statements.kind {
@@ -222,7 +222,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
             .iter()
             .filter(|obj| obj.borrow().kind == ObjectKind::Param)
             .skip((!func.is_static) as usize)
-            .map(|obj|format!("{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+            .map(|obj|format!("{} '{}'", obj.borrow().ty.to_ilstr(), obj.borrow().name))
             .collect::<Vec<String>>()
             .join(", ");
     let locals = func
@@ -231,7 +231,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
         .objs
         .iter()
         .filter(|obj| obj.borrow().kind == ObjectKind::Local)
-        .map(|obj| format!("\t\t{} '{}'", obj.borrow().ty.borrow().to_ilstr(), obj.borrow().name))
+        .map(|obj| format!("\t\t{} '{}'", obj.borrow().ty.to_ilstr(), obj.borrow().name))
         .collect::<Vec<String>>()
         .join(",\n");
     let inits = func.symbol_table
@@ -239,7 +239,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
         .objs
         .iter()
         .filter(|obj| obj.borrow().kind == ObjectKind::Local)
-        .filter(|obj| matches!(&*obj.borrow().ty.borrow(), Type::Class(ClassKind::NestedClass(_), ..)))
+        .filter(|obj| matches!(&obj.borrow().ty.get_type(), Type::Class(ClassKind::NestedClass(_), ..)))
         .map(Rc::clone)
         .collect::<Vec<_>>();
     let stmts = program.drain_il_stmts();
