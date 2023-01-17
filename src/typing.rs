@@ -759,25 +759,10 @@ fn typing_cast<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Progra
 fn typing_unaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, kind: UnaryOpKind, expr: Node) -> Result<RRType> {
     match kind {
         UnaryOpKind::Not => {
-            let ty = typing(expr, st, p)?;
-            match &ty.get_type() {
-                Type::Bool | Type::Numeric(_) => (),
-                ty => {
-                    let message = format!("cannot apply unary operator `!` to type `{}`", ty);
-                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
-                }
-            }
-            Ok(ty)
+            Ok(typing(expr, st, p)?)
         }
         UnaryOpKind::Neg => {
-            let ty= typing(expr, st, p)?;
-            match &ty.get_type() {
-                Type::Numeric(..) | Type::Float(..) => (),
-                ty => {
-                    e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ty);
-                }
-            }
-            Ok(ty)
+            Ok(typing(expr, st, p)?)
         }
         UnaryOpKind::Ref => {
             if let NodeKind::Variable { obj } = expr.kind {

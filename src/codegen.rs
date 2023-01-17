@@ -849,16 +849,22 @@ fn gen_il_unaryop<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<
                 Type::Numeric(_) => {
                     p.push_il_text("\tnot");
                 }
-                _ => unreachable!()
+                ty => {
+                    let message = format!("cannot apply unary operator `!` to type `{}`", ty);
+                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+                }
             }
             Ok(ty)
         }
         UnaryOpKind::Neg => {
-            let ty= gen_il(expr, st, p)?;
-            if let Type::Numeric(..) | Type::Float(..) = ty.get_type() {
-                p.push_il_text("\tneg");
-            } else {
-                unreachable!()
+            let ty = gen_il(expr, st, p)?;
+            match &ty.get_type() {
+                Type::Numeric(..) | Type::Float(..) => {
+                    p.push_il_text("\tneg");
+                }
+                ty => {
+                    e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ty);
+                }
             }
             Ok(ty)
         }
@@ -903,7 +909,10 @@ fn gen_il_unaryop<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<
                     }
                     Ok(ty.clone())
                 }
-                _ => unreachable!()
+                ty => {
+                    e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ty);
+                    Err(())
+                }
             }
         }
     }
