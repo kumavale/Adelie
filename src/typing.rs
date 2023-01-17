@@ -14,6 +14,20 @@ use std::cell::RefCell;
 
 type Result<T> = std::result::Result<T, ()>;
 
+/// 型推論
+fn type_inference(source: &RRType, target: &mut RRType) {
+    match (&source.get_type(), &mut target.get_type()) {
+        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+        (Type::Box(l), Type::Box(r)) |
+        (Type::Ptr(l), Type::Ptr(r)) => type_inference(l, r),
+        _ => {
+            /* TODO */
+            return;
+        }
+    }
+    *target.borrow_mut() = source.borrow().clone();
+}
+
 /// 型検査
 /// アフィン型システム
 /// 型推論
@@ -197,7 +211,9 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
             // 変数をシンボルテーブルに格納する必要はないので早期リターン
             return Ok(RRType::new(Type::Void));
         }
-        let rty = typing(*init, st, p)?;
+        let mut rty = typing(*init, st, p)?;
+        type_inference(&obj.borrow().ty, &mut rty);
+        debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
         let is_assigned = obj.borrow().is_assigned();
         obj.borrow_mut().assigned = true;
         let obj = obj.borrow();
@@ -806,18 +822,6 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
 }
 
 fn typing_return<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, expr: Option<Box<Node>>, func_retty: RRType) -> Result<RRType> {
-    fn type_inference(source: &RRType, target: &mut RRType) {
-        match (&source.get_type(), &mut target.get_type()) {
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => type_inference(l, r),
-            _ => {
-                /* TODO */
-                return;
-            }
-        }
-        *target.borrow_mut() = source.borrow().clone();
-    }
     fn check_type(arg: &Type, param: &Type) -> Result<()> {
         match (arg, param) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
