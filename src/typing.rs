@@ -229,15 +229,6 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
 }
 
 fn typing_call<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, name: &str, args: Vec<Node>) -> Result<RRType> {
-    fn check_type(arg: &Type, param: &Type) -> Result<()> {
-        match (arg, param) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
-            _ if arg == param => Ok(()),
-            _ => Err(())
-        }
-    }
     if let Some(func) = p.namespace.borrow().find_fn(name) {
         let objs = if let Ok(st) = func.symbol_table.try_borrow() {
             st.objs.clone()
@@ -252,13 +243,9 @@ fn typing_call<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
             e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
         }
         for (arg, param) in args.into_iter().zip(&params) {
-            let token = arg.token;
-            let arg_ty = typing(arg, st, p)?;
-            let param = param.borrow();
-            let param_ty = &param.ty.get_type();
-            if check_type(&arg_ty.get_type(), param_ty).is_err() {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.get_type());
-            }
+            let mut arg_ty = typing(arg, st, p)?;
+            type_inference(&param.borrow().ty, &mut arg_ty);
+            debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
         }
         Ok(func.rettype.clone())
     } else {
@@ -602,38 +589,28 @@ fn typing_block<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
     Ok(ty)
 }
 
-fn typing_if<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, cond: Node, then: Node, els: Option<Box<Node>>) -> Result<RRType> {
-    fn check_type(then: &Type, els: &Type) -> Result<RRType> {
-        match (then, els) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(RRType::new(els.clone())),
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(RRType::new(then.clone())),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
-            _ if then == els => Ok(RRType::new(then.clone())),
-            _ => Err(())
-        }
-    }
+fn typing_if<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, cond: Node, then: Node, els: Option<Box<Node>>) -> Result<RRType> {
     let token = cond.token;
     let cond_type = typing(cond, st, p)?;
     if cond_type.get_type() != Type::Bool {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type.get_type());
     }
-    let then_type = typing(then, st, p)?;
+    let mut then_type = typing(then, st, p)?;
     let els = els.map(|els| (els.token, typing(*els, st, p)));
     if let Some(els) = els {
-        let els_token = els.0;
-        let els_type = els.1?;
-        let els_type = els_type.get_type();
-        check_type(&then_type.get_type(), &els_type)
-            .map_err(|()| {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, els_token), &then_type.get_type(), &els_type);
-            })
-    } else if then_type.get_type() != Type::Void {
-        e0018(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &then_type.get_type());
-        Err(())
-    } else {
-        Ok(then_type)
+        let mut els_type = els.1?;
+        type_inference(&els_type, &mut then_type);
+        type_inference(&then_type, &mut els_type);
+        // then: Integer, else: Integerの場合、両方に同じRRTypeをcloneする
+        // TODO: この処理を`type_inference()`に合成
+        match (&then_type.get_type(), &els_type.get_type()) {
+            (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer)) => {
+                *els_type.borrow_mut() = then_type.borrow().clone();
+            }
+            _ => ()
+        }
     }
+    Ok(then_type)
 }
 
 fn typing_while<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, cond: Node, then: Node) -> Result<RRType> {

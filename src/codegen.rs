@@ -182,6 +182,7 @@ fn gen_il_let<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>,
             }
         } else {
             let rty = gen_il(*init, st, p)?;
+            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
             if check_type(&obj.ty.get_type(), &rty.get_type()).is_err() {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.get_type(), &rty.get_type());
             }
@@ -217,6 +218,7 @@ fn gen_il_call<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a
         let param = param.borrow();
         let param_ty = &param.ty.get_type();
         let arg_ty = gen_il(arg, st, p)?;
+        debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
         if check_type(&arg_ty.get_type(), param_ty).is_err() {
             e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.get_type());
         }
