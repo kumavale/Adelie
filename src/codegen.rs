@@ -378,13 +378,11 @@ fn gen_il_lambda<'a>(
 }
 
 fn gen_il_struct<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>, obj: Ref<Object>, field: Vec<Node>) -> Result<RRType> {
-    fn check_type(then: &Type, els: &Type) -> Result<RRType> {
-        match (then, els) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(RRType::new(els.clone())),
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(RRType::new(then.clone())),
+    fn check_type(dec: &Type, expr: &Type) -> Result<()> {
+        match (dec, expr) {
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
-            _ if then == els => Ok(RRType::new(then.clone())),
+            _ if dec == expr => Ok(()),
             _ => Err(())
         }
     }
@@ -402,6 +400,7 @@ fn gen_il_struct<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<
         p.push_il_text(format!("\tldloca {}", obj.offset));
         let field_token = field_expr.token;
         let ty = gen_il(field_expr, st, p)?;
+        debug_assert_ne!(&ty.get_type(), &Type::Numeric(Numeric::Integer));
         if check_type(&ty.get_type(), &field_dec.borrow().ty.get_type()).is_err() {
             e0012(Rc::clone(&p.errors), (p.path, &p.lines, field_token), &field_dec.borrow().ty.get_type(), &ty.get_type());
         }

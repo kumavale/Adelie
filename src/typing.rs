@@ -342,16 +342,6 @@ fn typing_lambda<'a>(
 }
 
 fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, obj: Rc<RefCell<Object>>, field: Vec<Node>) -> Result<RRType> {
-    fn check_type(then: &Type, els: &Type) -> Result<RRType> {
-        match (then, els) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(RRType::new(els.clone())),
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(RRType::new(then.clone())),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
-            _ if then == els => Ok(RRType::new(then.clone())),
-            _ => Err(())
-        }
-    }
     let ns = p.namespace.borrow();
     let (ns, name) = if let Type::Class(ClassKind::Struct, _, path, name, ..) = &obj.borrow().ty.get_type() {
         if let Some(ns) = ns.find(path) {
@@ -370,11 +360,9 @@ fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &cl.borrow().name);
         }
         for (field_expr, field_dec) in field.into_iter().zip(&cl.borrow().field.objs) {
-            let field_token = field_expr.token;
-            let ty = typing(field_expr, st, p)?;
-            if check_type(&ty.get_type(), &field_dec.borrow().ty.get_type()).is_err() {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, field_token), &field_dec.borrow().ty.get_type(), &ty.get_type());
-            }
+            let mut ty = typing(field_expr, st, p)?;
+            type_inference(&field_dec.borrow().ty, &mut ty);
+            debug_assert_ne!(&ty.get_type(), &Type::Numeric(Numeric::Integer));
         }
     } else {
         e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.borrow().name));
