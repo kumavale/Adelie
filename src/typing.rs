@@ -733,15 +733,6 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
 }
 
 fn typing_return<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, expr: Option<Box<Node>>, func_retty: RRType) -> Result<RRType> {
-    fn check_type(arg: &Type, param: &Type) -> Result<()> {
-        match (arg, param) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
-            _ if arg == param => Ok(()),
-            _ => Err(())
-        }
-    }
     let mut rettype = if let Some(expr) = expr {
         typing(*expr, st, p)?
     } else {
@@ -751,9 +742,6 @@ fn typing_return<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
     type_inference(&func_retty, &mut rettype);
     debug_assert_ne!(&rettype.get_type(), &Type::Numeric(Numeric::Integer));
 
-    if check_type(&rettype.get_type(), &func_retty.get_type()).is_err() {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &func_retty.get_type(), &rettype.get_type());
-    }
     // TODO: Type::Never(rettype)
     Ok(rettype)
 }
