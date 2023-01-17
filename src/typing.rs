@@ -732,7 +732,7 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
     Ok(RRType::new(Type::Void))
 }
 
-fn typing_return<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, expr: Option<Box<Node>>, func_retty: RRType) -> Result<RRType> {
+fn typing_return<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, expr: Option<Box<Node>>, func_retty: RRType) -> Result<RRType> {
     let mut rettype = if let Some(expr) = expr {
         typing(*expr, st, p)?
     } else {
@@ -751,40 +751,8 @@ fn typing_break(_current_token: &[Token], _st: &mut SymbolTable, _p: &Program) -
     Ok(RRType::new(Type::Void))
 }
 
-fn typing_cast<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, new_type: RRType, expr: Node) -> Result<RRType> {
-    let old_type = typing(expr, st, p)?;
-    let old_type = old_type.get_type();
-    match &new_type.get_type() {
-        Type::Numeric(Numeric::I32) => {
-            match old_type {
-                Type::Numeric(..) | Type::Float(..) | Type::Enum(..) | Type::Bool | Type::Char => (),  // ok
-                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Numeric(Numeric::I32)),
-            }
-        }
-        Type::Float(Float::F32) => {
-            match old_type {
-                Type::Numeric(..) | Type::Float(Float::F32) => (),  // ok
-                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Float(Float::F32)),
-            }
-        }
-        Type::Bool => {
-            match old_type {
-                Type::Bool => (),  // ok
-                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Bool),
-            }
-        }
-        Type::Char => {
-            match old_type {
-                Type::Char | Type::Numeric(_) => (),  // ok
-                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Char),
-            }
-        }
-        Type::Ptr(_) => {
-            todo!("cast to ref type");
-        }
-        Type::Void => unreachable!(),
-        t => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), t)
-    }
+fn typing_cast<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, new_type: RRType, expr: Node) -> Result<RRType> {
+    let _old_type = typing(expr, st, p)?;
     Ok(new_type)
 }
 
