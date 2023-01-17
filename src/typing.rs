@@ -249,31 +249,6 @@ fn typing_method<'a>(
     ident: &str,
     args: Vec<Node>,
 ) -> Result<RRType> {
-    fn check_type(arg_ty: &Type, param_ty: &Type) -> Result<()> {
-        match (arg_ty, param_ty) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
-            _ if arg_ty == param_ty => Ok(()),
-            (Type::Class(.., base_ty, _), Type::Class(..)) => {
-                fn check_base(base_ty: &Option<RRType>, param_ty: &Type) -> std::result::Result<(), ()> {
-                    if let Some(base_ty) = base_ty {
-                        let base_ty = base_ty.get_type();
-                        if base_ty != *param_ty {
-                            let base_ty = if let Type::Class(.., b, _) = &base_ty { b } else { unreachable!() };
-                            check_base(base_ty, param_ty)
-                        } else {
-                            Ok(())
-                        }
-                    } else {
-                        Err(())
-                    }
-                }
-                check_base(base_ty, param_ty)
-            }
-            _ => Err(())
-        }
-    }
     *p.ret_address.borrow_mut() = true;
     *p.consume.borrow_mut() = false;
     let parent_ty = typing(expr, st, p)?;
@@ -333,13 +308,9 @@ fn typing_method<'a>(
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(params) {
-                    let token = arg.token;
-                    let arg_ty = typing(arg, st, p)?;
-                    let param = param.borrow();
-                    let param_ty = &param.ty.get_type();
-                    if check_type(&arg_ty.get_type(), param_ty).is_err() {
-                        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.get_type());
-                    }
+                    let mut arg_ty = typing(arg, st, p)?;
+                    type_inference(&param.borrow().ty, &mut arg_ty);
+                    debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 }
                 Ok(func.rettype.clone())
             } else {

@@ -318,6 +318,7 @@ fn gen_il_method<'a>(
                 let arg_ty = gen_il(arg, st, p)?;
                 let param = param.borrow();
                 let param_ty = &param.ty.get_type();
+                debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 if check_type(&arg_ty.get_type(), param_ty).is_err() {
                     e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.get_type());
                 }
