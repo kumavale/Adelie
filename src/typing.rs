@@ -157,15 +157,6 @@ fn typing_box<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program
 }
 
 fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, obj: Rc<RefCell<Object>>, init: Option<Box<Node>>) -> Result<RRType> {
-    fn check_type(lty: &Type, rty: &Type) -> Result<()> {
-        match (lty, rty) {
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
-            _ if lty == rty => Ok(()),
-            _ => Err(())
-        }
-    }
     if let Some(init) = init {
         if let Some(parent) = &obj.borrow().parent {
             // let文の左辺が{ident}.{field}の形になるのは、クロージャの自由変数を参照している場合のみ
@@ -187,11 +178,10 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
                         return Err(());
                     };
                     if let Some(cl) = ns.find_class(|_|true, name) {
-                        if let Some(field) = cl.borrow().field.find(&ident) {
-                            let rty = typing(*init, st, p)?;
-                            if check_type(&field.borrow().ty.get_type(), &rty.get_type()).is_err() {
-                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.get_type(), &rty.get_type());
-                            }
+                        if cl.borrow().field.find(&ident).is_some() {
+                            let mut rty = typing(*init, st, p)?;
+                            type_inference(&obj.borrow().ty, &mut rty);
+                            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -219,9 +209,6 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
         let obj = obj.borrow();
         if !obj.is_mutable() && is_assigned {
             e0028(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
-        }
-        if check_type(&obj.ty.get_type(), &rty.get_type()).is_err() {
-            e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.get_type(), &rty.get_type());
         }
     }
     st.push(obj);
