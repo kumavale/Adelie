@@ -284,6 +284,7 @@ impl<'a> Lexer<'a> {
                     "read_line" => Token::new(TokenKind::Builtin(Builtin::ReadLine), self.col, self.line),
 
                     "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), self.col, self.line),
+                    "i64"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I64)), self.col, self.line),
                     "f32"    => Token::new(TokenKind::Type(Type::Float(Float::F32)),     self.col, self.line),
                     "bool"   => Token::new(TokenKind::Type(Type::Bool),                  self.col, self.line),
                     "char"   => Token::new(TokenKind::Type(Type::Char),                  self.col, self.line),

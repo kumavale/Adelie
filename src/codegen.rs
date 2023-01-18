@@ -3,7 +3,7 @@ use crate::builtin::*;
 use crate::class::ClassKind;
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, RRType, Numeric, Float, FloatNum, Keyword};
+use crate::keyword::{Type, RRType, Numeric, Float, FloatNum};
 use crate::namespace::NameSpace;
 use crate::object::{FindSymbol, Object, ObjectKind, EnumObject, SymbolTable};
 use crate::program::Program;
@@ -107,14 +107,19 @@ fn label_seq() -> usize {
     }
 }
 
-fn gen_il_integer(current_token: &[Token], _st: &SymbolTable, p: &Program, ty: RRType, num: i128) -> Result<RRType> {
-    use super::token::*;
-    debug_assert!(matches!(current_token[0].kind,
-            TokenKind::Literal(LiteralKind::Char(_))
-            | TokenKind::Literal(LiteralKind::Integer(_))
-            | TokenKind::Keyword(Keyword::True)
-            | TokenKind::Keyword(Keyword::False)));
-    p.push_il_text(format!("\tldc.i4 {}", num as i32));
+fn gen_il_integer(_current_token: &[Token], _st: &SymbolTable, p: &Program, ty: RRType, num: i128) -> Result<RRType> {
+    match ty.get_type() {
+        Type::Char |
+        Type::Bool |
+        Type::Numeric(Numeric::I32) |
+        Type::Numeric(Numeric::Integer) => {
+            p.push_il_text(format!("\tldc.i4 {}", num as i32));
+        }
+        Type::Numeric(Numeric::I64) => {
+            p.push_il_text(format!("\tldc.i8 {}", num as i64));
+        }
+        _ => unreachable!()
+    }
     Ok(ty)
 }
 
