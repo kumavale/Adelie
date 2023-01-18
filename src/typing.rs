@@ -628,6 +628,7 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             }
             let mut rty = typing(rhs, st, p)?;
             type_inference(&obj.borrow().ty, &mut rty);
+            type_inference(&rty, &mut obj.borrow_mut().ty);
             let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
 
