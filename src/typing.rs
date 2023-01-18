@@ -955,35 +955,22 @@ fn typing_builtin_assert<'a>(token: &[Token], st: &mut SymbolTable, mut args: Ve
         return Err(());
     }
     let arg = args.pop().unwrap();
-    let ty = typing(arg, st, p)?;
-    if ty.get_type() != Type::Bool {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ty.get_type());
-    }
+    let mut ty = typing(arg, st, p)?;
+    type_inference(&RRType::new(Type::Bool), &mut ty);
     Ok(RRType::new(Type::Void))
 }
 
 fn typing_builtin_assert_eq<'a>(token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    fn check_type(lty: &Type, rty: &Type) -> std::result::Result<(), ()> {
-        match (&lty, &rty) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
-            _ if lty == rty => Ok(()),
-            _ => Err(())
-        }
-    }
     if args.len() != 2 {
         e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 2, args.len());
         return Err(());
     }
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
-    let lty = typing(lhs, st, p)?;
-    let rty = typing(rhs, st, p)?;
-    if check_type(&lty.get_type(), &rty.get_type()).is_err() {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty.get_type(), &rty.get_type());
-    }
+    let mut lty = typing(lhs, st, p)?;
+    let mut rty = typing(rhs, st, p)?;
+    type_inference(&lty, &mut rty);
+    type_inference(&rty, &mut lty);
     Ok(RRType::new(Type::Void))
 }
 
