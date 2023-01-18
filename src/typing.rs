@@ -828,16 +828,10 @@ fn typing_shortcircuitop<'a>(_current_token: &[Token], st: &mut SymbolTable, p: 
     match kind {
         ShortCircuitOpKind::And |
         ShortCircuitOpKind::Or  => {
-            let token = lhs.token;
-            let ltype = typing(lhs, st, p)?;
-            if ltype.get_type() != Type::Bool {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype.get_type());
-            }
-            let token = rhs.token;
-            let rtype = typing(rhs, st, p)?;
-            if rtype.get_type() != Type::Bool {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &rtype.get_type());
-            }
+            let mut ltype = typing(lhs, st, p)?;
+            type_inference(&RRType::new(Type::Bool), &mut ltype);
+            let mut rtype = typing(rhs, st, p)?;
+            type_inference(&RRType::new(Type::Bool), &mut rtype);
         }
     }
     Ok(RRType::new(Type::Bool))
