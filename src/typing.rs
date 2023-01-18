@@ -843,15 +843,6 @@ fn typing_semi<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Progra
 }
 
 fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, _segment: &str, mut full_path: Vec<String>, child: Node) -> Result<RRType> {
-    fn check_type(arg: &Type, param: &Type) -> Result<()> {
-        match (arg, param) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
-            _ if arg == param => Ok(()),
-            _ => Err(())
-        }
-    }
     match child.kind {
         NodeKind::Path { segment, child } => {
             full_path.push(segment.to_string());
@@ -879,13 +870,9 @@ fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(&params) {
-                    let token = arg.token;
-                    let param = param.borrow();
-                    let param_ty = &param.ty.get_type();
-                    let arg_ty = typing(arg, st, p)?;
-                    if check_type(&arg_ty.get_type(), param_ty).is_err() {
-                        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.get_type());
-                    }
+                    let mut arg_ty = typing(arg, st, p)?;
+                    type_inference(&param.borrow().ty, &mut arg_ty);
+                    debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 }
                 Ok(func.rettype.clone())
             } else if let Some(im) = ns.find_impl(full_path.last().unwrap()) {
@@ -910,13 +897,9 @@ fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(&params) {
-                    let token = arg.token;
-                    let param = param.borrow();
-                    let param_ty = &param.ty.get_type();
-                    let arg_ty = typing(arg, st, p)?;
-                    if check_type(&arg_ty.get_type(), param_ty).is_err() {
-                        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.get_type());
-                    }
+                    let mut arg_ty = typing(arg, st, p)?;
+                    type_inference(&param.borrow().ty, &mut arg_ty);
+                    debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 }
                 Ok(func.rettype.clone())
             } else {
