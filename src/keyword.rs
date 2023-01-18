@@ -114,6 +114,7 @@ impl Type {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Numeric {
     I32,
+    I64,
     Integer,
 }
 
@@ -131,6 +132,7 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
+            Type::Numeric(Numeric::I64)     => write!(f, "i64"),
             Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
             Type::Float(Float::F32)         => write!(f, "f32"),
             Type::Bool                      => write!(f, "bool"),
@@ -225,7 +227,8 @@ impl Numeric {
     pub fn to_ilstr(&self) -> String {
         match self {
             Numeric::I32     => "int32".to_string(),
-            Numeric::Integer => "int32".to_string(),  // TODO: maybe unreachable
+            Numeric::I64     => "int64".to_string(),
+            Numeric::Integer => "int32".to_string(),  // 指定のない整数リテラルは`i32`とする
         }
     }
 }

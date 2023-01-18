@@ -17,7 +17,7 @@ mod utils;
 use crate::class::{Class, ClassKind};
 use crate::error::Errors;
 use crate::function::Function;
-use crate::keyword::{Type, RRType, Numeric};
+use crate::keyword::{Type, RRType};
 use crate::object::ObjectKind;
 use crate::namespace::NameSpace;
 use crate::program::{Program, IlEnum, IlManifest, IlFunc, IlClass};
@@ -188,7 +188,10 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     // 型検査
     //dbg!(&func.symbol_table.borrow());
     func.symbol_table.borrow_mut().clear_local();
-    if typing::typing(func.statements.clone(), &mut func.symbol_table.borrow_mut(), program).is_err() {
+    if let Ok(mut rettype) = typing::typing(func.statements.clone(), &mut func.symbol_table.borrow_mut(), program) {
+        // 暗黙の戻り値の型推論
+        typing::type_inference(&func.rettype, &mut rettype);
+    } else {
         // 型検査段階のエラーを表示
         program.errors.borrow().display();
         if program.errors.borrow().any_deny() {
@@ -199,19 +202,16 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
 
     // コード生成
     if let Ok(rettype) = codegen::gen_il(func.statements.clone(), &func.symbol_table.borrow(), program) {
-        match (&rettype.get_type(), &func.rettype.get_type()) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => (),
-            (lty, rty) => if lty != rty {
-                if let ast::NodeKind::Block { stmts } = &func.statements.kind {
-                    let token = if stmts.is_empty() {
-                        func.statements.token
-                    } else {
-                        stmts.last().unwrap().token
-                    };
-                    error::e0012(Rc::clone(&program.errors), (program.path, &program.lines, token), rty, lty);
+        if rettype.get_type() != func.rettype.get_type() {
+            if let ast::NodeKind::Block { stmts } = &func.statements.kind {
+                let token = if stmts.is_empty() {
+                    func.statements.token
                 } else {
-                    unreachable!();
-                }
+                    stmts.last().unwrap().token
+                };
+                error::e0012(Rc::clone(&program.errors), (program.path, &program.lines, token), &func.rettype.get_type(), &rettype.get_type());
+            } else {
+                unreachable!();
             }
         }
     }
