@@ -1069,8 +1069,11 @@ impl<'a> Parser<'a> {
             "_" => format!("<ignored>local_{}", crate::seq!()),
             ident => ident.to_string(),
         };
-        self.expect(TokenKind::Colon);
-        let ty = self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Unknown));
+        let ty = if self.eat(TokenKind::Colon) {
+            self.type_no_bounds().unwrap_or_else(|| RRType::new(Type::Unknown))
+        } else {
+            RRType::new(Type::Unknown)
+        };
         let token = &self.tokens[begin..self.idx];
         let init = self.eat(TokenKind::Assign).then(|| self.parse_expr());
         let node = new_let_node(

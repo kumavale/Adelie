@@ -17,6 +17,7 @@ type Result<T> = std::result::Result<T, ()>;
 /// 型推論
 fn type_inference(source: &RRType, target: &mut RRType) {
     match (&source.get_type(), &mut target.get_type()) {
+        (_, Type::Unknown) => (),
         (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
         (Type::Box(l), Type::Box(r)) |
         (Type::Ptr(l), Type::Ptr(r)) => type_inference(l, r),
@@ -181,7 +182,6 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
                         if cl.borrow().field.find(&ident).is_some() {
                             let mut rty = typing(*init, st, p)?;
                             type_inference(&obj.borrow().ty, &mut rty);
-                            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -202,8 +202,14 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
             return Ok(RRType::new(Type::Void));
         }
         let mut rty = typing(*init, st, p)?;
-        type_inference(&obj.borrow().ty, &mut rty);
-        debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
+        if obj.borrow().ty.get_type() == Type::Unknown {
+            type_inference(&rty, &mut obj.borrow_mut().ty);
+            dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
+            debug_assert_ne!(obj.borrow().ty.get_type(), Type::Unknown);
+        } else {
+            dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
+            type_inference(&obj.borrow().ty, &mut rty);
+        }
         let is_assigned = obj.borrow().is_assigned();
         obj.borrow_mut().assigned = true;
         let obj = obj.borrow();
@@ -602,7 +608,6 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                             if let Some(field) = cl.borrow().field.find(&ident) {
                                 let mut rty = typing(rhs, st, p)?;
                                 type_inference(&field.borrow().ty, &mut rty);
-                                debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
                                 if !is_mutable {
                                     let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                     e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -623,7 +628,6 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             }
             let mut rty = typing(rhs, st, p)?;
             type_inference(&obj.borrow().ty, &mut rty);
-            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
             let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
 
@@ -647,7 +651,6 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                 }
             };
             type_inference(&lty, &mut rty);
-            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
             // TODO: この処理じゃ`char`型変数のDerefとか出来ないのでは？
             match lty.get_type() {
                 Type::Ptr(_) | Type::Numeric(Numeric::I32) => (),
@@ -678,7 +681,6 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                         if let Some(field) = cl.borrow().field.find(&ident) {
                             let mut rty = typing(rhs, st, p)?;
                             type_inference(&field.borrow().ty, &mut rty);
-                            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -703,7 +705,6 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                         if let Some(field) = cl.borrow().field.find(&ident) {
                             let mut rty = typing(rhs, st, p)?;
                             type_inference(&field.borrow().ty, &mut rty);
-                            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);

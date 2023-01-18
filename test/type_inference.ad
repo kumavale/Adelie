@@ -1,0 +1,18 @@
+fn main() {
+    let a      = 1;        // a: integer
+    let b: i32 = 2;        // b: i32
+    assert_eq!(a + 1, b);  // a: integer -> i32, b: i32
+
+    let a = 1;         // a: integer
+    let b = 1;         // b: integer
+    assert_eq!(a, b);  // a: integer, b: integer
+    assert_eq!(1, 1);  // l: integer, r: integer
+    let c: i32 = 1;    // c: i32
+    assert_eq!(a, c);  // a: integer -> i32, c: i32
+
+    let a = { let _a: i32 = 1; _a };  // a: i32
+    let b = a;                        // b: i32
+    assert_eq!(a, b);                 // a: i32, b: i32
+
+    println!("ok");
+}

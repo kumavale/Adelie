@@ -79,6 +79,7 @@ pub enum Type {
     RRIdent(Vec<String>, String),  // (path, name) //pathは将来的には要らないかも
 }
 
+// mutabilityを無視して比較する必要がある
 impl PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -87,12 +88,14 @@ impl PartialEq for Type {
             (Type::Bool, Type::Bool) => true,
             (Type::Char, Type::Char) => true,
             (Type::String, Type::String) => true,
-            (Type::_Self(..), Type::_Self(..)) => true,
+            (Type::_Self(pl, nl, _), Type::_Self(pr, nr, _)) => pl == pr && nl == nr,
             (Type::Enum(_, pl, nl), Type::Enum(_, pr, nr)) => pl == pr && nl == nr,
             (Type::Class(kl, _, pl, nl, ..), Type::Class(kr, _, pr, nr, ..)) => kl == kr && pl == pr && nl == nr,
             (Type::Box(l), Type::Box(r)) => l == r,
             (Type::Ptr(l), Type::Ptr(r)) => l == r,
             (Type::Void, Type::Void) => true,
+            (Type::Unknown, Type::Unknown) => true,
+            (Type::RRIdent(pl, nl), Type::RRIdent(pr, nr)) => pl == pr && nl == nr ,
             _ => false,
         }
     }

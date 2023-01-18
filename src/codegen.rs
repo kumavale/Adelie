@@ -182,7 +182,8 @@ fn gen_il_let<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>,
             }
         } else {
             let rty = gen_il(*init, st, p)?;
-            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
+            dbg!(&obj.name, obj.ty.get_type());
+            debug_assert_ne!(obj.ty.get_type(), Type::Unknown);
             if check_type(&obj.ty.get_type(), &rty.get_type()).is_err() {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.get_type(), &rty.get_type());
             }
@@ -683,7 +684,6 @@ fn gen_il_assign<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'
                         if let Some(cl) = ns.find_class(|_|true, name) {
                             if let Some(field) = cl.borrow().field.find(&ident) {
                                 let rty = gen_il(rhs, st, p)?;
-                                debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
                                 if check_type(&field.borrow().ty.get_type(), &rty.get_type()).is_err() {
                                     e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.get_type(), &rty.get_type());
                                 }
@@ -699,7 +699,6 @@ fn gen_il_assign<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'
                 return Ok(RRType::new(Type::Void));
             }
             let rty = gen_il(rhs, st, p)?;
-            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
             if check_type(&obj.borrow().ty.get_type(), &rty.get_type()).is_err() {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.borrow().ty.get_type(), &rty.get_type());
             }
@@ -716,7 +715,6 @@ fn gen_il_assign<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'
                 Type::Ptr(lty) => lty.get_type(),
                 _ => unreachable!()
             };
-            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
             if check_type(&lty, &rty.get_type()).is_err() {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty, &rty.get_type());
             }
@@ -744,7 +742,6 @@ fn gen_il_assign<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'
                     if let Some(cl) = ns.find_class(|_|true, name) {
                         if let Some(field) = cl.borrow().field.find(&ident) {
                             let rty = gen_il(rhs, st, p)?;
-                            debug_assert_ne!(&rty.get_type(), &Type::Numeric(Numeric::Integer));
                             if check_type(&field.borrow().ty.get_type(), &rty.get_type()).is_err() {
                                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.get_type(), &rty.get_type());
                             }
