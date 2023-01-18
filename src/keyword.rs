@@ -1,8 +1,6 @@
 use crate::class::ClassKind;
 use std::cell::{Ref, RefMut, RefCell};
 use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::ops::Deref;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,8 +58,7 @@ impl fmt::Display for Keyword {
     }
 }
 
-#[allow(clippy::derive_hash_xor_eq)]
-#[derive(Clone, Debug, Eq, Hash)]
+#[derive(Clone, Debug, Eq)]
 pub enum Type {
     Numeric(Numeric),
     Float(Float),
@@ -82,6 +79,7 @@ pub enum Type {
     RRIdent(Vec<String>, String),  // (path, name) //pathは将来的には要らないかも
 }
 
+// mutabilityを無視して比較する必要がある
 impl PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -90,12 +88,14 @@ impl PartialEq for Type {
             (Type::Bool, Type::Bool) => true,
             (Type::Char, Type::Char) => true,
             (Type::String, Type::String) => true,
-            (Type::_Self(..), Type::_Self(..)) => true,
+            (Type::_Self(pl, nl, _), Type::_Self(pr, nr, _)) => pl == pr && nl == nr,
             (Type::Enum(_, pl, nl), Type::Enum(_, pr, nr)) => pl == pr && nl == nr,
             (Type::Class(kl, _, pl, nl, ..), Type::Class(kr, _, pr, nr, ..)) => kl == kr && pl == pr && nl == nr,
             (Type::Box(l), Type::Box(r)) => l == r,
             (Type::Ptr(l), Type::Ptr(r)) => l == r,
             (Type::Void, Type::Void) => true,
+            (Type::Unknown, Type::Unknown) => true,
+            (Type::RRIdent(pl, nl), Type::RRIdent(pr, nr)) => pl == pr && nl == nr ,
             _ => false,
         }
     }
@@ -111,13 +111,13 @@ impl Type {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Numeric {
     I32,
     Integer,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Float {
     F32,
 }
@@ -139,8 +139,8 @@ impl fmt::Display for Type {
             Type::_Self(_, n, _)            => write!(f, "{}", n),
             Type::Enum(_, _, n)             => write!(f, "{}", n),
             Type::Class(_, _, _, n, ..)     => write!(f, "{}", n),
-            Type::Box(t)                    => write!(f, "Box<{}>", t.borrow()),
-            Type::Ptr(t)                    => write!(f, "&{}", t.borrow()),
+            Type::Box(t)                    => write!(f, "Box<{}>", t.get_type()),
+            Type::Ptr(t)                    => write!(f, "&{}", t.get_type()),
             Type::Void                      => write!(f, "void"),
             Type::Unknown                   => write!(f, "{{unknown}}"),
             Type::RRIdent(_, n)             => write!(f, "RRIdent<{}>", n),
@@ -191,7 +191,7 @@ impl Type {
                 }
             }
             Type::Box(_)          => "object".to_string(),
-            Type::Ptr(t)          => format!("{}&", t.borrow().to_ilstr()),
+            Type::Ptr(t)          => format!("{}&", t.get_type().to_ilstr()),
             Type::Void            => "void".to_string(),
             Type::Unknown         |
             Type::RRIdent(..)     => panic!("cannot to ilstr: {}", &self),
@@ -240,21 +240,15 @@ impl Float {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct RRType {
-    inner: Rc<RefCell<Type>>,
+    inner: Rc<RefCell<Rc<RefCell<Type>>>>,
 }
 
-impl Deref for RRType {
-    type Target = Rc<RefCell<Type>>;
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-#[allow(clippy::derive_hash_xor_eq)]
-impl Hash for RRType {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.inner.borrow().hash(state);
-    }
-}
+//impl Deref for RRType {
+//    type Target = Rc<RefCell<Type>>;
+//    fn deref(&self) -> &Self::Target {
+//        &self.inner
+//    }
+//}
 impl Clone for RRType {
     fn clone(&self) -> Self {
         RRType {
@@ -265,16 +259,33 @@ impl Clone for RRType {
 impl RRType {
     pub fn new(inner: Type) -> Self {
         RRType {
-            inner: Rc::new(RefCell::new(inner)),
+            inner: Rc::new(RefCell::new(Rc::new(RefCell::new(inner)))),
         }
     }
-    pub fn borrow(&self) -> Ref<'_, Type> {
+    pub fn borrow(&self) -> Ref<'_, Rc<RefCell<Type>>> {
         self.inner.borrow()
     }
-    pub fn borrow_mut(&mut self) -> RefMut<'_, Type> {
+    pub fn borrow_mut(&mut self) -> RefMut<'_, Rc<RefCell<Type>>> {
         self.inner.borrow_mut()
     }
+
+    pub fn get_type(&self) -> Type {
+        // TODO: cloneしないで参照を返す
+        self.inner.borrow().borrow().clone()
+    }
+
+    pub fn set_type(&self, ty: Type) {
+        *self.inner.borrow().borrow_mut() = ty;
+    }
+
+    //pub fn get_type_mut(&self) -> RefMut<'_, Type> {
+    //    self.inner.borrow().borrow_mut()
+    //}
+
+    pub fn to_ilstr(&self) -> String {
+        self.inner.borrow().borrow().to_ilstr()
+    }
     pub fn into_mutable(self) -> RRType {
-        RRType::new(self.inner.borrow().clone().into_mutable())
+        RRType::new(self.inner.borrow().borrow().clone().into_mutable())
     }
 }

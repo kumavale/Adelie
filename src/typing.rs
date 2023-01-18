@@ -14,6 +14,21 @@ use std::cell::RefCell;
 
 type Result<T> = std::result::Result<T, ()>;
 
+/// 型推論
+fn type_inference(source: &RRType, target: &mut RRType) {
+    match (&source.get_type(), &mut target.get_type()) {
+        (_, Type::Unknown) => (),
+        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+        (Type::Box(l), Type::Box(r)) |
+        (Type::Ptr(l), Type::Ptr(r)) => type_inference(l, r),
+        _ => {
+            /* TODO */
+            return;
+        }
+    }
+    *target.borrow_mut() = source.borrow().clone();
+}
+
 /// 型検査
 /// アフィン型システム
 /// 型推論
@@ -104,7 +119,6 @@ pub fn typing<'a>(node: Node, st: &mut SymbolTable, p: &'a Program<'a>) -> Resul
 }
 
 fn typing_integer(_current_token: &[Token], _st: &mut SymbolTable, _p: &Program, ty: RRType, _num: i128) -> Result<RRType> {
-    // TODO: リテラルもシンボルテーブルに入れる必要がある?
     // 型推論の流れ
     // let x = 42;      // 42: Integer, x: Integer
     // let y: i32 = x;  //  x: Integer, y: I32
@@ -144,15 +158,6 @@ fn typing_box<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program
 }
 
 fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, obj: Rc<RefCell<Object>>, init: Option<Box<Node>>) -> Result<RRType> {
-    fn check_type(lty: &Type, rty: &Type) -> Result<()> {
-        match (lty, rty) {
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if lty == rty => Ok(()),
-            _ => Err(())
-        }
-    }
     if let Some(init) = init {
         if let Some(parent) = &obj.borrow().parent {
             // let文の左辺が{ident}.{field}の形になるのは、クロージャの自由変数を参照している場合のみ
@@ -160,10 +165,10 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
             *p.ret_address.borrow_mut() = true;
             *p.consume.borrow_mut() = false;
             let parent_ty = typing_variable(current_token, st, p, parent.clone())?;
-            let parent_ty = parent_ty.borrow();
+            let parent_ty = parent_ty.get_type();
             *p.consume.borrow_mut() = true;
             *p.ret_address.borrow_mut() = false;
-            match &*parent_ty {
+            match &parent_ty {
                 Type::Class(_, _, ref path, ref name, _, is_mutable) => {
                     let namespace = p.namespace.borrow();
                     let ns = if let Some(ns) = namespace.find(path) {
@@ -174,11 +179,9 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
                         return Err(());
                     };
                     if let Some(cl) = ns.find_class(|_|true, name) {
-                        if let Some(field) = cl.borrow().field.find(&ident) {
-                            let rty = typing(*init, st, p)?;
-                            if check_type(&field.borrow().ty.borrow(), &rty.borrow()).is_err() {
-                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty.borrow());
-                            }
+                        if cl.borrow().field.find(&ident).is_some() {
+                            let mut rty = typing(*init, st, p)?;
+                            type_inference(&obj.borrow().ty, &mut rty);
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -198,15 +201,20 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
             // 変数をシンボルテーブルに格納する必要はないので早期リターン
             return Ok(RRType::new(Type::Void));
         }
-        let rty = typing(*init, st, p)?;
+        let mut rty = typing(*init, st, p)?;
+        if obj.borrow().ty.get_type() == Type::Unknown {
+            type_inference(&rty, &mut obj.borrow_mut().ty);
+            //dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
+            debug_assert_ne!(obj.borrow().ty.get_type(), Type::Unknown);
+        } else {
+            //dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
+            type_inference(&obj.borrow().ty, &mut rty);
+        }
         let is_assigned = obj.borrow().is_assigned();
         obj.borrow_mut().assigned = true;
         let obj = obj.borrow();
         if !obj.is_mutable() && is_assigned {
             e0028(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
-        }
-        if check_type(&obj.ty.borrow(), &rty.borrow()).is_err() {
-            e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.borrow(), &rty.borrow());
         }
     }
     st.push(obj);
@@ -214,15 +222,6 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
 }
 
 fn typing_call<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, name: &str, args: Vec<Node>) -> Result<RRType> {
-    fn check_type(arg: &Type, param: &Type) -> Result<()> {
-        match (arg, param) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if arg == param => Ok(()),
-            _ => Err(())
-        }
-    }
     if let Some(func) = p.namespace.borrow().find_fn(name) {
         let objs = if let Ok(st) = func.symbol_table.try_borrow() {
             st.objs.clone()
@@ -237,13 +236,9 @@ fn typing_call<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
             e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
         }
         for (arg, param) in args.into_iter().zip(&params) {
-            let token = arg.token;
-            let arg_ty = typing(arg, st, p)?;
-            let param = param.borrow();
-            let param_ty = &param.ty.borrow();
-            if check_type(&arg_ty.borrow(), param_ty).is_err() {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.borrow());
-            }
+            let mut arg_ty = typing(arg, st, p)?;
+            type_inference(&param.borrow().ty, &mut arg_ty);
+            debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
         }
         Ok(func.rettype.clone())
     } else {
@@ -260,38 +255,13 @@ fn typing_method<'a>(
     ident: &str,
     args: Vec<Node>,
 ) -> Result<RRType> {
-    fn check_type(arg_ty: &Type, param_ty: &Type) -> Result<()> {
-        match (arg_ty, param_ty) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if arg_ty == param_ty => Ok(()),
-            (Type::Class(.., base_ty, _), Type::Class(..)) => {
-                fn check_base(base_ty: &Option<RRType>, param_ty: &Type) -> std::result::Result<(), ()> {
-                    if let Some(base_ty) = base_ty {
-                        if *base_ty.borrow() != *param_ty {
-                            let base_ty = base_ty.borrow();
-                            let base_ty = if let Type::Class(.., b, _) = &*base_ty { b } else { unreachable!() };
-                            check_base(base_ty, param_ty)
-                        } else {
-                            Ok(())
-                        }
-                    } else {
-                        Err(())
-                    }
-                }
-                check_base(base_ty, param_ty)
-            }
-            _ => Err(())
-        }
-    }
     *p.ret_address.borrow_mut() = true;
     *p.consume.borrow_mut() = false;
     let parent_ty = typing(expr, st, p)?;
-    let parent_ty = parent_ty.borrow();
+    let parent_ty = parent_ty.get_type();
     *p.consume.borrow_mut() = true;
     *p.ret_address.borrow_mut() = false;
-    match &*parent_ty {
+    match &parent_ty {
         Type::Class(_, _, ref path, ref cl_name, _, _) => {
             let ns = p.namespace.borrow();
             let ns = if let Some(ns) = ns.find(path) {
@@ -305,7 +275,7 @@ fn typing_method<'a>(
                 // TODO: 継承元のimplも確認
                 fn find_func_recursive<'a, 'b>(ns: &'b NameSpace<'a>, base: &Option<RRType>, ident: &str) -> Option<Rc<Function<'a>>> {
                     if let Some(base) = base {
-                        if let Type::Class(.., name, base, _) = &*base.borrow() {
+                        if let Type::Class(.., name, base, _) = &base.get_type() {
                             if let Some(func) = ns
                                 .find_impl(name)
                                 .and_then(|im| im.functions.find(ident).map(Rc::clone))
@@ -344,13 +314,9 @@ fn typing_method<'a>(
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(params) {
-                    let token = arg.token;
-                    let arg_ty = typing(arg, st, p)?;
-                    let param = param.borrow();
-                    let param_ty = &param.ty.borrow();
-                    if check_type(&arg_ty.borrow(), param_ty).is_err() {
-                        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.borrow());
-                    }
+                    let mut arg_ty = typing(arg, st, p)?;
+                    type_inference(&param.borrow().ty, &mut arg_ty);
+                    debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 }
                 Ok(func.rettype.clone())
             } else {
@@ -382,18 +348,8 @@ fn typing_lambda<'a>(
 }
 
 fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, obj: Rc<RefCell<Object>>, field: Vec<Node>) -> Result<RRType> {
-    fn check_type(then: &Type, els: &Type) -> Result<RRType> {
-        match (then, els) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(RRType::new(els.clone())),
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(RRType::new(then.clone())),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if then == els => Ok(RRType::new(then.clone())),
-            _ => Err(())
-        }
-    }
     let ns = p.namespace.borrow();
-    let (ns, name) = if let Type::Class(ClassKind::Struct, _, path, name, ..) = &*obj.borrow().ty.borrow() {
+    let (ns, name) = if let Type::Class(ClassKind::Struct, _, path, name, ..) = &obj.borrow().ty.get_type() {
         if let Some(ns) = ns.find(path) {
             (ns, name.to_string())
         } else {
@@ -410,11 +366,9 @@ fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &cl.borrow().name);
         }
         for (field_expr, field_dec) in field.into_iter().zip(&cl.borrow().field.objs) {
-            let field_token = field_expr.token;
-            let ty = typing(field_expr, st, p)?;
-            if check_type(&ty.borrow(), &field_dec.borrow().ty.borrow()).is_err() {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, field_token), &field_dec.borrow().ty.borrow(), &ty.borrow());
-            }
+            let mut ty = typing(field_expr, st, p)?;
+            type_inference(&field_dec.borrow().ty, &mut ty);
+            debug_assert_ne!(&ty.get_type(), &Type::Numeric(Numeric::Integer));
         }
     } else {
         e0016(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &remove_seq(&obj.borrow().name));
@@ -432,9 +386,9 @@ fn typing_field<'a>(
 ) -> Result<RRType> {
     *p.consume.borrow_mut() = false;
     let parent_ty = typing(expr, st, p)?;
-    let parent_ty = parent_ty.borrow();
+    let parent_ty = parent_ty.get_type();
     *p.consume.borrow_mut() = true;
-    let (path, parent_name, base, is_mutable) = match &*parent_ty {
+    let (path, parent_name, base, is_mutable) = match &parent_ty {
         Type::_Self(path, name, is_mutable) => {
             (path.to_vec(), name.to_string(), &None, *is_mutable)
         }
@@ -442,7 +396,7 @@ fn typing_field<'a>(
             (path.to_vec(), name.to_string(), base, *is_mutable)
         }
         Type::Ptr(ty) => {
-            match &*ty.borrow() {
+            match &ty.get_type() {
                 Type::_Self(path, name, is_mutable) => {
                     (path.to_vec(), name.to_string(), &None, *is_mutable)
                 }
@@ -479,8 +433,8 @@ fn typing_field<'a>(
             fn search_from_base(base_ty: &Option<RRType>, p: &Program, ident: &str, is_mutable: bool) -> Result<RRType> {
                 if let Some(base_ty) = base_ty {
                     let ns = p.namespace.borrow();
-                    let base_ty = base_ty.borrow();
-                    let (path, name, base)  = if let Type::Class(_, _, p, n, b, ..) = &*base_ty { (p, n, b) } else { unreachable!() };
+                    let base_ty = base_ty.get_type();
+                    let (path, name, base)  = if let Type::Class(_, _, p, n, b, ..) = &base_ty { (p, n, b) } else { unreachable!() };
                     if let Some(ns) = ns.find(path) {
                         if let Some(cl) = ns.find_class(|_|true, name) {
                             if let Some(field) = cl.borrow().field.find(ident) {
@@ -516,9 +470,9 @@ fn typing_variable(current_token: &[Token], st: &mut SymbolTable, p: &Program, o
             warning(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
         }
         let parent_ty = typing_variable(current_token, st, p, parent.clone())?;
-        let parent_ty = parent_ty.borrow();
+        let parent_ty = parent_ty.get_type();
         let ident = obj.borrow().name.to_string();
-        if let Type::Class(_, _, ref path, ref parent_name, _base, _is_mutable) = &*parent_ty {
+        if let Type::Class(_, _, ref path, ref parent_name, _base, _is_mutable) = &parent_ty {
             let ns = p.namespace.borrow();
             let ns = ns.find(path).unwrap();
             if let Some(cl) = ns.find_class(|_|true, parent_name) {
@@ -542,7 +496,7 @@ fn typing_variable(current_token: &[Token], st: &mut SymbolTable, p: &Program, o
                 return Err(());
             }
         }
-        if !obj.borrow().ty.borrow().copyable() && obj.borrow().used {
+        if !obj.borrow().ty.get_type().copyable() && obj.borrow().used {
             let message = format!("use of moved value: `{}`", obj.borrow().name);
             e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
             return Err(());
@@ -587,45 +541,32 @@ fn typing_block<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
     Ok(ty)
 }
 
-fn typing_if<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, cond: Node, then: Node, els: Option<Box<Node>>) -> Result<RRType> {
-    fn check_type(then: &Type, els: &Type) -> Result<RRType> {
-        match (then, els) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(RRType::new(els.clone())),
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(RRType::new(then.clone())),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if then == els => Ok(RRType::new(then.clone())),
-            _ => Err(())
-        }
-    }
+fn typing_if<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, cond: Node, then: Node, els: Option<Box<Node>>) -> Result<RRType> {
     let token = cond.token;
     let cond_type = typing(cond, st, p)?;
-    if *cond_type.borrow() != Type::Bool {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type.borrow());
+    if cond_type.get_type() != Type::Bool {
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type.get_type());
     }
-    let then_type = typing(then, st, p)?;
+    let mut then_type = typing(then, st, p)?;
     let els = els.map(|els| (els.token, typing(*els, st, p)));
     if let Some(els) = els {
-        let els_token = els.0;
-        let els_type = els.1?;
-        let els_type = els_type.borrow();
-        check_type(&then_type.borrow(), &els_type)
-            .map_err(|()| {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, els_token), &then_type.borrow(), &els_type);
-            })
-    } else if *then_type.borrow() != Type::Void {
-        e0018(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &then_type.borrow());
-        Err(())
-    } else {
-        Ok(then_type)
+        let mut els_type = els.1?;
+        type_inference(&els_type, &mut then_type);
+        type_inference(&then_type, &mut els_type);
+        // then: Integer, else: Integerの場合、両方に同じRRTypeをcloneする
+        // TODO: この処理を`type_inference()`に合成
+        if matches!((&then_type.get_type(), &els_type.get_type()), (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer))) {
+            *els_type.borrow_mut() = then_type.borrow().clone();
+        }
     }
+    Ok(then_type)
 }
 
 fn typing_while<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, cond: Node, then: Node) -> Result<RRType> {
     let token = cond.token;
     let cond_type = typing(cond, st, p)?;
-    if *cond_type.borrow() != Type::Bool {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type.borrow());
+    if cond_type.get_type() != Type::Bool {
+        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &cond_type.get_type());
     }
     let _then_token = then.token;
     let _then_type = typing(then, st, p)?;
@@ -645,24 +586,15 @@ fn typing_loop<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Progra
 }
 
 fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, lhs: Node, rhs: Node) -> Result<RRType> {
-    fn check_type(lty: &Type, rty: &Type) -> Result<()> {
-        match (lty, rty) {
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if lty == rty => Ok(()),
-            _ => Err(())
-        }
-    }
     match lhs.kind {
         NodeKind::Variable { obj } => {
             if let Some(parent) = &obj.borrow().parent {
                 let ident = obj.borrow().name.to_string();
                 *p.ret_address.borrow_mut() = true;
                 let parent_ty = typing_variable(current_token, st, p, parent.clone())?;
-                let parent_ty = parent_ty.borrow();
+                let parent_ty = parent_ty.get_type();
                 *p.ret_address.borrow_mut() = false;
-                match &*parent_ty {
+                match &parent_ty {
                     Type::Class(_, _, ref path, ref name, _, is_mutable) => {
                         let namespace = p.namespace.borrow();
                         let ns = if let Some(ns) = namespace.find(path) {
@@ -674,10 +606,8 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                         };
                         if let Some(cl) = ns.find_class(|_|true, name) {
                             if let Some(field) = cl.borrow().field.find(&ident) {
-                                let rty = typing(rhs, st, p)?;
-                                if check_type(&field.borrow().ty.borrow(), &rty.borrow()).is_err() {
-                                    e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty.borrow());
-                                }
+                                let mut rty = typing(rhs, st, p)?;
+                                type_inference(&field.borrow().ty, &mut rty);
                                 if !is_mutable {
                                     let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                     e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -696,7 +626,8 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                 }
                 return Ok(RRType::new(Type::Void));
             }
-            let rty = typing(rhs, st, p)?;
+            let mut rty = typing(rhs, st, p)?;
+            type_inference(&obj.borrow().ty, &mut rty);
             let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
 
@@ -707,24 +638,21 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             if !obj.is_mutable() && is_assigned {
                 e0028(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.name);
             }
-            if check_type(&obj.ty.borrow(), &rty.borrow()).is_err() {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.borrow(), &rty.borrow());
-            }
         }
         NodeKind::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
+            // TODO: この処理じゃ`**a=b`とか出来ないのでは？
             let lty = typing(*expr, st, p)?;
-            let rty = typing(rhs, st, p)?;
-            let lty = match &*lty.borrow() {
-                Type::Ptr(lty) => lty.borrow().clone(),
+            let mut rty = typing(rhs, st, p)?;
+            let lty = match lty.get_type() {
+                Type::Ptr(lty) => lty,
                 _ => {
-                    e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty.borrow());
+                    e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty.get_type());
                     return Err(());
                 }
             };
-            if check_type(&lty, &rty.borrow()).is_err() {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty, &rty.borrow());
-            }
-            match lty {
+            type_inference(&lty, &mut rty);
+            // TODO: この処理じゃ`char`型変数のDerefとか出来ないのでは？
+            match lty.get_type() {
                 Type::Ptr(_) | Type::Numeric(Numeric::I32) => (),
                 _ => {
                     let message = format!("[compiler unimplemented!()] dereference {:?}", lty);
@@ -736,10 +664,10 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             *p.ret_address.borrow_mut() = true;
             *p.consume.borrow_mut() = false;
             let parent_ty = typing(*expr, st, p)?;
-            let parent_ty = parent_ty.borrow();
+            let parent_ty = parent_ty.get_type();
             *p.consume.borrow_mut() = true;
             *p.ret_address.borrow_mut() = false;
-            match &*parent_ty {
+            match &parent_ty {
                 Type::_Self(ref path, ref name, is_mutable) => {
                     let namespace = p.namespace.borrow();
                     let ns = if let Some(ns) = namespace.find(path) {
@@ -751,10 +679,8 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                     };
                     if let Some(cl) = ns.find_class(|_|true, name) {
                         if let Some(field) = cl.borrow().field.find(&ident) {
-                            let rty = typing(rhs, st, p)?;
-                            if check_type(&field.borrow().ty.borrow(), &rty.borrow()).is_err() {
-                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty.borrow());
-                            }
+                            let mut rty = typing(rhs, st, p)?;
+                            type_inference(&field.borrow().ty, &mut rty);
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -777,10 +703,8 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                     };
                     if let Some(cl) = ns.find_class(|_|true, name) {
                         if let Some(field) = cl.borrow().field.find(&ident) {
-                            let rty = typing(rhs, st, p)?;
-                            if check_type(&field.borrow().ty.borrow(), &rty.borrow()).is_err() {
-                                e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &field.borrow().ty.borrow(), &rty.borrow());
-                            }
+                            let mut rty = typing(rhs, st, p)?;
+                            type_inference(&field.borrow().ty, &mut rty);
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -806,24 +730,16 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
     Ok(RRType::new(Type::Void))
 }
 
-fn typing_return<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, expr: Option<Box<Node>>, func_retty: RRType) -> Result<RRType> {
-    fn check_type(arg: &Type, param: &Type) -> Result<()> {
-        match (arg, param) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if arg == param => Ok(()),
-            _ => Err(())
-        }
-    }
-    let rettype = if let Some(expr) = expr {
+fn typing_return<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, expr: Option<Box<Node>>, func_retty: RRType) -> Result<RRType> {
+    let mut rettype = if let Some(expr) = expr {
         typing(*expr, st, p)?
     } else {
         RRType::new(Type::Void)
     };
-    if check_type(&rettype.borrow(), &func_retty.borrow()).is_err() {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &func_retty.borrow(), &rettype.borrow());
-    }
+
+    type_inference(&func_retty, &mut rettype);
+    debug_assert_ne!(&rettype.get_type(), &Type::Numeric(Numeric::Integer));
+
     // TODO: Type::Never(rettype)
     Ok(rettype)
 }
@@ -833,65 +749,18 @@ fn typing_break(_current_token: &[Token], _st: &mut SymbolTable, _p: &Program) -
     Ok(RRType::new(Type::Void))
 }
 
-fn typing_cast<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, new_type: RRType, expr: Node) -> Result<RRType> {
-    let old_type = typing(expr, st, p)?;
-    let old_type = old_type.borrow();
-    match &*new_type.borrow() {
-        Type::Numeric(Numeric::I32) => {
-            match *old_type {
-                Type::Numeric(..) | Type::Float(..) | Type::Enum(..) | Type::Bool | Type::Char => (),  // ok
-                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Numeric(Numeric::I32)),
-            }
-        }
-        Type::Float(Float::F32) => {
-            match *old_type {
-                Type::Numeric(..) | Type::Float(Float::F32) => (),  // ok
-                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Float(Float::F32)),
-            }
-        }
-        Type::Bool => {
-            match *old_type {
-                Type::Bool => (),  // ok
-                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Bool),
-            }
-        }
-        Type::Char => {
-            match *old_type {
-                Type::Char | Type::Numeric(_) => (),  // ok
-                _ => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &Type::Char),
-            }
-        }
-        Type::Ptr(_) => {
-            todo!("cast to ref type");
-        }
-        Type::Void => unreachable!(),
-        t => e0020(Rc::clone(&p.errors), (p.path, &p.lines, current_token), t)
-    }
+fn typing_cast<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, new_type: RRType, expr: Node) -> Result<RRType> {
+    let _old_type = typing(expr, st, p)?;
     Ok(new_type)
 }
 
 fn typing_unaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, kind: UnaryOpKind, expr: Node) -> Result<RRType> {
     match kind {
         UnaryOpKind::Not => {
-            let ty = typing(expr, st, p)?;
-            match &*ty.borrow() {
-                Type::Bool | Type::Numeric(_) => (),
-                ty => {
-                    let message = format!("cannot apply unary operator `!` to type `{}`", ty);
-                    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
-                }
-            }
-            Ok(ty)
+            Ok(typing(expr, st, p)?)
         }
         UnaryOpKind::Neg => {
-            let ty= typing(expr, st, p)?;
-            match &*ty.borrow() {
-                Type::Numeric(..) | Type::Float(..) => (),
-                ty => {
-                    e0021(Rc::clone(&p.errors), (p.path, &p.lines, current_token), ty);
-                }
-            }
-            Ok(ty)
+            Ok(typing(expr, st, p)?)
         }
         UnaryOpKind::Ref => {
             if let NodeKind::Variable { obj } = expr.kind {
@@ -905,12 +774,12 @@ fn typing_unaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Prog
             *p.ret_address.borrow_mut() = false;
             *p.consume.borrow_mut() = false;
             let ty = typing(expr, st, p)?;
-            let ty = ty.borrow();
+            let ty = ty.get_type();
             *p.consume.borrow_mut() = true;
             *p.ret_address.borrow_mut() = ret_address;
-            match &*ty {
+            match &ty {
                 Type::Ptr(ty) => {
-                    match &*ty.borrow() {
+                    match &ty.get_type() {
                         Type::Ptr(_) | Type::Numeric(Numeric::I32) | Type::Float(Float::F32) => (),
                         ty => {
                             let message = format!("[compiler unimplemented!()] dereferenced {:?}", ty);
@@ -931,133 +800,28 @@ fn typing_unaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Prog
     }
 }
 
-fn typing_binaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, kind: BinaryOpKind, lhs: Node, rhs: Node) -> Result<RRType> {
-    let ltype = typing(lhs, st, p)?;
-    let ltype = ltype.borrow();
-    let rtype = typing(rhs, st, p)?;
-    let rtype = rtype.borrow();
-    let mut is_bool = false;
-    match &*ltype {
-        Type::Numeric(..) => match kind {
-            BinaryOpKind::Add    |
-            BinaryOpKind::Sub    |
-            BinaryOpKind::Mul    |
-            BinaryOpKind::Div    |
-            BinaryOpKind::Rem    |
-            BinaryOpKind::BitXor |
-            BinaryOpKind::BitAnd |
-            BinaryOpKind::BitOr  |
-            BinaryOpKind::Shl    |
-            BinaryOpKind::Shr    => {
-                // Do nothing
-            }
-            BinaryOpKind::Eq |
-            BinaryOpKind::Lt |
-            BinaryOpKind::Le |
-            BinaryOpKind::Ne |
-            BinaryOpKind::Gt |
-            BinaryOpKind::Ge => {
-                is_bool = true;
-            }
-        }
-        Type::Float(..) => match kind {
-            BinaryOpKind::Add |
-            BinaryOpKind::Sub |
-            BinaryOpKind::Mul |
-            BinaryOpKind::Div |
-            BinaryOpKind::Rem => {
-                // Do nothing
-            }
-            BinaryOpKind::Eq |
-            BinaryOpKind::Lt |
-            BinaryOpKind::Le |
-            BinaryOpKind::Ne |
-            BinaryOpKind::Gt |
-            BinaryOpKind::Ge => {
-                is_bool = true;
-            }
-            _ => {
-                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-        }
-        Type::Char | Type::Bool => match kind {
-            BinaryOpKind::Add |
-            BinaryOpKind::Sub |
-            BinaryOpKind::Mul |
-            BinaryOpKind::Div |
-            BinaryOpKind::Rem => {
-                e0023(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-            BinaryOpKind::Eq |
-            BinaryOpKind::Lt |
-            BinaryOpKind::Le |
-            BinaryOpKind::Ne |
-            BinaryOpKind::Gt |
-            BinaryOpKind::Ge => {
-                is_bool = true;
-            }
-            _ => {
-                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-        }
-        Type::String => match kind {
-            BinaryOpKind::Add => {
-                // Do nothing
-            }
-            BinaryOpKind::Sub |
-            BinaryOpKind::Mul |
-            BinaryOpKind::Div |
-            BinaryOpKind::Rem => {
-                e0023(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-            BinaryOpKind::Eq |
-            BinaryOpKind::Lt |
-            BinaryOpKind::Le |
-            BinaryOpKind::Ne |
-            BinaryOpKind::Gt |
-            BinaryOpKind::Ge => {
-                is_bool = true;
-            }
-            _ => {
-                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-        }
-        _ => {
-            e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-            return Err(());
-        }
+fn typing_binaryop<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, kind: BinaryOpKind, lhs: Node, rhs: Node) -> Result<RRType> {
+    let mut ltype = typing(lhs, st, p)?;
+    let mut rtype = typing(rhs, st, p)?;
+    let is_bool = matches!(kind,
+        BinaryOpKind::Eq |
+        BinaryOpKind::Lt |
+        BinaryOpKind::Le |
+        BinaryOpKind::Ne |
+        BinaryOpKind::Gt |
+        BinaryOpKind::Ge
+    );
+    type_inference(&ltype, &mut rtype);
+    type_inference(&rtype, &mut ltype);
+    // then: Integer, else: Integerの場合、両方に同じRRTypeをcloneする
+    // TODO: この処理を`type_inference()`に合成
+    if matches!((&ltype.get_type(), &rtype.get_type()), (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer))) {
+        *ltype.borrow_mut() = rtype.borrow().clone();
     }
-    match (&*ltype, &*rtype) {
-        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => {
-            if is_bool {
-                Ok(RRType::new(Type::Bool))
-            } else {
-                Ok(RRType::new(rtype.clone()))
-            }
-        }
-        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => {
-            if is_bool {
-                Ok(RRType::new(Type::Bool))
-            } else {
-                Ok(RRType::new(ltype.clone()))
-            }
-        }
-        _ if *ltype == *rtype => {
-            if is_bool {
-                Ok(RRType::new(Type::Bool))
-            } else {
-                Ok(RRType::new(ltype.clone()))
-            }
-        }
-        _ => {
-            e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ltype, &rtype);
-            Err(())
-        }
+    if is_bool {
+        Ok(RRType::new(Type::Bool))
+    } else {
+        Ok(ltype)
     }
 }
 
@@ -1065,16 +829,10 @@ fn typing_shortcircuitop<'a>(_current_token: &[Token], st: &mut SymbolTable, p: 
     match kind {
         ShortCircuitOpKind::And |
         ShortCircuitOpKind::Or  => {
-            let token = lhs.token;
-            let ltype = typing(lhs, st, p)?;
-            if *ltype.borrow() != Type::Bool {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ltype.borrow());
-            }
-            let token = rhs.token;
-            let rtype = typing(rhs, st, p)?;
-            if *rtype.borrow() != Type::Bool {
-                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &rtype.borrow());
-            }
+            let mut ltype = typing(lhs, st, p)?;
+            type_inference(&RRType::new(Type::Bool), &mut ltype);
+            let mut rtype = typing(rhs, st, p)?;
+            type_inference(&RRType::new(Type::Bool), &mut rtype);
         }
     }
     Ok(RRType::new(Type::Bool))
@@ -1086,15 +844,6 @@ fn typing_semi<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Progra
 }
 
 fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, _segment: &str, mut full_path: Vec<String>, child: Node) -> Result<RRType> {
-    fn check_type(arg: &Type, param: &Type) -> Result<()> {
-        match (arg, param) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if arg == param => Ok(()),
-            _ => Err(())
-        }
-    }
     match child.kind {
         NodeKind::Path { segment, child } => {
             full_path.push(segment.to_string());
@@ -1122,13 +871,9 @@ fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(&params) {
-                    let token = arg.token;
-                    let param = param.borrow();
-                    let param_ty = &param.ty.borrow();
-                    let arg_ty = typing(arg, st, p)?;
-                    if check_type(&arg_ty.borrow(), param_ty).is_err() {
-                        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.borrow());
-                    }
+                    let mut arg_ty = typing(arg, st, p)?;
+                    type_inference(&param.borrow().ty, &mut arg_ty);
+                    debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 }
                 Ok(func.rettype.clone())
             } else if let Some(im) = ns.find_impl(full_path.last().unwrap()) {
@@ -1153,13 +898,9 @@ fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(&params) {
-                    let token = arg.token;
-                    let param = param.borrow();
-                    let param_ty = &param.ty.borrow();
-                    let arg_ty = typing(arg, st, p)?;
-                    if check_type(&arg_ty.borrow(), param_ty).is_err() {
-                        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), param_ty, &arg_ty.borrow());
-                    }
+                    let mut arg_ty = typing(arg, st, p)?;
+                    type_inference(&param.borrow().ty, &mut arg_ty);
+                    debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 }
                 Ok(func.rettype.clone())
             } else {
@@ -1215,35 +956,22 @@ fn typing_builtin_assert<'a>(token: &[Token], st: &mut SymbolTable, mut args: Ve
         return Err(());
     }
     let arg = args.pop().unwrap();
-    let ty = typing(arg, st, p)?;
-    if *ty.borrow() != Type::Bool {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ty.borrow());
-    }
+    let mut ty = typing(arg, st, p)?;
+    type_inference(&RRType::new(Type::Bool), &mut ty);
     Ok(RRType::new(Type::Void))
 }
 
 fn typing_builtin_assert_eq<'a>(token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    fn check_type(lty: &Type, rty: &Type) -> std::result::Result<(), ()> {
-        match (&lty, &rty) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
-            (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
-            (Type::Box(l), Type::Box(r)) |
-            (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.borrow(), &r.borrow()),
-            _ if lty == rty => Ok(()),
-            _ => Err(())
-        }
-    }
     if args.len() != 2 {
         e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 2, args.len());
         return Err(());
     }
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
-    let lty = typing(lhs, st, p)?;
-    let rty = typing(rhs, st, p)?;
-    if check_type(&lty.borrow(), &rty.borrow()).is_err() {
-        e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty.borrow(), &rty.borrow());
-    }
+    let mut lty = typing(lhs, st, p)?;
+    let mut rty = typing(rhs, st, p)?;
+    type_inference(&lty, &mut rty);
+    type_inference(&rty, &mut lty);
     Ok(RRType::new(Type::Void))
 }
 
