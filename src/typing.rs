@@ -549,11 +549,8 @@ fn typing_if<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
         type_inference(&then_type, &mut els_type);
         // then: Integer, else: Integerの場合、両方に同じRRTypeをcloneする
         // TODO: この処理を`type_inference()`に合成
-        match (&then_type.get_type(), &els_type.get_type()) {
-            (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer)) => {
-                *els_type.borrow_mut() = then_type.borrow().clone();
-            }
-            _ => ()
+        if matches!((&then_type.get_type(), &els_type.get_type()), (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer))) {
+            *els_type.borrow_mut() = then_type.borrow().clone();
         }
     }
     Ok(then_type)
@@ -802,133 +799,28 @@ fn typing_unaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Prog
     }
 }
 
-fn typing_binaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, kind: BinaryOpKind, lhs: Node, rhs: Node) -> Result<RRType> {
-    let ltype = typing(lhs, st, p)?;
-    let ltype = ltype.get_type();
-    let rtype = typing(rhs, st, p)?;
-    let rtype = rtype.get_type();
-    let mut is_bool = false;
-    match &ltype {
-        Type::Numeric(..) => match kind {
-            BinaryOpKind::Add    |
-            BinaryOpKind::Sub    |
-            BinaryOpKind::Mul    |
-            BinaryOpKind::Div    |
-            BinaryOpKind::Rem    |
-            BinaryOpKind::BitXor |
-            BinaryOpKind::BitAnd |
-            BinaryOpKind::BitOr  |
-            BinaryOpKind::Shl    |
-            BinaryOpKind::Shr    => {
-                // Do nothing
-            }
-            BinaryOpKind::Eq |
-            BinaryOpKind::Lt |
-            BinaryOpKind::Le |
-            BinaryOpKind::Ne |
-            BinaryOpKind::Gt |
-            BinaryOpKind::Ge => {
-                is_bool = true;
-            }
-        }
-        Type::Float(..) => match kind {
-            BinaryOpKind::Add |
-            BinaryOpKind::Sub |
-            BinaryOpKind::Mul |
-            BinaryOpKind::Div |
-            BinaryOpKind::Rem => {
-                // Do nothing
-            }
-            BinaryOpKind::Eq |
-            BinaryOpKind::Lt |
-            BinaryOpKind::Le |
-            BinaryOpKind::Ne |
-            BinaryOpKind::Gt |
-            BinaryOpKind::Ge => {
-                is_bool = true;
-            }
-            _ => {
-                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-        }
-        Type::Char | Type::Bool => match kind {
-            BinaryOpKind::Add |
-            BinaryOpKind::Sub |
-            BinaryOpKind::Mul |
-            BinaryOpKind::Div |
-            BinaryOpKind::Rem => {
-                e0023(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-            BinaryOpKind::Eq |
-            BinaryOpKind::Lt |
-            BinaryOpKind::Le |
-            BinaryOpKind::Ne |
-            BinaryOpKind::Gt |
-            BinaryOpKind::Ge => {
-                is_bool = true;
-            }
-            _ => {
-                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-        }
-        Type::String => match kind {
-            BinaryOpKind::Add => {
-                // Do nothing
-            }
-            BinaryOpKind::Sub |
-            BinaryOpKind::Mul |
-            BinaryOpKind::Div |
-            BinaryOpKind::Rem => {
-                e0023(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-            BinaryOpKind::Eq |
-            BinaryOpKind::Lt |
-            BinaryOpKind::Le |
-            BinaryOpKind::Ne |
-            BinaryOpKind::Gt |
-            BinaryOpKind::Ge => {
-                is_bool = true;
-            }
-            _ => {
-                e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-                return Err(());
-            }
-        }
-        _ => {
-            e0024(Rc::clone(&p.errors), (p.path, &p.lines, current_token), kind, &ltype, &rtype);
-            return Err(());
-        }
+fn typing_binaryop<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, kind: BinaryOpKind, lhs: Node, rhs: Node) -> Result<RRType> {
+    let mut ltype = typing(lhs, st, p)?;
+    let mut rtype = typing(rhs, st, p)?;
+    let is_bool = matches!(kind,
+        BinaryOpKind::Eq |
+        BinaryOpKind::Lt |
+        BinaryOpKind::Le |
+        BinaryOpKind::Ne |
+        BinaryOpKind::Gt |
+        BinaryOpKind::Ge
+    );
+    type_inference(&ltype, &mut rtype);
+    type_inference(&rtype, &mut ltype);
+    // then: Integer, else: Integerの場合、両方に同じRRTypeをcloneする
+    // TODO: この処理を`type_inference()`に合成
+    if matches!((&ltype.get_type(), &rtype.get_type()), (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer))) {
+        *ltype.borrow_mut() = rtype.borrow().clone();
     }
-    match (&ltype, &rtype) {
-        (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => {
-            if is_bool {
-                Ok(RRType::new(Type::Bool))
-            } else {
-                Ok(RRType::new(rtype.clone()))
-            }
-        }
-        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => {
-            if is_bool {
-                Ok(RRType::new(Type::Bool))
-            } else {
-                Ok(RRType::new(ltype.clone()))
-            }
-        }
-        _ if ltype == rtype => {
-            if is_bool {
-                Ok(RRType::new(Type::Bool))
-            } else {
-                Ok(RRType::new(ltype.clone()))
-            }
-        }
-        _ => {
-            e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &ltype, &rtype);
-            Err(())
-        }
+    if is_bool {
+        Ok(RRType::new(Type::Bool))
+    } else {
+        Ok(ltype)
     }
 }
 
