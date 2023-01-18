@@ -182,7 +182,7 @@ fn gen_il_let<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>,
             }
         } else {
             let rty = gen_il(*init, st, p)?;
-            dbg!(&obj.name, obj.ty.get_type());
+            //dbg!(&obj.name, obj.ty.get_type());
             debug_assert_ne!(obj.ty.get_type(), Type::Unknown);
             if check_type(&obj.ty.get_type(), &rty.get_type()).is_err() {
                 e0012(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.ty.get_type(), &rty.get_type());

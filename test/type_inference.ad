@@ -1,3 +1,10 @@
+fn i() -> i32 { 1 }
+fn b() -> bool { true }
+fn c() -> char { '1' }
+fn s() -> string { "1" }
+struct Foo {
+    a: i32,
+}
 fn main() {
     let a      = 1;        // a: integer
     let b: i32 = 2;        // b: i32
@@ -13,6 +20,35 @@ fn main() {
     let a = { let _a: i32 = 1; _a };  // a: i32
     let b = a;                        // b: i32
     assert_eq!(a, b);                 // a: i32, b: i32
+
+    let a = true;    // a: bool
+    assert!(a);      // a: bool
+    let b = 1 == 1;  // b: bool
+    assert!(b);      // a: bool
+
+    let a = '1';       // a: char
+    let b = a;         // b: char
+    assert_eq!(a, b);  // a: char, b: char
+
+    let a = "1";       // a: string
+    let b = a;         // b: string
+    assert_eq!(a, b);  // a: string, b: string
+
+    let a = i();          // a: i32
+    assert_eq!(a, 1);     // a: i32, l: integer
+    let a = b();          // a: bool
+    assert_eq!(a, true);  // a: bool, l: bool
+    let a = c();          // a: char
+    assert_eq!(a, '1');   // a: char, l: char
+    let a = s();          // a: string
+    assert_eq!(a, "1");   // a: string, l: string
+
+    let a = Foo { 1 };   // a: Foo
+    assert_eq!(a.a, 1);  // a.a: i32, l: integer
+
+    let a = Box::new(1);  // a: Box<integer> -> Box<i32>
+    let b: i32 = *a;      // b: i32, *a: integer -> i32
+    assert_eq!(*a, b);    // *a: i32, b: i32
 
     println!("ok");
 }

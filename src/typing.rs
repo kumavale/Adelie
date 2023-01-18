@@ -204,10 +204,10 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
         let mut rty = typing(*init, st, p)?;
         if obj.borrow().ty.get_type() == Type::Unknown {
             type_inference(&rty, &mut obj.borrow_mut().ty);
-            dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
+            //dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
             debug_assert_ne!(obj.borrow().ty.get_type(), Type::Unknown);
         } else {
-            dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
+            //dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
             type_inference(&obj.borrow().ty, &mut rty);
         }
         let is_assigned = obj.borrow().is_assigned();
