@@ -109,6 +109,10 @@ impl Type {
             t => t,
         }
     }
+
+    pub fn is_reftype(&self) -> bool {
+        matches!(self, Type::String | Type::Box(_) | Type::Class(ClassKind::Class | ClassKind::NestedClass(..), ..))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
