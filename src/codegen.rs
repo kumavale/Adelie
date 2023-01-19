@@ -436,7 +436,7 @@ fn gen_il_field<'a>(
     ident: &str,
 ) -> Result<RRType> {
     *p.consume.borrow_mut() = false;
-    let parent_ty = gen_il(expr, st, p, false)?;
+    let parent_ty = gen_il(expr, st, p, true)?;
     let parent_ty = parent_ty.get_type();
     *p.consume.borrow_mut() = true;
     let (path, parent_name, base, is_mutable) = match &parent_ty {
