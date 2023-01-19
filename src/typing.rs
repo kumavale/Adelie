@@ -118,21 +118,40 @@ pub fn typing<'a>(node: Node, st: &mut SymbolTable, p: &'a Program<'a>) -> Resul
     }
 }
 
-fn typing_integer(_current_token: &[Token], _st: &mut SymbolTable, _p: &Program, ty: RRType, _num: i128) -> Result<RRType> {
-    // 型推論の流れ
-    // let x = 42;      // 42: Integer, x: Integer
-    // let y: i32 = x;  //  x: Integer, y: I32
-    // `x`が`y`に束縛される段階で、`x`の型が決定される。
-    // `42`の`RRType`を`x`にRcして、`x`を`y`に束縛するときに`x`の`RRType`を`i32`にすれば、
-    // `42`,`x`,`y`のすべてが`i32`になる。
+fn typing_integer(_current_token: &[Token], st: &mut SymbolTable, p: &Program, ty: RRType, _num: i128) -> Result<RRType> {
+    // アドレスが欲しいリテラルは一旦、ローカル変数に格納する
+    if *p.ret_address.borrow() {
+        let unique_name = format!("integerliteral_{}", crate::seq!());
+        let obj = Rc::new(RefCell::new(
+                Object::new(unique_name,
+                            st.offset(ObjectKind::Local),
+                            ObjectKind::Local,
+                            RRType::clone(&ty),
+                            false)));
+        obj.borrow_mut().assigned = true;
+        st.push(Rc::clone(&obj));
+    }
     Ok(ty)
 }
 
-fn typing_float(_current_token: &[Token], _st: &mut SymbolTable, _p: &Program, ty: RRType, _num: FloatNum) -> Result<RRType> {
+fn typing_float(_current_token: &[Token], st: &mut SymbolTable, p: &Program, ty: RRType, _num: FloatNum) -> Result<RRType> {
+    // アドレスが欲しいリテラルは一旦、ローカル変数に格納する
+    if *p.ret_address.borrow() {
+        let unique_name = format!("floatliteral_{}", crate::seq!());
+        let obj = Rc::new(RefCell::new(
+                Object::new(unique_name,
+                            st.offset(ObjectKind::Local),
+                            ObjectKind::Local,
+                            RRType::clone(&ty),
+                            false)));
+        obj.borrow_mut().assigned = true;
+        st.push(Rc::clone(&obj));
+    }
     Ok(ty)
 }
 
 fn typing_string(_current_token: &[Token], _st: &mut SymbolTable, _p: &Program, ty: RRType, _str: &str) -> Result<RRType> {
+    // `string`は参照型
     Ok(ty)
 }
 
@@ -937,92 +956,5 @@ fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
 }
 
 fn typing_empty() -> Result<RRType> {
-    Ok(RRType::new(Type::Void))
-}
-
-fn typing_builtin<'a>(token: &[Token], st: &mut SymbolTable, kind: Builtin, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    match kind {
-        Builtin::Assert   => typing_builtin_assert(token, st, args, p),
-        Builtin::AssertEq => typing_builtin_assert_eq(token, st, args, p),
-        Builtin::Panic    => typing_builtin_panic(token, st, args, p),
-        Builtin::Print    => typing_builtin_print(token, st, args, p),
-        Builtin::Println  => typing_builtin_println(token, st, args, p),
-        Builtin::ReadLine => typing_builtin_read_line(token, st, args, p),
-    }
-}
-
-fn typing_builtin_assert<'a>(token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    if args.len() != 1 {
-        e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 1, args.len());
-        return Err(());
-    }
-    let arg = args.pop().unwrap();
-    let mut ty = typing(arg, st, p)?;
-    type_inference(&RRType::new(Type::Bool), &mut ty);
-    Ok(RRType::new(Type::Void))
-}
-
-fn typing_builtin_assert_eq<'a>(token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    if args.len() != 2 {
-        e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 2, args.len());
-        return Err(());
-    }
-    let rhs = args.pop().unwrap();
-    let lhs = args.pop().unwrap();
-    let mut lty = typing(lhs, st, p)?;
-    let mut rty = typing(rhs, st, p)?;
-    type_inference(&lty, &mut rty);
-    type_inference(&rty, &mut lty);
-    Ok(RRType::new(Type::Void))
-}
-
-fn typing_builtin_panic<'a>(_token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    let argc = args.len();
-    match argc {
-        0 => (),
-        1 => {
-            let format = args.drain(..1).next().unwrap();
-            typing(format, st, p)?;
-        }
-        _ => {
-            let format = args.drain(..1).next().unwrap();
-            typing(format, st, p)?;
-            for arg in args {
-                typing(arg, st, p)?;
-            }
-        }
-    }
-    Ok(RRType::new(Type::Void))
-}
-
-fn typing_builtin_print<'a>(_token: &[Token], st: &mut SymbolTable, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    format_args(_token, st, args, p)
-}
-
-fn typing_builtin_println<'a>(_token: &[Token], st: &mut SymbolTable, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    format_args(_token, st, args, p)
-}
-
-fn typing_builtin_read_line<'a>(token: &[Token], _st: &mut SymbolTable, args: Vec<Node>, p: &'a Program) -> Result<RRType> {
-    if !args.is_empty() {
-        e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "read_line! takes no arguments");
-    }
-    Ok(RRType::new(Type::String))
-}
-
-fn format_args<'a>(_token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    let argc = args.len();
-    match argc {
-        0 => (),
-        1 => {
-            let format = args.drain(..1).next().unwrap();
-            typing(format, st, p)?;
-        }
-        _ => {
-            for arg in args {
-                typing(arg, st, p)?;
-            }
-        }
-    }
     Ok(RRType::new(Type::Void))
 }

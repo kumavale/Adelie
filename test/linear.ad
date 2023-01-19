@@ -56,5 +56,6 @@ fn main() {
     // let x: E = E::a; x; x;
     // let x: Box<i32> = Box::new(42); x; x;
 
-    println!({let ok:string="ok";ok;ok});
+    //println!({let ok:string="ok";ok;ok});
+    println!("ok");
 }

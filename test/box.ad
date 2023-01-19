@@ -27,5 +27,5 @@ fn main() {
     //let a: Box<i32> = Box::a;
     //let a: Box<i32> = Box::new(1, 2);
 
-    println!(Box::new("ok"));
+    println!(*Box::new("ok"));
 }
