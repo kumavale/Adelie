@@ -53,7 +53,7 @@ fn gen_il_builtin_assert<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<No
     }
     let arg = args.pop().unwrap();
     let stringizing_arg = arg.token.iter().map(|t|format!("{}",t.kind)).collect::<Vec<_>>().join(" ");
-    let ty = gen_il(arg, st, p)?;
+    let ty = gen_il(arg, st, p, false)?;
     if ty.get_type() != Type::Bool {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ty.get_type());
     }
@@ -76,9 +76,9 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], st: &SymbolTable, mut args: Vec
     }
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
-    let lty = gen_il(lhs, st, p)?;
+    let lty = gen_il(lhs, st, p, false)?;
     p.push_il_text(format!("\tbox {}", lty.to_ilstr()));
-    let rty = gen_il(rhs, st, p)?;
+    let rty = gen_il(rhs, st, p, false)?;
     p.push_il_text(format!("\tbox {}", rty.to_ilstr()));
     if check_type(&lty.get_type(), &rty.get_type()).is_err() {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty.get_type(), &rty.get_type());
@@ -101,7 +101,7 @@ fn gen_il_builtin_panic<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Nod
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
             p.push_il_text("\tldstr \"{{0}}\"");
-            let ty = gen_il(format_shaping(format), st, p)?;
+            let ty = gen_il(format_shaping(format), st, p, false)?;
             p.push_il_text(format!("\tbox {}", ty.to_ilstr()));
             p.push_il_text("\tcall string [mscorlib]System.String::Format(string, object)");
         }
@@ -116,13 +116,13 @@ fn gen_il_builtin_panic<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Nod
             if format_placeholder_count(&format) != argc-1 {
                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
             }
-            gen_il(format_shaping(format), st, p)?;
+            gen_il(format_shaping(format), st, p, false)?;
             p.push_il_text(format!("\tldc.i4 {}", argc));
             p.push_il_text("\tnewarr object");
             for (i, arg) in args.into_iter().enumerate() {
                 p.push_il_text("\tdup");
                 p.push_il_text(format!("\tldc.i4 {}", i));
-                let ty = gen_il(arg, st, p)?;
+                let ty = gen_il(arg, st, p, false)?;
                 p.push_il_text(format!("\tbox {}", ty.to_ilstr()));
                 p.push_il_text("\tstelem.ref");
             }
@@ -172,7 +172,7 @@ fn format_args<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &'
                     debug_assert!(p.errors.borrow().any_deny());
                 }
             } else {
-                let ty = gen_il(format, st, p)?.get_type();
+                let ty = gen_il(format, st, p, false)?.get_type();
                 match &ty {
                     Type::Numeric(_) |
                     Type::Float(_)   |
@@ -208,7 +208,7 @@ fn format_args<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &'
                         p.push_il_text("\tcall void [mscorlib]System.Console::Write(string)");
                     }
                     FmtKind::PlaceHolder => {
-                        let ty = gen_il(args.next().unwrap(), st, p)?;
+                        let ty = gen_il(args.next().unwrap(), st, p, false)?;
                         p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})", ty.to_ilstr()));
                     }
                 }
@@ -238,9 +238,7 @@ fn format_args_nl<'a>(_token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p
                     debug_assert!(p.errors.borrow().any_deny());
                 }
             } else {
-                *p.ret_address.borrow_mut() = true;
-                let ty = gen_il(format, st, p)?.get_type();
-                *p.ret_address.borrow_mut() = false;
+                let ty = gen_il(format, st, p, true)?.get_type();
                 match &ty {
                     Type::Numeric(_) |
                     Type::Float(_)   |
@@ -274,9 +272,7 @@ fn format_args_nl<'a>(_token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p
                         p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write{nl}(string)"));
                     }
                     FmtKind::PlaceHolder => {
-                        *p.ret_address.borrow_mut() = true;
-                        let ty = gen_il(args.next().unwrap(), st, p)?.get_type();
-                        *p.ret_address.borrow_mut() = false;
+                        let ty = gen_il(args.next().unwrap(), st, p, true)?.get_type();
                         match &ty {
                             Type::Numeric(_) |
                             Type::Float(_)   |
@@ -395,10 +391,10 @@ fn typing_format_args_nl<'a>(_token: &[Token], st: &mut SymbolTable, mut args: V
         0 => (),
         1 => {
             let format = args.drain(..1).next().unwrap();
-            // TODO: このやり方だとret_addressが全てのNodeに適応されてしまう
+            let ret_address = *p.ret_address.borrow();
             *p.ret_address.borrow_mut() = true;
             typing(format, st, p)?;
-            *p.ret_address.borrow_mut() = false;
+            *p.ret_address.borrow_mut() = ret_address;
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
@@ -417,9 +413,10 @@ fn typing_format_args_nl<'a>(_token: &[Token], st: &mut SymbolTable, mut args: V
                 match tok {
                     FmtKind::Literal(_) => (),
                     FmtKind::PlaceHolder => {
+                        let ret_address = *p.ret_address.borrow();
                         *p.ret_address.borrow_mut() = true;
                         let _ty = typing(args.next().unwrap(), st, p)?.get_type();
-                        *p.ret_address.borrow_mut() = false;
+                        *p.ret_address.borrow_mut() = ret_address;
                     }
                 }
             }

@@ -201,7 +201,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     func.symbol_table.borrow_mut().repair_offset();
 
     // コード生成
-    if let Ok(rettype) = codegen::gen_il(func.statements.clone(), &func.symbol_table.borrow(), program) {
+    if let Ok(rettype) = codegen::gen_il(func.statements.clone(), &func.symbol_table.borrow(), program, false) {
         if rettype.get_type() != func.rettype.get_type() {
             if let ast::NodeKind::Block { stmts } = &func.statements.kind {
                 let token = if stmts.is_empty() {

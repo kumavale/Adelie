@@ -181,12 +181,13 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
         if let Some(parent) = &obj.borrow().parent {
             // let文の左辺が{ident}.{field}の形になるのは、クロージャの自由変数を参照している場合のみ
             let ident = obj.borrow().name.to_string();
+            let ret_address = *p.ret_address.borrow();
             *p.ret_address.borrow_mut() = true;
             *p.consume.borrow_mut() = false;
             let parent_ty = typing_variable(current_token, st, p, parent.clone())?;
             let parent_ty = parent_ty.get_type();
             *p.consume.borrow_mut() = true;
-            *p.ret_address.borrow_mut() = false;
+            *p.ret_address.borrow_mut() = ret_address;
             match &parent_ty {
                 Type::Class(_, _, ref path, ref name, _, is_mutable) => {
                     let namespace = p.namespace.borrow();
@@ -274,12 +275,13 @@ fn typing_method<'a>(
     ident: &str,
     args: Vec<Node>,
 ) -> Result<RRType> {
+    let ret_address = *p.ret_address.borrow();
     *p.ret_address.borrow_mut() = true;
     *p.consume.borrow_mut() = false;
     let parent_ty = typing(expr, st, p)?;
     let parent_ty = parent_ty.get_type();
     *p.consume.borrow_mut() = true;
-    *p.ret_address.borrow_mut() = false;
+    *p.ret_address.borrow_mut() = ret_address;
     match &parent_ty {
         Type::Class(_, _, ref path, ref cl_name, _, _) => {
             let ns = p.namespace.borrow();
@@ -609,10 +611,11 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
         NodeKind::Variable { obj } => {
             if let Some(parent) = &obj.borrow().parent {
                 let ident = obj.borrow().name.to_string();
+                let ret_address = *p.ret_address.borrow();
                 *p.ret_address.borrow_mut() = true;
                 let parent_ty = typing_variable(current_token, st, p, parent.clone())?;
                 let parent_ty = parent_ty.get_type();
-                *p.ret_address.borrow_mut() = false;
+                *p.ret_address.borrow_mut() = ret_address;
                 match &parent_ty {
                     Type::Class(_, _, ref path, ref name, _, is_mutable) => {
                         let namespace = p.namespace.borrow();
@@ -681,12 +684,13 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             }
         }
         NodeKind::Field { expr, ident } => {
+            let ret_address = *p.ret_address.borrow();
             *p.ret_address.borrow_mut() = true;
             *p.consume.borrow_mut() = false;
             let parent_ty = typing(*expr, st, p)?;
             let parent_ty = parent_ty.get_type();
             *p.consume.borrow_mut() = true;
-            *p.ret_address.borrow_mut() = false;
+            *p.ret_address.borrow_mut() = ret_address;
             match &parent_ty {
                 Type::_Self(ref path, ref name, is_mutable) => {
                     let namespace = p.namespace.borrow();
