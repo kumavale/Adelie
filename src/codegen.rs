@@ -120,12 +120,24 @@ fn gen_il_integer(_current_token: &[Token], _st: &SymbolTable, p: &Program, ty: 
         }
         _ => unreachable!()
     }
+    if *p.ret_address.borrow() {
+        let seq = crate::seq!();
+        p.push_il_text(format!("\tstloc integerliteral_{}", seq));
+        p.push_il_text(format!("\tldloca integerliteral_{}", seq));
+    }
     Ok(ty)
 }
 
 fn gen_il_float(_current_token: &[Token], _st: &SymbolTable, p: &Program, ty: RRType, num: FloatNum) -> Result<RRType> {
     match num {
-        FloatNum::Float32(f) => p.push_il_text(format!("\tldc.r4 {}", f)),
+        FloatNum::Float32(f) => {
+            p.push_il_text(format!("\tldc.r4 {}", f));
+        }
+    }
+    if *p.ret_address.borrow() {
+        let seq = crate::seq!();
+        p.push_il_text(format!("\tstloc floatliteral_{}", seq));
+        p.push_il_text(format!("\tldloca floatliteral_{}", seq));
     }
     Ok(ty)
 }

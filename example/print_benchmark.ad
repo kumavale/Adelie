@@ -1,0 +1,55 @@
+#[link(name="mscorlib.dll")]
+extern {
+    mod System {
+        class Console {}
+        impl Console {
+            //fn WriteLine(_: string, _: Box<i32>) {}
+            fn WriteLine(_: i32) {}
+        }
+    }
+}
+//#[link(name="System.Private.CoreLib.dll", publickeytoken="7cec85d7bea7798e")]
+//#[link(name="System.Runtime.dll", publickeytoken="b03f5f7f11d50a3a")]
+#[link(name="System.dll", publickeytoken="b77a5c561934e089")]
+extern {
+    mod System {
+        mod Diagnostics {
+            class Stopwatch {}
+            impl Stopwatch {
+                fn .ctor() {}
+                fn Start(&mut self) {}
+                fn Stop(&mut self) {}
+                fn Reset(&mut self) {}
+                fn get_ElapsedMilliseconds(&self) -> i64 {}
+            }
+        }
+    }
+}
+fn main() {
+    let N: i32 = 100000;
+    let mut i: i32 = 0;
+    let mut sw = System::Diagnostics::Stopwatch::.ctor();
+
+    sw.Start();
+    while i < N {
+        //println!("{}", i);
+        println!(i);
+        i += 1;
+    }
+    sw.Stop();
+    let adelie = sw.get_ElapsedMilliseconds();
+    sw.Reset();
+
+    i = 0;
+    sw.Start();
+    while i < N {
+        //System::Console::WriteLine("{0}", Box::new(i));
+        System::Console::WriteLine(i);
+        i += 1;
+    }
+    sw.Stop();
+    let csharp = sw.get_ElapsedMilliseconds();
+
+    println!("adelie: {} msec", adelie);
+    println!("csharp: {} msec", csharp);
+}

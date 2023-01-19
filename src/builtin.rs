@@ -5,6 +5,7 @@ use crate::keyword::{Type, RRType, Numeric};
 use crate::object::SymbolTable;
 use crate::program::Program;
 use crate::token::{LiteralKind, Token, TokenKind};
+use crate::typing::{typing, type_inference};
 use std::fmt;
 use std::rc::Rc;
 
@@ -140,9 +141,7 @@ fn gen_il_builtin_print<'a>(_token: &[Token], st: &SymbolTable, args: Vec<Node>,
 }
 
 fn gen_il_builtin_println<'a>(_token: &[Token], st: &SymbolTable, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
-    let ty = format_args(_token, st, args, p);
-    p.push_il_text("\tcall void [mscorlib]System.Console::WriteLine()");
-    ty
+    format_args_nl(_token, st, args, p)
 }
 
 fn gen_il_builtin_read_line<'a>(_token: &[Token], _st: &SymbolTable, _args: Vec<Node>, p: &'a Program) -> Result<RRType> {
@@ -150,10 +149,13 @@ fn gen_il_builtin_read_line<'a>(_token: &[Token], _st: &SymbolTable, _args: Vec<
     Ok(RRType::new(Type::String))
 }
 
-fn format_args<'a>(_token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+fn format_args<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
     let argc = args.len();
     match argc {
-        0 => p.push_il_text("\tcall void [mscorlib]System.Console::Write()"),
+        0 => {
+            let message = "requires at least a format string argument";
+            e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), message);
+        }
         1 => {
             let format = args.drain(..1).next().unwrap();
             let token = format.token;
@@ -170,18 +172,20 @@ fn format_args<'a>(_token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &
                     debug_assert!(p.errors.borrow().any_deny());
                 }
             } else {
-                let ty = gen_il(format, st, p)?;
-                p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})",
-                    match &ty.get_type() {
-                        Type::Numeric(n) => n.to_ilstr(),
-                        Type::Float(f) => f.to_ilstr(),
-                        Type::Char | Type::Bool | Type::String => ty.to_ilstr(),
-                        b @ Type::Box(_) => b.to_ilstr(),
-                        _ => {
-                            dbg!(&ty);
-                            unimplemented!();
-                        }
-                    }));
+                let ty = gen_il(format, st, p)?.get_type();
+                match &ty {
+                    Type::Numeric(_) |
+                    Type::Float(_)   |
+                    Type::Char       |
+                    Type::Bool       |
+                    Type::String     => {
+                        p.push_il_text(format!("\tcall void [mscorlib]System.Console::WriteLine({})", ty.to_ilstr()));
+                    }
+                    _ => {
+                        let message = format!("[compiler unimplemented!()] cannot print: {:?}", ty);
+                        e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), &message);
+                    }
+                }
             }
         }
         _ => {
@@ -206,6 +210,216 @@ fn format_args<'a>(_token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &
                     FmtKind::PlaceHolder => {
                         let ty = gen_il(args.next().unwrap(), st, p)?;
                         p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write({})", ty.to_ilstr()));
+                    }
+                }
+            }
+        }
+    }
+    Ok(RRType::new(Type::Void))
+}
+
+fn format_args_nl<'a>(_token: &[Token], st: &SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    let argc = args.len();
+    match argc {
+        0 => p.push_il_text("\tcall void [mscorlib]System.Console::WriteLine()"),
+        1 => {
+            let format = args.drain(..1).next().unwrap();
+            let token = format.token;
+            // check place holder counts
+            if format_placeholder_count(&format) != argc-1 {
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
+            }
+            if let NodeKind::String{..} = &format.kind {
+                if let Some(FmtKind::Literal(s)) = &fmt_tokenize(token, p, format).first() {
+                    p.push_il_text(format!("\tldstr \"{}\"", s));
+                    p.push_il_text("\tcall void [mscorlib]System.Console::WriteLine(string)");
+                } else {
+                    // maybe compile error
+                    debug_assert!(p.errors.borrow().any_deny());
+                }
+            } else {
+                *p.ret_address.borrow_mut() = true;
+                let ty = gen_il(format, st, p)?.get_type();
+                *p.ret_address.borrow_mut() = false;
+                match &ty {
+                    Type::Numeric(_) |
+                    Type::Float(_)   |
+                    Type::Char       |
+                    Type::Bool       |
+                    Type::String     => {
+                        p.push_il_text(format!("\tcall instance string {}::ToString()", ty.to_ilstr()));
+                        p.push_il_text("\tcall void [mscorlib]System.Console::WriteLine(string)");
+                    }
+                    //Type::String => {
+                    //    p.push_il_text(format!("\tcall void [mscorlib]System.Console::WriteLine(string)"));
+                    //}
+                    _ => {
+                        let message = format!("[compiler unimplemented!()] cannot print: {:?}", ty);
+                        e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), &message);
+                    }
+                }
+            }
+        }
+        _ => {
+            let format = args.drain(..1).next().unwrap();
+            let token = format.token;
+            let fmt_tokens = fmt_tokenize(token, p, format);
+            let tokens_len = fmt_tokens.len();
+            let mut args = args.into_iter();
+            for (i, tok) in fmt_tokens.iter().enumerate() {
+                let nl = if i == tokens_len-1 { "Line" } else { "" };
+                match tok {
+                    FmtKind::Literal(s) => {
+                        p.push_il_text(format!("\tldstr \"{}\"", s));
+                        p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write{nl}(string)"));
+                    }
+                    FmtKind::PlaceHolder => {
+                        *p.ret_address.borrow_mut() = true;
+                        let ty = gen_il(args.next().unwrap(), st, p)?.get_type();
+                        *p.ret_address.borrow_mut() = false;
+                        match &ty {
+                            Type::Numeric(_) |
+                            Type::Float(_)   |
+                            Type::Char       |
+                            Type::Bool       |
+                            Type::String     => {
+                                p.push_il_text(format!("\tcall instance string {}::ToString()", ty.to_ilstr()));
+                                p.push_il_text(format!("\tcall void [mscorlib]System.Console::Write{nl}(string)"));
+                            }
+                            //Type::String => {
+                            //    p.push_il_text(format!("\tcall void [mscorlib]System.Console::WriteLine(string)"));
+                            //}
+                            _ => {
+                                let message = format!("[compiler unimplemented!()] cannot print: {:?}", ty);
+                                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), &message);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(RRType::new(Type::Void))
+}
+
+pub fn typing_builtin<'a>(token: &[Token], st: &mut SymbolTable, kind: Builtin, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    match kind {
+        Builtin::Assert   => typing_builtin_assert(token, st, args, p),
+        Builtin::AssertEq => typing_builtin_assert_eq(token, st, args, p),
+        Builtin::Panic    => typing_builtin_panic(token, st, args, p),
+        Builtin::Print    => typing_builtin_print(token, st, args, p),
+        Builtin::Println  => typing_builtin_println(token, st, args, p),
+        Builtin::ReadLine => typing_builtin_read_line(token, st, args, p),
+    }
+}
+
+fn typing_builtin_assert<'a>(token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    if args.len() != 1 {
+        e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 1, args.len());
+        return Err(());
+    }
+    let arg = args.pop().unwrap();
+    let mut ty = typing(arg, st, p)?;
+    type_inference(&RRType::new(Type::Bool), &mut ty);
+    Ok(RRType::new(Type::Void))
+}
+
+fn typing_builtin_assert_eq<'a>(token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    if args.len() != 2 {
+        e0029(Rc::clone(&p.errors), (p.path, &p.lines, token), 2, args.len());
+        return Err(());
+    }
+    let rhs = args.pop().unwrap();
+    let lhs = args.pop().unwrap();
+    let mut lty = typing(lhs, st, p)?;
+    let mut rty = typing(rhs, st, p)?;
+    type_inference(&lty, &mut rty);
+    type_inference(&rty, &mut lty);
+    Ok(RRType::new(Type::Void))
+}
+
+fn typing_builtin_panic<'a>(_token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    let argc = args.len();
+    match argc {
+        0 => (),
+        1 => {
+            let format = args.drain(..1).next().unwrap();
+            typing(format, st, p)?;
+        }
+        _ => {
+            let format = args.drain(..1).next().unwrap();
+            typing(format, st, p)?;
+            for arg in args {
+                typing(arg, st, p)?;
+            }
+        }
+    }
+    Ok(RRType::new(Type::Void))
+}
+
+fn typing_builtin_print<'a>(_token: &[Token], st: &mut SymbolTable, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    typing_format_args(_token, st, args, p)
+}
+
+fn typing_builtin_println<'a>(_token: &[Token], st: &mut SymbolTable, args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    typing_format_args_nl(_token, st, args, p)
+}
+
+fn typing_builtin_read_line<'a>(token: &[Token], _st: &mut SymbolTable, args: Vec<Node>, p: &'a Program) -> Result<RRType> {
+    if !args.is_empty() {
+        e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "read_line! takes no arguments");
+    }
+    Ok(RRType::new(Type::String))
+}
+
+fn typing_format_args<'a>(_token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    let argc = args.len();
+    match argc {
+        0 => (),
+        1 => {
+            let format = args.drain(..1).next().unwrap();
+            typing(format, st, p)?;
+        }
+        _ => {
+            for arg in args {
+                typing(arg, st, p)?;
+            }
+        }
+    }
+    Ok(RRType::new(Type::Void))
+}
+
+fn typing_format_args_nl<'a>(_token: &[Token], st: &mut SymbolTable, mut args: Vec<Node>, p: &'a Program<'a>) -> Result<RRType> {
+    let argc = args.len();
+    match argc {
+        0 => (),
+        1 => {
+            let format = args.drain(..1).next().unwrap();
+            // TODO: このやり方だとret_addressが全てのNodeに適応されてしまう
+            *p.ret_address.borrow_mut() = true;
+            typing(format, st, p)?;
+            *p.ret_address.borrow_mut() = false;
+        }
+        _ => {
+            let format = args.drain(..1).next().unwrap();
+            let token = format.token;
+            if !matches!(token[0].kind, TokenKind::Literal(LiteralKind::String(_))) {
+                // format argument must be a string literal
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "format argument must be a string literal");
+            }
+            // check place holder counts
+            if format_placeholder_count(&format) != argc-1 {
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, token), "invalid format");
+            }
+            let fmt_tokens = fmt_tokenize(token, p, format);
+            let mut args = args.into_iter();
+            for tok in fmt_tokens {
+                match tok {
+                    FmtKind::Literal(_) => (),
+                    FmtKind::PlaceHolder => {
+                        *p.ret_address.borrow_mut() = true;
+                        let _ty = typing(args.next().unwrap(), st, p)?.get_type();
+                        *p.ret_address.borrow_mut() = false;
                     }
                 }
             }
