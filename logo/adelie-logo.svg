@@ -1,0 +1,44 @@
+<svg
+    width="256px"
+    height="256px"
+    version="0.1.0"
+    viewBox="0 0 256 256"
+    xml:space="preserve"
+    xmlns="http://www.w3.org/2000/svg"
+    xmlns:cc="http://creativecommons.org/ns#"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <g
+        stroke="#000"
+        stroke-linecap="round"
+        stroke-width="2.1167">
+        <path
+            d="m91.239 25.169-33.979 4.7193 28.945 12.585c10.231 4.4484 17.069 15.454 2.8316 33.35-4.3703 58.944 36.919 172.3 121.13 172.73-70.647-48.737-62.461-101.97-88.722-167.69 0.0279-13.628 23.94-70.33-30.203-55.688z"
+            stroke-linejoin="round"/>
+        <path
+            d="m89.037 75.823c-64.159 136.19 79.764 171.87 121.13 172.73"
+            fill="none"/>
+        <path
+            d="m130.66 105.04s53.866-11.759 64.83 13.68c-36.422-6.2626-41.849 3.526-58.657 14.093-9.9118-11.346-6.1731-27.773-6.1731-27.773"
+            stroke-linejoin="round"/>
+    </g>
+    <metadata>
+        <rdf:RDF>
+            <cc:License rdf:about="http://creativecommons.org/licenses/by/4.0/">
+                <cc:permits rdf:resource="http://creativecommons.org/ns#Reproduction"/>
+                <cc:permits rdf:resource="http://creativecommons.org/ns#Distribution"/>
+                <cc:requires rdf:resource="http://creativecommons.org/ns#Notice"/>
+                <cc:requires rdf:resource="http://creativecommons.org/ns#Attribution"/>
+                <cc:permits rdf:resource="http://creativecommons.org/ns#DerivativeWorks"/>
+            </cc:License>
+            <cc:Work rdf:about="">
+                <cc:license rdf:resource="http://creativecommons.org/licenses/by/4.0/"/>
+                <dc:creator>
+                    <cc:Agent>
+                        <dc:title>kumavale</dc:title>
+                    </cc:Agent>
+                </dc:creator>
+            </cc:Work>
+        </rdf:RDF>
+    </metadata>
+</svg>
