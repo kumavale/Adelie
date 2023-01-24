@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::codegen::*;
 use crate::error::*;
-use crate::keyword::{Type, RRType, Numeric};
+use crate::keyword::{Type, RRType, Numeric, Float};
 use crate::object::SymbolTable;
 use crate::program::Program;
 use crate::token::{LiteralKind, Token, TokenKind};
@@ -68,6 +68,8 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], st: &SymbolTable, mut args: Vec
         match (&lty, &rty) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
+            (Type::Float(Float::F), Type::Float(..)) => Ok(()),
+            (Type::Float(..), Type::Float(Float::F)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
             _ if lty == rty => Ok(()),
@@ -315,8 +317,8 @@ fn typing_builtin_assert<'a>(token: &[Token], st: &mut SymbolTable, mut args: Ve
         return Err(());
     }
     let arg = args.pop().unwrap();
-    let mut ty = typing(arg, st, p)?;
-    type_inference(&RRType::new(Type::Bool), &mut ty);
+    let ty = typing(arg, st, p)?;
+    type_inference(&mut RRType::new(Type::Bool), &ty);
     Ok(RRType::new(Type::Void))
 }
 
@@ -329,8 +331,8 @@ fn typing_builtin_assert_eq<'a>(token: &[Token], st: &mut SymbolTable, mut args:
     let lhs = args.pop().unwrap();
     let mut lty = typing(lhs, st, p)?;
     let mut rty = typing(rhs, st, p)?;
-    type_inference(&lty, &mut rty);
-    type_inference(&rty, &mut lty);
+    type_inference(&mut lty, &rty);
+    type_inference(&mut rty, &lty);
     Ok(RRType::new(Type::Void))
 }
 

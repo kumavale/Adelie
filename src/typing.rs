@@ -3,7 +3,7 @@ use crate::builtin::*;
 use crate::class::ClassKind;
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, RRType, Numeric, Float, FloatNum};
+use crate::keyword::{Type, RRType, Numeric, Float, FloatLit};
 use crate::namespace::NameSpace;
 use crate::object::{FindSymbol, Object, ObjectKind, EnumObject, SymbolTable};
 use crate::program::Program;
@@ -15,18 +15,19 @@ use std::cell::RefCell;
 type Result<T> = std::result::Result<T, ()>;
 
 /// 型推論
-pub fn type_inference(source: &RRType, target: &mut RRType) {
-    match (&source.get_type(), &mut target.get_type()) {
-        (_, Type::Unknown) => (),
-        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => (),
+pub fn type_inference(source: &mut RRType, target: &RRType) {
+    match (&mut source.get_type(), &target.get_type()) {
+        (_, Type::Unknown)                                   |
+        (Type::Numeric(..), Type::Numeric(Numeric::Integer)) |
+        (Type::Float(..), Type::Float(Float::F))             => {
+            let ty = source.borrow().borrow().clone();
+            *source.borrow_mut() = target.borrow().clone();
+            *source.borrow().borrow_mut() = ty;
+        }
         (Type::Box(l), Type::Box(r)) |
         (Type::Ptr(l), Type::Ptr(r)) => type_inference(l, r),
-        _ => {
-            /* TODO */
-            return;
-        }
+        _ => (),  // Do nothing
     }
-    *target.borrow_mut() = source.borrow().clone();
 }
 
 /// 型検査
@@ -134,7 +135,7 @@ fn typing_integer(_current_token: &[Token], st: &mut SymbolTable, p: &Program, t
     Ok(ty)
 }
 
-fn typing_float(_current_token: &[Token], st: &mut SymbolTable, p: &Program, ty: RRType, _num: FloatNum) -> Result<RRType> {
+fn typing_float(_current_token: &[Token], st: &mut SymbolTable, p: &Program, ty: RRType, _num: FloatLit) -> Result<RRType> {
     // アドレスが欲しいリテラルは一旦、ローカル変数に格納する
     if *p.ret_address.borrow() {
         let unique_name = format!("floatliteral_{}", crate::seq!());
@@ -200,8 +201,9 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
                     };
                     if let Some(cl) = ns.find_class(|_|true, name) {
                         if cl.borrow().field.find(&ident).is_some() {
-                            let mut rty = typing(*init, st, p)?;
-                            type_inference(&obj.borrow().ty, &mut rty);
+                            let rty = typing(*init, st, p)?;
+                            let mut obj_ty = obj.borrow().ty.clone();
+                            type_inference(&mut obj_ty, &rty);
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -223,12 +225,12 @@ fn typing_let<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
         }
         let mut rty = typing(*init, st, p)?;
         if obj.borrow().ty.get_type() == Type::Unknown {
-            type_inference(&rty, &mut obj.borrow_mut().ty);
+            type_inference(&mut rty, &obj.borrow_mut().ty);
             //dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
             debug_assert_ne!(obj.borrow().ty.get_type(), Type::Unknown);
         } else {
             //dbg!(&obj.borrow().name, obj.borrow().ty.get_type());
-            type_inference(&obj.borrow().ty, &mut rty);
+            type_inference(&mut obj.borrow_mut().ty, &rty);
         }
         let is_assigned = obj.borrow().is_assigned();
         obj.borrow_mut().assigned = true;
@@ -256,8 +258,8 @@ fn typing_call<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
             e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
         }
         for (arg, param) in args.into_iter().zip(&params) {
-            let mut arg_ty = typing(arg, st, p)?;
-            type_inference(&param.borrow().ty, &mut arg_ty);
+            let arg_ty = typing(arg, st, p)?;
+            type_inference(&mut param.borrow_mut().ty, &arg_ty);
             debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
         }
         Ok(func.rettype.clone())
@@ -335,8 +337,8 @@ fn typing_method<'a>(
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(params) {
-                    let mut arg_ty = typing(arg, st, p)?;
-                    type_inference(&param.borrow().ty, &mut arg_ty);
+                    let arg_ty = typing(arg, st, p)?;
+                    type_inference(&mut param.borrow_mut().ty, &arg_ty);
                     debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 }
                 Ok(func.rettype.clone())
@@ -387,8 +389,8 @@ fn typing_struct<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
             e0017(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &cl.borrow().name);
         }
         for (field_expr, field_dec) in field.into_iter().zip(&cl.borrow().field.objs) {
-            let mut ty = typing(field_expr, st, p)?;
-            type_inference(&field_dec.borrow().ty, &mut ty);
+            let ty = typing(field_expr, st, p)?;
+            type_inference(&mut field_dec.borrow_mut().ty, &ty);
             debug_assert_ne!(&ty.get_type(), &Type::Numeric(Numeric::Integer));
         }
     } else {
@@ -572,13 +574,8 @@ fn typing_if<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
     let els = els.map(|els| (els.token, typing(*els, st, p)));
     if let Some(els) = els {
         let mut els_type = els.1?;
-        type_inference(&els_type, &mut then_type);
-        type_inference(&then_type, &mut els_type);
-        // then: Integer, else: Integerの場合、両方に同じRRTypeをcloneする
-        // TODO: この処理を`type_inference()`に合成
-        if matches!((&then_type.get_type(), &els_type.get_type()), (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer))) {
-            *els_type.borrow_mut() = then_type.borrow().clone();
-        }
+        type_inference(&mut els_type, &then_type);
+        type_inference(&mut then_type, &els_type);
     }
     Ok(then_type)
 }
@@ -628,8 +625,8 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                         };
                         if let Some(cl) = ns.find_class(|_|true, name) {
                             if let Some(field) = cl.borrow().field.find(&ident) {
-                                let mut rty = typing(rhs, st, p)?;
-                                type_inference(&field.borrow().ty, &mut rty);
+                                let rty = typing(rhs, st, p)?;
+                                type_inference(&mut field.borrow_mut().ty, &rty);
                                 if !is_mutable {
                                     let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                     e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -649,8 +646,8 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                 return Ok(RRType::new(Type::Void));
             }
             let mut rty = typing(rhs, st, p)?;
-            type_inference(&obj.borrow().ty, &mut rty);
-            type_inference(&rty, &mut obj.borrow_mut().ty);
+            type_inference(&mut obj.borrow_mut().ty, &rty);
+            type_inference(&mut rty, &obj.borrow().ty);
             let is_assigned = obj.borrow().is_assigned();
             obj.borrow_mut().assigned = true;
 
@@ -665,15 +662,15 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
         NodeKind::UnaryOp { kind: UnaryOpKind::Deref, expr } => {
             // TODO: この処理じゃ`**a=b`とか出来ないのでは？
             let lty = typing(*expr, st, p)?;
-            let mut rty = typing(rhs, st, p)?;
-            let lty = match lty.get_type() {
+            let rty = typing(rhs, st, p)?;
+            let mut lty = match lty.get_type() {
                 Type::Ptr(lty) => lty,
                 _ => {
                     e0022(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &lty.get_type());
                     return Err(());
                 }
             };
-            type_inference(&lty, &mut rty);
+            type_inference(&mut lty, &rty);
             // TODO: この処理じゃ`char`型変数のDerefとか出来ないのでは？
             match lty.get_type() {
                 Type::Ptr(_) | Type::Numeric(Numeric::I32) => (),
@@ -703,8 +700,8 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                     };
                     if let Some(cl) = ns.find_class(|_|true, name) {
                         if let Some(field) = cl.borrow().field.find(&ident) {
-                            let mut rty = typing(rhs, st, p)?;
-                            type_inference(&field.borrow().ty, &mut rty);
+                            let rty = typing(rhs, st, p)?;
+                            type_inference(&mut field.borrow_mut().ty, &rty);
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -727,8 +724,8 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
                     };
                     if let Some(cl) = ns.find_class(|_|true, name) {
                         if let Some(field) = cl.borrow().field.find(&ident) {
-                            let mut rty = typing(rhs, st, p)?;
-                            type_inference(&field.borrow().ty, &mut rty);
+                            let rty = typing(rhs, st, p)?;
+                            type_inference(&mut field.borrow_mut().ty, &rty);
                             if !is_mutable {
                                 let message = format!("cannot assign to `{name}.{ident}`, as `{name}` is not declared as mutable");
                                 e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -754,14 +751,14 @@ fn typing_assign<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Progr
     Ok(RRType::new(Type::Void))
 }
 
-fn typing_return<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, expr: Option<Box<Node>>, func_retty: RRType) -> Result<RRType> {
-    let mut rettype = if let Some(expr) = expr {
+fn typing_return<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<'a>, expr: Option<Box<Node>>, mut func_retty: RRType) -> Result<RRType> {
+    let rettype = if let Some(expr) = expr {
         typing(*expr, st, p)?
     } else {
         RRType::new(Type::Void)
     };
 
-    type_inference(&func_retty, &mut rettype);
+    type_inference(&mut func_retty, &rettype);
     debug_assert_ne!(&rettype.get_type(), &Type::Numeric(Numeric::Integer));
 
     // TODO: Type::Never(rettype)
@@ -804,7 +801,7 @@ fn typing_unaryop<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Prog
             match &ty {
                 Type::Ptr(ty) => {
                     match &ty.get_type() {
-                        Type::Ptr(_) | Type::Numeric(Numeric::I32) | Type::Float(Float::F32) => (),
+                        Type::Ptr(_) | Type::Numeric(..) | Type::Float(..) => (),
                         ty => {
                             let message = format!("[compiler unimplemented!()] dereferenced {:?}", ty);
                             e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -835,13 +832,8 @@ fn typing_binaryop<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Pr
         BinaryOpKind::Gt |
         BinaryOpKind::Ge
     );
-    type_inference(&ltype, &mut rtype);
-    type_inference(&rtype, &mut ltype);
-    // then: Integer, else: Integerの場合、両方に同じRRTypeをcloneする
-    // TODO: この処理を`type_inference()`に合成
-    if matches!((&ltype.get_type(), &rtype.get_type()), (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer))) {
-        *ltype.borrow_mut() = rtype.borrow().clone();
-    }
+    type_inference(&mut ltype, &rtype);
+    type_inference(&mut rtype, &ltype);
     if is_bool {
         Ok(RRType::new(Type::Bool))
     } else {
@@ -853,10 +845,10 @@ fn typing_shortcircuitop<'a>(_current_token: &[Token], st: &mut SymbolTable, p: 
     match kind {
         ShortCircuitOpKind::And |
         ShortCircuitOpKind::Or  => {
-            let mut ltype = typing(lhs, st, p)?;
-            type_inference(&RRType::new(Type::Bool), &mut ltype);
-            let mut rtype = typing(rhs, st, p)?;
-            type_inference(&RRType::new(Type::Bool), &mut rtype);
+            let ltype = typing(lhs, st, p)?;
+            type_inference(&mut RRType::new(Type::Bool), &ltype);
+            let rtype = typing(rhs, st, p)?;
+            type_inference(&mut RRType::new(Type::Bool), &rtype);
         }
     }
     Ok(RRType::new(Type::Bool))
@@ -895,8 +887,8 @@ fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(&params) {
-                    let mut arg_ty = typing(arg, st, p)?;
-                    type_inference(&param.borrow().ty, &mut arg_ty);
+                    let arg_ty = typing(arg, st, p)?;
+                    type_inference(&mut param.borrow_mut().ty, &arg_ty);
                     debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 }
                 Ok(func.rettype.clone())
@@ -922,8 +914,8 @@ fn typing_path<'a>(current_token: &[Token], st: &mut SymbolTable, p: &'a Program
                     e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), params.len(), args.len());
                 }
                 for (arg, param) in args.into_iter().zip(&params) {
-                    let mut arg_ty = typing(arg, st, p)?;
-                    type_inference(&param.borrow().ty, &mut arg_ty);
+                    let arg_ty = typing(arg, st, p)?;
+                    type_inference(&mut param.borrow_mut().ty, &arg_ty);
                     debug_assert_ne!(&arg_ty.get_type(), &Type::Numeric(Numeric::Integer));
                 }
                 Ok(func.rettype.clone())
