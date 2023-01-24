@@ -317,7 +317,7 @@ fn typing_builtin_assert<'a>(token: &[Token], st: &mut SymbolTable, mut args: Ve
         return Err(());
     }
     let arg = args.pop().unwrap();
-    let ty = typing(arg, st, p)?;
+    let ty = typing(arg, st, p, false)?;
     type_inference(&mut RRType::new(Type::Bool), &ty);
     Ok(RRType::new(Type::Void))
 }
@@ -329,8 +329,8 @@ fn typing_builtin_assert_eq<'a>(token: &[Token], st: &mut SymbolTable, mut args:
     }
     let rhs = args.pop().unwrap();
     let lhs = args.pop().unwrap();
-    let mut lty = typing(lhs, st, p)?;
-    let mut rty = typing(rhs, st, p)?;
+    let mut lty = typing(lhs, st, p, false)?;
+    let mut rty = typing(rhs, st, p, false)?;
     type_inference(&mut lty, &rty);
     type_inference(&mut rty, &lty);
     Ok(RRType::new(Type::Void))
@@ -342,13 +342,13 @@ fn typing_builtin_panic<'a>(_token: &[Token], st: &mut SymbolTable, mut args: Ve
         0 => (),
         1 => {
             let format = args.drain(..1).next().unwrap();
-            typing(format, st, p)?;
+            typing(format, st, p, false)?;
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
-            typing(format, st, p)?;
+            typing(format, st, p, false)?;
             for arg in args {
-                typing(arg, st, p)?;
+                typing(arg, st, p, false)?;
             }
         }
     }
@@ -376,11 +376,11 @@ fn typing_format_args<'a>(_token: &[Token], st: &mut SymbolTable, mut args: Vec<
         0 => (),
         1 => {
             let format = args.drain(..1).next().unwrap();
-            typing(format, st, p)?;
+            typing(format, st, p, false)?;
         }
         _ => {
             for arg in args {
-                typing(arg, st, p)?;
+                typing(arg, st, p, false)?;
             }
         }
     }
@@ -393,10 +393,7 @@ fn typing_format_args_nl<'a>(_token: &[Token], st: &mut SymbolTable, mut args: V
         0 => (),
         1 => {
             let format = args.drain(..1).next().unwrap();
-            let ret_address = *p.ret_address.borrow();
-            *p.ret_address.borrow_mut() = true;
-            typing(format, st, p)?;
-            *p.ret_address.borrow_mut() = ret_address;
+            typing(format, st, p, true)?;
         }
         _ => {
             let format = args.drain(..1).next().unwrap();
@@ -415,10 +412,7 @@ fn typing_format_args_nl<'a>(_token: &[Token], st: &mut SymbolTable, mut args: V
                 match tok {
                     FmtKind::Literal(_) => (),
                     FmtKind::PlaceHolder => {
-                        let ret_address = *p.ret_address.borrow();
-                        *p.ret_address.borrow_mut() = true;
-                        let _ty = typing(args.next().unwrap(), st, p)?.get_type();
-                        *p.ret_address.borrow_mut() = ret_address;
+                        let _ty = typing(args.next().unwrap(), st, p, true)?.get_type();
                     }
                 }
             }
