@@ -3,7 +3,7 @@ use crate::builtin::*;
 use crate::class::{ClassKind, Class, Impl, EnumDef};
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, RRType, Float, FloatNum, Keyword};
+use crate::keyword::{Type, RRType, Float, Keyword};
 use crate::object::{Object, ObjectKind, EnumObject, FindSymbol, SymbolTable};
 use crate::program::Program;
 use crate::token::{Delimiter, Token, TokenKind, LiteralKind};
@@ -1750,26 +1750,22 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_lit(&mut self, kind: &LiteralKind) -> Node<'a> {
+        let begin = self.idx-1;
         match kind {
             LiteralKind::Char(c) => {
-                new_char_node(*c, &self.tokens[self.idx-1..=self.idx-1])
+                new_char_node(*c, &self.tokens[begin..self.idx])
             }
             LiteralKind::String(s) => {
-                new_string_node(s, &self.tokens[self.idx-1..=self.idx-1])
+                new_string_node(s, &self.tokens[begin..self.idx])
             }
             LiteralKind::Integer(i) => {
-                new_num_node(*i, &self.tokens[self.idx-1..=self.idx-1])
+                new_num_node(*i, &self.tokens[begin..self.idx])
             }
             LiteralKind::Float(s) => {
-                if let TokenKind::Type(Type::Float(Float::F32)) = &self.tokens[self.idx].kind {
-                    self.bump();
-                    let f = s.parse::<f32>().unwrap();
-                    new_float_node(FloatNum::Float32(f), &self.tokens[self.idx-2..=self.idx-1])
+                if self.eat(TokenKind::Type(Type::Float(Float::F32))) {
+                    new_float_node(Type::Float(Float::F32), s, &self.tokens[begin..self.idx])
                 } else {
-                    // TODO: 型推論実装後はリテラルを明示しなくても良くなる
-                    let message = "float literal must be suffixed with `f32` or `f64`";
-                    e0000(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), message);
-                    new_empty_node()
+                    new_float_node(Type::Float(Float::F), s, &self.tokens[begin..self.idx])
                 }
             }
         }

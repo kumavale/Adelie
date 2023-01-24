@@ -188,9 +188,10 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     // 型検査
     //dbg!(&func.symbol_table.borrow());
     func.symbol_table.borrow_mut().clear_local();
-    if let Ok(mut rettype) = typing::typing(func.statements.clone(), &mut func.symbol_table.borrow_mut(), program) {
+    if let Ok(rettype) = typing::typing(func.statements.clone(), &mut func.symbol_table.borrow_mut(), program) {
         // 暗黙の戻り値の型推論
-        typing::type_inference(&func.rettype, &mut rettype);
+        let mut func_rettype = func.rettype.clone();
+        typing::type_inference(&mut func_rettype, &rettype);
     } else {
         // 型検査段階のエラーを表示
         program.errors.borrow().display();

@@ -117,27 +117,26 @@ impl Type {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Numeric {
+    Integer,
     I32,
     I64,
-    Integer,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Float {
+    F,
     F32,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum FloatNum {
-    Float32(f32),
-}
+pub type FloatLit = String;
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
             Type::Numeric(Numeric::I32)     => write!(f, "i32"),
             Type::Numeric(Numeric::I64)     => write!(f, "i64"),
-            Type::Numeric(Numeric::Integer) => write!(f, "{{integer}}"),
+            Type::Float(Float::F)           => write!(f, "{{float}}"),
             Type::Float(Float::F32)         => write!(f, "f32"),
             Type::Bool                      => write!(f, "bool"),
             Type::Char                      => write!(f, "char"),
@@ -240,6 +239,7 @@ impl Numeric {
 impl Float {
     pub fn to_ilstr(&self) -> String {
         match self {
+            Float::F   => "float64".to_string(),
             Float::F32 => "float32".to_string(),
         }
     }

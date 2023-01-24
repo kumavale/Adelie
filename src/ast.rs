@@ -1,7 +1,7 @@
 use crate::builtin::*;
 use crate::class::{Class, ClassKind, Impl, EnumDef};
 use crate::function::Function;
-use crate::keyword::{Keyword, Numeric, Float, FloatNum, Type, RRType};
+use crate::keyword::{Keyword, Numeric, FloatLit, Type, RRType};
 use crate::object::{Object, ObjectKind, EnumObject, SymbolTable};
 use crate::token::Token;
 use std::cell::RefCell;
@@ -56,7 +56,7 @@ pub enum NodeKind<'a> {
     },
     Float {
         ty: RRType,
-        num: FloatNum,  // -?[1-9][0-9]*\.[0-9]+
+        num: FloatLit,  // -?[1-9][0-9]*\.[0-9]+
     },
     String {
         ty: RRType,
@@ -314,17 +314,15 @@ pub fn new_num_node(
     }
 }
 
-pub fn new_float_node(
-    num: FloatNum,
-    token: &[Token],
-) -> Node<'_> {
-    let ty = match num {
-        FloatNum::Float32(..) => RRType::new(Type::Float(Float::F32)),
-    };
+pub fn new_float_node<'a>(
+    ty: Type,
+    num: &FloatLit,
+    token: &'a [Token],
+) -> Node<'a> {
     Node {
         kind: NodeKind::Float {
-            ty,
-            num,
+            ty: RRType::new(ty),
+            num: num.to_string(),
         },
         token,
     }

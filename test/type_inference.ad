@@ -1,6 +1,6 @@
 fn i() -> i32 { 1 }
 fn l() -> i64 { 1 }
-fn f() -> f32 { 1.0f32 }
+fn f() -> f32 { 1.0 }
 fn b() -> bool { true }
 fn c() -> char { '1' }
 fn s() -> string { "1" }
@@ -22,6 +22,12 @@ fn main() {
     let a = { let _a: i32 = 1; _a };  // a: i32
     let b = a;                        // b: i32
     assert_eq!(a, b);                 // a: i32, b: i32
+
+    let a = 1.0;       // a: float
+    let b = 1.0;       // a: float, b: float
+    assert_eq!(a, b);  // a: float, b: float
+    let c: f32 = 1.0;  // a: float, b: float, c: f32
+    assert_eq!(a, c);  // a: float -> f32, b: float -> f32, c: f32
 
     let a = true;    // a: bool
     assert!(a);      // a: bool

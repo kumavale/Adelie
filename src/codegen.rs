@@ -3,7 +3,7 @@ use crate::builtin::*;
 use crate::class::ClassKind;
 use crate::error::*;
 use crate::function::Function;
-use crate::keyword::{Type, RRType, Numeric, Float, FloatNum};
+use crate::keyword::{Type, RRType, Numeric, Float, FloatLit};
 use crate::namespace::NameSpace;
 use crate::object::{FindSymbol, Object, ObjectKind, EnumObject, SymbolTable};
 use crate::program::Program;
@@ -132,11 +132,27 @@ fn gen_il_integer(_current_token: &[Token], _st: &SymbolTable, p: &Program, ty: 
     Ok(ty)
 }
 
-fn gen_il_float(_current_token: &[Token], _st: &SymbolTable, p: &Program, ty: RRType, num: FloatNum) -> Result<RRType> {
-    match num {
-        FloatNum::Float32(f) => {
-            p.push_il_text(format!("\tldc.r4 {}", f));
+fn gen_il_float(current_token: &[Token], _st: &SymbolTable, p: &Program, ty: RRType, num: FloatLit) -> Result<RRType> {
+    match ty.get_type() {
+        Type::Float(Float::F) => {
+            if let Ok(num) = num.parse::<f64>() {
+                p.push_il_text(format!("\tldc.r8 {}", num));
+            } else {
+                let message = "invalid float literal";
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), message);
+                return Err(());
+            }
         }
+        Type::Float(Float::F32) => {
+            if let Ok(num) = num.parse::<f32>() {
+                p.push_il_text(format!("\tldc.r4 {}", num));
+            } else {
+                let message = "invalid float literal";
+                e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), message);
+                return Err(());
+            }
+        }
+        _ => unreachable!()
     }
     if *p.ret_address.borrow() {
         let seq = crate::seq!();
@@ -170,6 +186,7 @@ fn gen_il_let<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>,
     fn check_type(lty: &Type, rty: &Type) -> Result<()> {
         match (lty, rty) {
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
+            (Type::Float(..), Type::Float(Float::F)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
             _ if lty == rty => Ok(()),
@@ -218,6 +235,7 @@ fn gen_il_call<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a
     fn check_type(arg: &Type, param: &Type) -> Result<()> {
         match (arg, param) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
+            (Type::Float(Float::F), Type::Float(..)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
             _ if arg == param => Ok(()),
@@ -263,6 +281,7 @@ fn gen_il_method<'a>(
     fn check_type(arg_ty: &Type, param_ty: &Type) -> Result<()> {
         match (arg_ty, param_ty) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
+            (Type::Float(Float::F), Type::Float(..)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
             _ if arg_ty == param_ty => Ok(()),
@@ -609,6 +628,8 @@ fn gen_il_if<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>, 
         match (then, els) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(RRType::new(els.clone())),
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(RRType::new(then.clone())),
+            (Type::Float(Float::F), Type::Float(..)) => Ok(RRType::new(els.clone())),
+            (Type::Float(..), Type::Float(Float::F)) => Ok(RRType::new(then.clone())),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
             _ if then == els => Ok(RRType::new(then.clone())),
@@ -685,6 +706,7 @@ fn gen_il_assign<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'
     fn check_type(lty: &Type, rty: &Type) -> Result<()> {
         match (lty, rty) {
             (Type::Numeric(..), Type::Numeric(Numeric::Integer)) => Ok(()),
+            (Type::Float(..), Type::Float(Float::F)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
             _ if lty == rty => Ok(()),
@@ -782,6 +804,7 @@ fn gen_il_return<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'
     fn check_type(arg: &Type, param: &Type) -> Result<()> {
         match (arg, param) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
+            (Type::Float(Float::F), Type::Float(..)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
             _ if arg == param => Ok(()),
@@ -906,7 +929,8 @@ fn gen_il_unaryop<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<
                     match &ty.get_type() {
                         Type::Ptr(_) => p.push_il_text("\tldind.i"),
                         Type::Numeric(Numeric::I32) => p.push_il_text("\tldind.i4"),
-                        Type::Float(Float::F32) => p.push_il_text("\tldind.r4"),
+                        Type::Float(Float::F)       => p.push_il_text("\tldind.r8"),
+                        Type::Float(Float::F32)     => p.push_il_text("\tldind.r4"),
                         ty => {
                             let message = format!("[compiler unimplemented!()] dereferenced {:?}", ty);
                             e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
@@ -1203,6 +1227,7 @@ fn gen_il_path<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a
     fn check_type(arg: &Type, param: &Type) -> Result<()> {
         match (arg, param) {
             (Type::Numeric(Numeric::Integer), Type::Numeric(..)) => Ok(()),
+            (Type::Float(Float::F), Type::Float(..)) => Ok(()),
             (Type::Box(l), Type::Box(r)) |
             (Type::Ptr(l), Type::Ptr(r)) => check_type(&l.get_type(), &r.get_type()),
             _ if arg == param => Ok(()),
