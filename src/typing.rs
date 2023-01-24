@@ -576,11 +576,6 @@ fn typing_if<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program<
         let mut els_type = els.1?;
         type_inference(&mut els_type, &then_type);
         type_inference(&mut then_type, &els_type);
-        // then: Integer, else: Integerの場合、両方に同じRRTypeをcloneする
-        // TODO: この処理を`type_inference()`に合成
-        //if matches!((&then_type.get_type(), &els_type.get_type()), (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer))) {
-        //    *els_type.borrow_mut() = then_type.borrow().clone();
-        //}
     }
     Ok(then_type)
 }
@@ -839,11 +834,6 @@ fn typing_binaryop<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Pr
     );
     type_inference(&mut ltype, &rtype);
     type_inference(&mut rtype, &ltype);
-    // then: Integer, else: Integerの場合、両方に同じRRTypeをcloneする
-    // TODO: この処理を`type_inference()`に合成
-    //if matches!((&ltype.get_type(), &rtype.get_type()), (Type::Numeric(Numeric::Integer), Type::Numeric(Numeric::Integer))) {
-    //    *ltype.borrow_mut() = rtype.borrow().clone();
-    //}
     if is_bool {
         Ok(RRType::new(Type::Bool))
     } else {
