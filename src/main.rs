@@ -188,7 +188,7 @@ fn gen_function<'a, 'b>(program: &'a Program<'a>, func: &'b Function<'a>) {
     // 型検査
     //dbg!(&func.symbol_table.borrow());
     func.symbol_table.borrow_mut().clear_local();
-    if let Ok(rettype) = typing::typing(func.statements.clone(), &mut func.symbol_table.borrow_mut(), program) {
+    if let Ok(rettype) = typing::typing(func.statements.clone(), &mut func.symbol_table.borrow_mut(), program, false) {
         // 暗黙の戻り値の型推論
         let mut func_rettype = func.rettype.clone();
         typing::type_inference(&mut func_rettype, &rettype);
