@@ -8,7 +8,7 @@ else
 	else
 	endif
 endif
-TEST_SRCS=$(wildcard test/*.ad)
+TEST_SRCS=$(wildcard tests/*.ad)
 TESTS=$(TEST_SRCS:.ad=.exe)
 
 all: clippy build build-std
@@ -17,7 +17,7 @@ build:
 	cargo build
 
 build-std:
-	$(ILASM) /OUTPUT:test/adelie_std.dll -DLL library/std.il
+	$(ILASM) /OUTPUT:tests/adelie_std.dll -DLL library/std.il
 
 check:
 	cargo check
@@ -25,8 +25,8 @@ check:
 clippy:
 	cargo clippy
 
-test/%.exe: build build-std
-	cargo run test/$*.ad
+tests/%.exe: build build-std
+	cargo run tests/$*.ad
 
 test: $(TESTS)
 	@for i in $^; do echo; echo $$i; $(RUN) ./$$i || exit 1; done
@@ -36,6 +36,6 @@ test: $(TESTS)
 
 clean:
 	cargo clean
-	rm -rf tmp* $(TESTS) test/*.il test/*.exe example/*.il example/*.exe
+	rm -rf tmp* $(TESTS) tests/*.il tests/*.exe example/*.il example/*.exe
 
 .PHONY: build build-std check clippy test clean
