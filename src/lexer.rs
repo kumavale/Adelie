@@ -116,6 +116,7 @@ impl<'a> Lexer<'a> {
                     }
                     // TODO
                     //Token::new(TokenKind::Comment(s), self.col, self.line)
+                    self.seek(1);
                     return self.next_token();
                 }
                 Some('*') => {
@@ -134,6 +135,7 @@ impl<'a> Lexer<'a> {
                     }
                     // TODO
                     //Token::new(TokenKind::Comment(s), self.col, self.line)
+                    self.seek(1);
                     return self.next_token();
                 }
                 _ => Token::new(TokenKind::Slash, self.col, self.line)
@@ -348,4 +350,112 @@ pub fn tokenize(l: &mut Lexer) -> Vec<Token> {
         tok.push(l.next_token());
     }
     tok
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::lexer::*;
+
+    #[test]
+    fn tokenize_test() {
+        let tests = [
+            (r#""#, vec![]),
+            (r#"0"#, vec!["0"]),
+            (r#"123456789"#, vec!["123456789"]),
+            (r#"1+2"#, vec!["1", "+", "2"]),
+            (r#" 42 * 1 "#, vec!["42", "*", "1"]),
+            (r#"42--1"#, vec!["42", "-", "-", "1"]),
+            (r#"4/2"#, vec!["4", "/", "2"]),
+            (r#"4%2"#, vec!["4", "%", "2"]),
+            (r#"1(2)3"#, vec!["1", "(", "2", ")", "3"]),
+            (r#"1==2"#, vec!["1", "==", "2"]),
+            (r#"1<2"#, vec!["1", "<", "2"]),
+            (r#"1<=2"#, vec!["1", "<=", "2"]),
+            (r#"1!=2"#, vec!["1", "!=", "2"]),
+            (r#"1>2"#, vec!["1", ">", "2"]),
+            (r#"1>=2"#, vec!["1", ">", "=", "2"]),
+            (r#"return;"#, vec!["return", ";"]),
+            (r#"return 0;"#, vec!["return", "0", ";"]),
+            (r#"a=1"#, vec!["a", "=", "1"]),
+            (r#"z=1"#, vec!["z", "=", "1"]),
+            (r#"a+=1"#, vec!["a", "+=", "1"]),
+            (r#"a-=1"#, vec!["a", "-=", "1"]),
+            (r#"a*=1"#, vec!["a", "*=", "1"]),
+            (r#"a/=1"#, vec!["a", "/=", "1"]),
+            (r#"a%=1"#, vec!["a", "%=", "1"]),
+            (r#"a0"#, vec!["a0"]),
+            (r#"z9"#, vec!["z9"]),
+            (r#"Aa"#, vec!["Aa"]),
+            (r#"Zz"#, vec!["Zz"]),
+            (r#"_A"#, vec!["_A"]),
+            (r#"_Z"#, vec!["_Z"]),
+            (r#"__"#, vec!["__"]),
+            (r#"let foo;"#, vec!["let", "foo", ";"]),
+            (r#"if 1==1{}else{}"#, vec!["if", "1", "==", "1", "{", "}", "else", "{", "}"]),
+            (r#"while 1<1 {}"#, vec!["while", "1", "<", "1", "{", "}"]),
+            (r#"foo()"#, vec!["foo", "(", ")"]),
+            (r#"foo(1,2)"#, vec!["foo", "(", "1", ",", "2", ")"]),
+            (r#"fn main() {}"#, vec!["fn", "main", "(", ")", "{", "}"]),
+            (r#"let a:i32;"#, vec!["let", "a", ":", "i32", ";"]),
+            (r#"fn foo() -> i32 {}"#, vec!["fn", "foo", "(", ")", "->", "i32", "{", "}"]),
+            (r#""str""#, vec![r#"\"str\""#]),
+            (r#"let a:string;"#, vec!["let", "a", ":", "string", ";"]),
+            (r#"//comment"#, vec![]),
+            (r#"/**/"#, vec![]),
+            (r#"/*1*/"#, vec![]),
+            (r#"let a:bool;"#, vec!["let", "a", ":", "bool", ";"]),
+            (r#"true"#, vec!["true"]),
+            (r#"false"#, vec!["false"]),
+            (r#"!true"#, vec!["!", "true"]),
+            (r#"1^1"#, vec!["1", "^", "1"]),
+            (r#"1&1"#, vec!["1", "&", "1"]),
+            (r#"1|1"#, vec!["1", "|", "1"]),
+            (r#"1^=1"#, vec!["1", "^=", "1"]),
+            (r#"1&=1"#, vec!["1", "&=", "1"]),
+            (r#"1|=1"#, vec!["1", "|=", "1"]),
+            (r#"&a"#, vec!["&", "a"]),
+            (r#"*a"#, vec!["*", "a"]),
+            (r#"'a'"#, vec!["'a'"]),
+            (r#"let a:char;"#, vec!["let", "a", ":", "char", ";"]),
+            (r#"a as i32"#, vec!["a", "as", "i32"]),
+            (r#"asuka i32"#, vec!["asuka", "i32"]),
+            (r#"loop{}"#, vec!["loop", "{", "}"]),
+            (r#"&&"#, vec!["&&"]),
+            (r#"& &"#, vec!["&", "&"]),
+            (r#"||"#, vec!["||"]),
+            (r#"| |"#, vec!["|", "|"]),
+            (r#"<<"#, vec!["<<"]),
+            (r#"< <"#, vec!["<", "<"]),
+            (r#">>"#, vec![">", ">"]),
+            (r#"<<="#, vec!["<<="]),
+            (r#"< <="#, vec!["<", "<="]),
+            (r#"<< ="#, vec!["<<", "="]),
+            (r#">>="#, vec![">", ">", "="]),
+            (r#"struct a{x:i32}"#, vec!["struct", "a", "{", "x", ":", "i32", "}"]),
+            (r#"impl Foo{}"#, vec!["impl", "Foo", "{", "}"]),
+            (r#".ctor()"#, vec![".ctor", "(", ")"]),
+            (r#"foo.bar"#, vec!["foo", ".", "bar"]),
+            (r#"break"#, vec!["break"]),
+            (r#"mod m{}"#, vec!["mod", "m", "{", "}"]),
+            (r#"foo::bar"#, vec!["foo", "::", "bar"]),
+            (r#"println!()"#, vec!["println", "!", "(", ")"]),
+            (r#"let mut a;"#, vec!["let", "mut", "a", ";"]),
+            (r#"let a:Box<i32>;"#, vec!["let", "a", ":", "Box", "<", "i32", ">", ";"]),
+            (r#"Box::new(1)"#, vec!["Box", "::", "new", "(", "1", ")"]),
+            (r#"extern{}"#, vec!["extern", "{", "}"]),
+            (r#"class a{}"#, vec!["class", "a", "{", "}"]),
+            (r#"class a:b{}"#, vec!["class", "a", ":", "b", "{", "}"]),
+            (r#"||{}"#, vec!["||", "{", "}"]),
+            (r#"|a:i32|{}"#, vec!["|", "a", ":", "i32", "|", "{", "}"]),
+            (r#"let a:f32;"#, vec!["let", "a", ":", "f32", ";"]),
+            (r#"enum a{}"#, vec!["enum", "a", "{", "}"]),
+            (r#"let a:i64;"#, vec!["let", "a", ":", "i64", ";"]),
+            (r#"#[link]"#, vec!["#", "[", "link", "]"]),
+        ];
+        for (input, expect) in tests {
+            let mut lexer = Lexer::new(input);
+            let tokens = tokenize(&mut lexer).into_iter().map(|t| t.kind.to_string()).collect::<Vec<_>>();
+            assert_eq!(tokens[..tokens.len()-1], expect);
+        }
+    }
 }
