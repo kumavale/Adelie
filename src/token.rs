@@ -1,6 +1,24 @@
 use crate::builtin::*;
 use crate::keyword::{Keyword, Type};
 use std::fmt;
+use std::ops::Range;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub cur: Range<usize>,
+    pub line: usize,
+}
+
+impl Token {
+    pub fn new(kind: TokenKind, cur: Range<usize>, line: usize) -> Self {
+        Token {
+            kind,
+            cur,
+            line,
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind {
@@ -112,23 +130,6 @@ pub enum Delimiter {
     Brace,
     /// `[ ... ]`
     Bracket,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub cur: usize,
-    pub line: usize,
-}
-
-impl Token {
-    pub fn new(kind: TokenKind, cur: usize, line: usize) -> Self {
-        Token {
-            kind,
-            cur,
-            line,
-        }
-    }
 }
 
 impl fmt::Display for TokenKind {

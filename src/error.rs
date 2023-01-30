@@ -411,41 +411,41 @@ fn nearby(path: &str, lines: &[&str], token: &[Token]) -> Result<String, ()> {
     let digits = usize::digits(end.line);
     let mut message = String::new();
 
-    message += &format!("\x1b[34m{1:>0$}-->\x1b[0m {2}:{3}:{4}\n", digits, "", path, begin.line, begin.cur);
+    message += &format!("\x1b[34m{1:>0$}-->\x1b[0m {2}:{3}:{4}\n", digits, "", path, begin.line, begin.cur.start);
     if begin.line == end.line {
-        let target_len = end.cur - begin.cur + begin.kind.to_string().len();
+        let target_len = end.cur.end - begin.cur.start;
         message += &format!("\x1b[34m{1:>0$} |\x1b[0m {2}\n", digits, begin.line, lines.get(begin.line-1).ok_or(())?);
         message += &format!("\x1b[34m{1:>0$} |\x1b[0m {1:2$}\x1b[31m{3}\x1b[0m",
             digits, "",
-            begin.cur - begin.kind.to_string().len(),
+            begin.cur.start,
             "^".repeat(target_len));
     } else if end.line - begin.line < 10 {
         message += "[TODO: multiple line error message]\n";
         message += &format!("\x1b[34m{1:>0$} |\x1b[0m {2}\n", digits, begin.line, lines.get(begin.line-1).ok_or(())?);
         message += &format!("\x1b[34m{1:>0$} |\x1b[0m {1:2$}\x1b[31m{3}\x1b[0m\n",
             digits, "",
-            begin.cur - begin.kind.to_string().len(),
+            begin.cur.start,
             "^".repeat(begin.kind.to_string().len()));
         for line in begin.line+1..=end.line {
             message += &format!("\x1b[34m{1:>0$} |\x1b[0m {2}\n", digits, line, lines.get(line-1).ok_or(())?);
         }
         message += &format!("\x1b[34m{1:>0$} |\x1b[0m {1:2$}\x1b[31m{3}\x1b[0m",
             digits, "",
-            end.cur - end.kind.to_string().len(),
+            end.cur.start,
             "^".repeat(end.kind.to_string().len()));
     } else {
         message += "[TODO: multiple line split error message]\n";
         message += &format!("\x1b[34m{1:>0$} |\x1b[0m {2}\n", digits, begin.line, lines.get(begin.line-1).ok_or(())?);
         message += &format!("\x1b[34m{1:>0$} |\x1b[0m {1:2$}\x1b[31m{3}\x1b[0m\n",
             digits, "",
-            begin.cur - begin.kind.to_string().len(),
+            begin.cur.start,
             "^".repeat(begin.kind.to_string().len()));
         for line in begin.line+1..=end.line {
             message += &format!("\x1b[34m{1:>0$} |\x1b[0m {2}\n", digits, line, lines.get(line-1).ok_or(())?);
         }
         message += &format!("\x1b[34m{1:>0$} |\x1b[0m {1:2$}\x1b[31m{3}\x1b[0m",
             digits, "",
-            end.cur - end.kind.to_string().len(),
+            end.cur.start,
             "^".repeat(end.kind.to_string().len()));
     }
 

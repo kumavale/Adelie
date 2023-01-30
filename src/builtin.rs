@@ -58,7 +58,7 @@ fn gen_il_builtin_assert<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<No
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &Type::Bool, &ty.get_type());
     }
     p.push_il_text(format!("\tldstr \"{stringizing_arg}\""));
-    p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
+    p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur.start));
     p.push_il_text("\tcall void [adelie_std]std::'assert'(bool, string, string)");
     Ok(RRType::new(Type::Void))
 }
@@ -85,7 +85,7 @@ fn gen_il_builtin_assert_eq<'a>(token: &[Token], st: &SymbolTable, mut args: Vec
     if check_type(&lty.get_type(), &rty.get_type()).is_err() {
         e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &lty.get_type(), &rty.get_type());
     }
-    p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
+    p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur.start));
     p.push_il_text("\tcall void [adelie_std]std::'assert_eq'(object, object, string)");
     Ok(RRType::new(Type::Void))
 }
@@ -131,7 +131,7 @@ fn gen_il_builtin_panic<'a>(token: &[Token], st: &SymbolTable, mut args: Vec<Nod
             p.push_il_text("\tcall string [mscorlib]System.String::Format(string, object[])");
         }
     }
-    p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur));
+    p.push_il_text(format!("\tldstr \"{}:{}:{}\"", p.path, token[0].line, token[0].cur.start));
     p.push_il_text("\tcall void [adelie_std]std::'panic'(string, string)");
 
     // TODO: Type::Never
