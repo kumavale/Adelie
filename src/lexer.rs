@@ -59,10 +59,10 @@ impl<'a> Lexer<'a> {
     fn skip_whitespace(&mut self) {
         while let Some(c) = self.ch {
             if c == '\n' {
+                self.seek(1);
                 self.line += 1;
                 self.col = 0;
-            }
-            if c.is_whitespace() {
+            } else if c.is_whitespace() {
                 self.seek(1);
             } else {
                 break;
@@ -73,36 +73,37 @@ impl<'a> Lexer<'a> {
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
+        let start = self.col;
         let tok = match self.ch {
             Some('+') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::PlusEq, self.col, self.line)
+                    Token::new(TokenKind::PlusEq, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::Plus, self.col, self.line)
+                _ => Token::new(TokenKind::Plus, start..self.col+1, self.line)
             }
             Some('-') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::MinusEq, self.col, self.line)
+                    Token::new(TokenKind::MinusEq, start..self.col+1, self.line)
                 }
                 Some('>') => {
                     self.seek(1);
-                    Token::new(TokenKind::RArrow, self.col, self.line)
+                    Token::new(TokenKind::RArrow, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::Minus, self.col, self.line)
+                _ => Token::new(TokenKind::Minus, start..self.col+1, self.line)
             }
             Some('*') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::StarEq, self.col, self.line)
+                    Token::new(TokenKind::StarEq, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::Star, self.col, self.line)
+                _ => Token::new(TokenKind::Star, start..self.col+1, self.line)
             }
             Some('/') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::SlashEq, self.col, self.line)
+                    Token::new(TokenKind::SlashEq, start..self.col+1, self.line)
                 }
                 Some('/') => {
                     self.seek(1);
@@ -115,7 +116,7 @@ impl<'a> Lexer<'a> {
                         s.push(c);
                     }
                     // TODO
-                    //Token::new(TokenKind::Comment(s), self.col, self.line)
+                    //Token::new(TokenKind::Comment(s), start..self.col+1, self.line)
                     self.seek(1);
                     return self.next_token();
                 }
@@ -134,90 +135,90 @@ impl<'a> Lexer<'a> {
                         s.push(c);
                     }
                     // TODO
-                    //Token::new(TokenKind::Comment(s), self.col, self.line)
+                    //Token::new(TokenKind::Comment(s), start..self.col+1, self.line)
                     self.seek(1);
                     return self.next_token();
                 }
-                _ => Token::new(TokenKind::Slash, self.col, self.line)
+                _ => Token::new(TokenKind::Slash, start..self.col+1, self.line)
             }
             Some('%') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::PercentEq, self.col, self.line)
+                    Token::new(TokenKind::PercentEq, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::Percent, self.col, self.line)
+                _ => Token::new(TokenKind::Percent, start..self.col+1, self.line)
             }
 
             Some('^') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::CaretEq, self.col, self.line)
+                    Token::new(TokenKind::CaretEq, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::Caret, self.col, self.line)
+                _ => Token::new(TokenKind::Caret, start..self.col+1, self.line)
             }
             Some('&') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::AndEq, self.col, self.line)
+                    Token::new(TokenKind::AndEq, start..self.col+1, self.line)
                 }
                 Some('&') => {
                     self.seek(1);
-                    Token::new(TokenKind::AndAnd, self.col, self.line)
+                    Token::new(TokenKind::AndAnd, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::And, self.col, self.line)
+                _ => Token::new(TokenKind::And, start..self.col+1, self.line)
             }
             Some('|') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::OrEq, self.col, self.line)
+                    Token::new(TokenKind::OrEq, start..self.col+1, self.line)
                 }
                 Some('|') => {
                     self.seek(1);
-                    Token::new(TokenKind::OrOr, self.col, self.line)
+                    Token::new(TokenKind::OrOr, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::Or, self.col, self.line)
+                _ => Token::new(TokenKind::Or, start..self.col+1, self.line)
             }
 
-            Some('#') => Token::new(TokenKind::Pound, self.col, self.line),
+            Some('#') => Token::new(TokenKind::Pound, start..self.col+1, self.line),
 
-            Some('(') => Token::new(TokenKind::OpenDelim(Delimiter::Parenthesis),  self.col, self.line),
-            Some('{') => Token::new(TokenKind::OpenDelim(Delimiter::Brace),        self.col, self.line),
-            Some('[') => Token::new(TokenKind::OpenDelim(Delimiter::Bracket),      self.col, self.line),
-            Some(')') => Token::new(TokenKind::CloseDelim(Delimiter::Parenthesis), self.col, self.line),
-            Some('}') => Token::new(TokenKind::CloseDelim(Delimiter::Brace),       self.col, self.line),
-            Some(']') => Token::new(TokenKind::CloseDelim(Delimiter::Bracket),     self.col, self.line),
+            Some('(') => Token::new(TokenKind::OpenDelim(Delimiter::Parenthesis),  start..self.col+1, self.line),
+            Some('{') => Token::new(TokenKind::OpenDelim(Delimiter::Brace),        start..self.col+1, self.line),
+            Some('[') => Token::new(TokenKind::OpenDelim(Delimiter::Bracket),      start..self.col+1, self.line),
+            Some(')') => Token::new(TokenKind::CloseDelim(Delimiter::Parenthesis), start..self.col+1, self.line),
+            Some('}') => Token::new(TokenKind::CloseDelim(Delimiter::Brace),       start..self.col+1, self.line),
+            Some(']') => Token::new(TokenKind::CloseDelim(Delimiter::Bracket),     start..self.col+1, self.line),
 
             Some('=') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::EqEq, self.col, self.line)
+                    Token::new(TokenKind::EqEq, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::Assign, self.col, self.line)
+                _ => Token::new(TokenKind::Assign, start..self.col+1, self.line)
             }
             Some('<') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::Le, self.col, self.line)
+                    Token::new(TokenKind::Le, start..self.col+1, self.line)
                 }
                 Some('<') => {
                     self.seek(1);
                     match self.peek_char() {
                         Some('=') => {
                             self.seek(1);
-                            Token::new(TokenKind::ShlEq, self.col, self.line)
+                            Token::new(TokenKind::ShlEq, start..self.col+1, self.line)
                         }
-                        _ => Token::new(TokenKind::Shl, self.col, self.line)
+                        _ => Token::new(TokenKind::Shl, start..self.col+1, self.line)
                     }
                 }
-                _ => Token::new(TokenKind::Lt, self.col, self.line),
+                _ => Token::new(TokenKind::Lt, start..self.col+1, self.line),
             }
-            Some('>') => Token::new(TokenKind::Gt, self.col, self.line),
+            Some('>') => Token::new(TokenKind::Gt, start..self.col+1, self.line),
             Some('!') => match self.peek_char() {
                 Some('=') => {
                     self.seek(1);
-                    Token::new(TokenKind::Ne, self.col, self.line)
+                    Token::new(TokenKind::Ne, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::Not, self.col, self.line),
+                _ => Token::new(TokenKind::Not, start..self.col+1, self.line),
             }
 
             Some('.') => {
@@ -228,19 +229,19 @@ impl<'a> Lexer<'a> {
                     .is_some()
                 {
                     self.seek(4);
-                    Token::new(TokenKind::Keyword(Keyword::Ctor), self.col, self.line)
+                    Token::new(TokenKind::Keyword(Keyword::Ctor), start..self.col+1, self.line)
                 } else {
-                    Token::new(TokenKind::Dot, self.col, self.line)
+                    Token::new(TokenKind::Dot, start..self.col+1, self.line)
                 }
             }
-            Some(',') => Token::new(TokenKind::Comma, self.col, self.line),
-            Some(';') => Token::new(TokenKind::Semi,  self.col, self.line),
+            Some(',') => Token::new(TokenKind::Comma, start..self.col+1, self.line),
+            Some(';') => Token::new(TokenKind::Semi,  start..self.col+1, self.line),
             Some(':') => match self.peek_char() {
                 Some(':') => {
                     self.seek(1);
-                    Token::new(TokenKind::PathSep, self.col, self.line)
+                    Token::new(TokenKind::PathSep, start..self.col+1, self.line)
                 }
-                _ => Token::new(TokenKind::Colon, self.col, self.line),
+                _ => Token::new(TokenKind::Colon, start..self.col+1, self.line),
             }
 
             Some('\'') => {
@@ -253,7 +254,7 @@ impl<'a> Lexer<'a> {
                     }
                     s.push(c);
                 }
-                Token::new(TokenKind::Literal(LiteralKind::Char(s.parse::<char>().expect("invalid char"))), self.col, self.line)
+                Token::new(TokenKind::Literal(LiteralKind::Char(s.parse::<char>().expect("invalid char"))), start..self.col+1, self.line)
             }
             Some('"') => {
                 let mut s = String::new();
@@ -264,10 +265,10 @@ impl<'a> Lexer<'a> {
                     }
                     s.push(c);
                 }
-                Token::new(TokenKind::Literal(LiteralKind::String(s)), self.col, self.line)
+                Token::new(TokenKind::Literal(LiteralKind::String(s)), start..self.col+1, self.line)
             }
 
-            None => Token::new(TokenKind::Eof, self.col, self.line),
+            None => Token::new(TokenKind::Eof, start..self.col+1, self.line),
 
             Some(c) if matches!(c, 'a'..='z'|'A'..='Z'|'_') => {
                 let mut ident = self.ch.unwrap().to_string();
@@ -278,42 +279,42 @@ impl<'a> Lexer<'a> {
                     self.seek(1);
                 }
                 match &*ident {
-                    "assert"    => Token::new(TokenKind::Builtin(Builtin::Assert),   self.col, self.line),
-                    "assert_eq" => Token::new(TokenKind::Builtin(Builtin::AssertEq), self.col, self.line),
-                    "panic"     => Token::new(TokenKind::Builtin(Builtin::Panic),    self.col, self.line),
-                    "print"     => Token::new(TokenKind::Builtin(Builtin::Print),    self.col, self.line),
-                    "println"   => Token::new(TokenKind::Builtin(Builtin::Println),  self.col, self.line),
-                    "read_line" => Token::new(TokenKind::Builtin(Builtin::ReadLine), self.col, self.line),
+                    "assert"    => Token::new(TokenKind::Builtin(Builtin::Assert),   start..self.col+1, self.line),
+                    "assert_eq" => Token::new(TokenKind::Builtin(Builtin::AssertEq), start..self.col+1, self.line),
+                    "panic"     => Token::new(TokenKind::Builtin(Builtin::Panic),    start..self.col+1, self.line),
+                    "print"     => Token::new(TokenKind::Builtin(Builtin::Print),    start..self.col+1, self.line),
+                    "println"   => Token::new(TokenKind::Builtin(Builtin::Println),  start..self.col+1, self.line),
+                    "read_line" => Token::new(TokenKind::Builtin(Builtin::ReadLine), start..self.col+1, self.line),
 
-                    "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), self.col, self.line),
-                    "i64"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I64)), self.col, self.line),
-                    "f32"    => Token::new(TokenKind::Type(Type::Float(Float::F32)),     self.col, self.line),
-                    "bool"   => Token::new(TokenKind::Type(Type::Bool),                  self.col, self.line),
-                    "char"   => Token::new(TokenKind::Type(Type::Char),                  self.col, self.line),
-                    "string" => Token::new(TokenKind::Type(Type::String),                self.col, self.line),
+                    "i32"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I32)), start..self.col+1, self.line),
+                    "i64"    => Token::new(TokenKind::Type(Type::Numeric(Numeric::I64)), start..self.col+1, self.line),
+                    "f32"    => Token::new(TokenKind::Type(Type::Float(Float::F32)),     start..self.col+1, self.line),
+                    "bool"   => Token::new(TokenKind::Type(Type::Bool),                  start..self.col+1, self.line),
+                    "char"   => Token::new(TokenKind::Type(Type::Char),                  start..self.col+1, self.line),
+                    "string" => Token::new(TokenKind::Type(Type::String),                start..self.col+1, self.line),
 
-                    "as"     => Token::new(TokenKind::Keyword(Keyword::As),      self.col, self.line),
-                    "Box"    => Token::new(TokenKind::Keyword(Keyword::Box),     self.col, self.line),
-                    "break"  => Token::new(TokenKind::Keyword(Keyword::Break),   self.col, self.line),
-                    "class"  => Token::new(TokenKind::Keyword(Keyword::Class),   self.col, self.line),
-                    "else"   => Token::new(TokenKind::Keyword(Keyword::Else),    self.col, self.line),
-                    "enum"   => Token::new(TokenKind::Keyword(Keyword::Enum),    self.col, self.line),
-                    "extern" => Token::new(TokenKind::Keyword(Keyword::Extern),  self.col, self.line),
-                    "false"  => Token::new(TokenKind::Keyword(Keyword::False),   self.col, self.line),
-                    "fn"     => Token::new(TokenKind::Keyword(Keyword::Fn),      self.col, self.line),
-                    "if"     => Token::new(TokenKind::Keyword(Keyword::If),      self.col, self.line),
-                    "impl"   => Token::new(TokenKind::Keyword(Keyword::Impl),    self.col, self.line),
-                    "let"    => Token::new(TokenKind::Keyword(Keyword::Let),     self.col, self.line),
-                    "loop"   => Token::new(TokenKind::Keyword(Keyword::Loop),    self.col, self.line),
-                    "mod"    => Token::new(TokenKind::Keyword(Keyword::Mod),     self.col, self.line),
-                    "mut"    => Token::new(TokenKind::Keyword(Keyword::Mut),     self.col, self.line),
-                    "self"   => Token::new(TokenKind::Keyword(Keyword::SelfLower), self.col, self.line),
-                    "Self"   => Token::new(TokenKind::Keyword(Keyword::SelfUpper), self.col, self.line),
-                    "struct" => Token::new(TokenKind::Keyword(Keyword::Struct),  self.col, self.line),
-                    "true"   => Token::new(TokenKind::Keyword(Keyword::True),    self.col, self.line),
-                    "return" => Token::new(TokenKind::Keyword(Keyword::Return),  self.col, self.line),
-                    "while"  => Token::new(TokenKind::Keyword(Keyword::While),   self.col, self.line),
-                    _ => Token::new(TokenKind::Identifier(ident), self.col, self.line)
+                    "as"     => Token::new(TokenKind::Keyword(Keyword::As),        start..self.col+1, self.line),
+                    "Box"    => Token::new(TokenKind::Keyword(Keyword::Box),       start..self.col+1, self.line),
+                    "break"  => Token::new(TokenKind::Keyword(Keyword::Break),     start..self.col+1, self.line),
+                    "class"  => Token::new(TokenKind::Keyword(Keyword::Class),     start..self.col+1, self.line),
+                    "else"   => Token::new(TokenKind::Keyword(Keyword::Else),      start..self.col+1, self.line),
+                    "enum"   => Token::new(TokenKind::Keyword(Keyword::Enum),      start..self.col+1, self.line),
+                    "extern" => Token::new(TokenKind::Keyword(Keyword::Extern),    start..self.col+1, self.line),
+                    "false"  => Token::new(TokenKind::Keyword(Keyword::False),     start..self.col+1, self.line),
+                    "fn"     => Token::new(TokenKind::Keyword(Keyword::Fn),        start..self.col+1, self.line),
+                    "if"     => Token::new(TokenKind::Keyword(Keyword::If),        start..self.col+1, self.line),
+                    "impl"   => Token::new(TokenKind::Keyword(Keyword::Impl),      start..self.col+1, self.line),
+                    "let"    => Token::new(TokenKind::Keyword(Keyword::Let),       start..self.col+1, self.line),
+                    "loop"   => Token::new(TokenKind::Keyword(Keyword::Loop),      start..self.col+1, self.line),
+                    "mod"    => Token::new(TokenKind::Keyword(Keyword::Mod),       start..self.col+1, self.line),
+                    "mut"    => Token::new(TokenKind::Keyword(Keyword::Mut),       start..self.col+1, self.line),
+                    "self"   => Token::new(TokenKind::Keyword(Keyword::SelfLower), start..self.col+1, self.line),
+                    "Self"   => Token::new(TokenKind::Keyword(Keyword::SelfUpper), start..self.col+1, self.line),
+                    "struct" => Token::new(TokenKind::Keyword(Keyword::Struct),    start..self.col+1, self.line),
+                    "true"   => Token::new(TokenKind::Keyword(Keyword::True),      start..self.col+1, self.line),
+                    "return" => Token::new(TokenKind::Keyword(Keyword::Return),    start..self.col+1, self.line),
+                    "while"  => Token::new(TokenKind::Keyword(Keyword::While),     start..self.col+1, self.line),
+                    _ => Token::new(TokenKind::Identifier(ident), start..self.col+1, self.line)
                 }
             }
 
@@ -330,13 +331,13 @@ impl<'a> Lexer<'a> {
                         num.push(n);
                         self.seek(1);
                     }
-                    Token::new(TokenKind::Literal(LiteralKind::Float(num)), self.col, self.line)
+                    Token::new(TokenKind::Literal(LiteralKind::Float(num)), start..self.col+1, self.line)
                 } else {
-                    Token::new(TokenKind::Literal(LiteralKind::Integer(num)), self.col, self.line)
+                    Token::new(TokenKind::Literal(LiteralKind::Integer(num)), start..self.col+1, self.line)
                 }
             }
 
-            _ => Token::new(TokenKind::Unknown(self.ch.unwrap().to_string()), self.col + 1, self.line)
+            _ => Token::new(TokenKind::Unknown(self.ch.unwrap().to_string()), start..self.col+1, self.line)
         };
 
         self.seek(1);
