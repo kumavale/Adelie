@@ -13,7 +13,7 @@ Adelie is a .Net-compatible statically typed language that aims to combine the b
 
 ## Getting started
 
-Please see [Docs](kumavale.github.io/Adelie-book)
+Please see [Docs](https://kumavale.github.io/Adelie-book/)
 
 ## LICENSE
 
