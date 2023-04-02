@@ -309,6 +309,7 @@ use std::rc::Rc;
 //         | ident '{' ( expr ( ',' expr ) * ) ? ',' ? '}'
 //         | '(' expr ')'
 //         | Box
+//         | Vec
 //
 
 #[derive(Debug)]
@@ -485,6 +486,11 @@ impl<'a> Parser<'a> {
             let ty = self.type_no_bounds()?;
             self.expect(TokenKind::Gt);
             Some(RRType::new(Type::Box(ty)))
+        } else if self.eat_keyword(Keyword::Vec) {
+            self.expect(TokenKind::Lt);
+            let ty = self.type_no_bounds()?;
+            self.expect(TokenKind::Gt);
+            Some(RRType::new(Type::Vec(ty)))
         } else if let Some(ident) = self.eat_ident() {
             // enum, struct, class のいずれかになる
             // この時点ではそれが何かは定かではないので、識別子を示す特殊なTypeを返す
@@ -1737,6 +1743,10 @@ impl<'a> Parser<'a> {
                 self.idx += 1;
                 self.parse_box()
             }
+            TokenKind::Keyword(Keyword::Vec) => {
+                self.idx += 1;
+                self.parse_vec()
+            }
             TokenKind::Builtin(kind) => {
                 self.idx += 1;
                 self.parse_builtin(kind)
@@ -1906,6 +1916,16 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::PathSep);
         let ident = self.expect_ident();
         new_box_node(
+            self.parse_ident(&ident),
+            &self.tokens[begin..self.idx],
+        )
+    }
+
+    fn parse_vec(&mut self) -> Node<'a> {
+        let begin = self.idx-1;
+        self.expect(TokenKind::PathSep);
+        let ident = self.expect_ident();
+        new_vec_node(
             self.parse_ident(&ident),
             &self.tokens[begin..self.idx],
         )

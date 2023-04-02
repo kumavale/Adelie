@@ -23,9 +23,10 @@ pub enum Keyword {
     Mut,
     SelfLower,
     SelfUpper,
+    Return,
     Struct,
     True,
-    Return,
+    Vec,
     While,
 }
 
@@ -53,6 +54,7 @@ impl fmt::Display for Keyword {
             Keyword::Struct    => write!(f, "struct"),
             Keyword::True      => write!(f, "true"),
             Keyword::Return    => write!(f, "return"),
+            Keyword::Vec       => write!(f, "Vec"),
             Keyword::While     => write!(f, "while"),
         }
     }
@@ -71,6 +73,7 @@ pub enum Type {
     // TODO: Rc<RefCell<Class<'a>>>を持たせることを検討
     Class(ClassKind, Option<String>, Vec<String>, String, Option<RRType>, bool),  // (kind, dll, path, name, base, is_mutable)
     Box(RRType),
+    Vec(RRType),
     Ptr(RRType),
     Void,
     Unknown,
@@ -92,6 +95,7 @@ impl PartialEq for Type {
             (Type::Enum(_, pl, nl), Type::Enum(_, pr, nr)) => pl == pr && nl == nr,
             (Type::Class(kl, _, pl, nl, ..), Type::Class(kr, _, pr, nr, ..)) => kl == kr && pl == pr && nl == nr,
             (Type::Box(l), Type::Box(r)) => l == r,
+            (Type::Vec(l), Type::Vec(r)) => l == r,
             (Type::Ptr(l), Type::Ptr(r)) => l == r,
             (Type::Void, Type::Void) => true,
             (Type::Unknown, Type::Unknown) => true,
@@ -145,6 +149,7 @@ impl fmt::Display for Type {
             Type::Enum(_, _, n)             => write!(f, "{}", n),
             Type::Class(_, _, _, n, ..)     => write!(f, "{}", n),
             Type::Box(t)                    => write!(f, "Box<{}>", t.get_type()),
+            Type::Vec(t)                    => write!(f, "Vec<{}>", t.get_type()),
             Type::Ptr(t)                    => write!(f, "&{}", t.get_type()),
             Type::Void                      => write!(f, "void"),
             Type::Unknown                   => write!(f, "{{unknown}}"),
@@ -196,6 +201,7 @@ impl Type {
                 }
             }
             Type::Box(_)          => "object".to_string(),
+            Type::Vec(t)          => format!("class [mscorlib]System.Collections.Generic.List`1<{}>", t.get_type().to_ilstr()),
             Type::Ptr(t)          => format!("{}&", t.get_type().to_ilstr()),
             Type::Void            => "void".to_string(),
             Type::Unknown         |
@@ -220,6 +226,7 @@ impl Type {
             Type::_Self(..)                            |
             Type::Enum(..)                             |
             Type::Box(_)                               |
+            Type::Vec(_)                               |
             Type::Unknown                              |
             Type::RRIdent(..)                          => false,
         }

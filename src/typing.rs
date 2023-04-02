@@ -49,6 +49,9 @@ pub fn typing<'a>(node: Node, st: &mut SymbolTable, p: &'a Program<'a>, is_ret_a
         NodeKind::Box { method } => {
             typing_box(node.token, st, p, *method)
         }
+        NodeKind::Vec { ty, method } => {
+            typing_vec(node.token, st, p, ty, *method)
+        }
         NodeKind::Builtin { kind, args } => {
             typing_builtin(node.token, st, kind, args, p)
         }
@@ -169,6 +172,26 @@ fn typing_box<'a>(_current_token: &[Token], st: &mut SymbolTable, p: &'a Program
                 }
                 let boxed_ty = typing(args.into_iter().next().unwrap(), st, p, false)?;
                 Ok(RRType::new(Type::Box(boxed_ty)))
+            }
+            _ => {
+                e0014(Rc::clone(&p.errors), (p.path, &p.lines, method.token), &name, "Box");
+                Err(())
+            }
+        }
+    } else {
+        e0003(Rc::clone(&p.errors), (p.path, &p.lines, method.token));
+        Err(())
+    }
+}
+
+fn typing_vec<'a>(_current_token: &[Token], _st: &mut SymbolTable, p: &'a Program<'a>, ty: RRType, method: Node) -> Result<RRType> {
+    if let NodeKind::Call { name, args } = method.kind {
+        match name.as_str() {
+            "new" => {
+                if !args.is_empty() {
+                    e0029(Rc::clone(&p.errors), (p.path, &p.lines, method.token), 0, args.len());
+                }
+                Ok(RRType::clone(&ty))
             }
             _ => {
                 e0014(Rc::clone(&p.errors), (p.path, &p.lines, method.token), &name, "Box");
@@ -348,6 +371,12 @@ fn typing_method<'a>(
         // 仮実装
         Type::Numeric(Numeric::I32) if ident == "to_string" => {
             Ok(RRType::new(Type::String))
+        }
+        // 仮実装
+        Type::Vec(ty) if ident == "push" => {
+            let arg_ty = typing(args.into_iter().next().unwrap(), st, p, false)?;
+            type_inference(&mut RRType::clone(ty), &arg_ty);
+            Ok(RRType::new(Type::Void))
         }
         ty => {
             let message = format!("[compiler unimplemented!()] primitive type methods: {:?}", ty);

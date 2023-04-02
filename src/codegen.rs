@@ -29,6 +29,9 @@ pub fn gen_il<'a>(node: Node, st: &SymbolTable, p: &'a Program<'a>, is_ret_addre
         NodeKind::Box { method } => {
             gen_il_box(node.token, st, p, *method)
         }
+        NodeKind::Vec { ty, method } => {
+            gen_il_vec(node.token, st, p, ty, *method)
+        }
         NodeKind::Builtin { kind, args } => {
             gen_il_builtin(node.token, st, kind, args, p)
         }
@@ -182,6 +185,20 @@ fn gen_il_box<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>
     }
 }
 
+fn gen_il_vec<'a>(_current_token: &[Token], _st: &SymbolTable, p: &'a Program<'a>, ty: RRType, method: Node) -> Result<RRType> {
+    if let NodeKind::Call { name, args: _ } = method.kind {
+        match name.as_str() {
+            "new" => {
+                p.push_il_text(format!("\tnewobj instance void {}::.ctor()", ty.to_ilstr()));
+                Ok(RRType::clone(&ty))
+            }
+            _ => unreachable!()
+        }
+    } else {
+        unreachable!()
+    }
+}
+
 fn gen_il_let<'a>(current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>, obj: Ref<Object>, init: Option<Box<Node>>) -> Result<RRType> {
     fn check_type(lty: &Type, rty: &Type) -> Result<()> {
         match (lty, rty) {
@@ -305,7 +322,8 @@ fn gen_il_method<'a>(
         }
     }
     *p.consume.borrow_mut() = false;
-    let parent_ty = gen_il(expr, st, p, true)?;
+    let is_ret_address = !matches!(expr.get_type(), Some(Type::Vec(_)));
+    let parent_ty = gen_il(expr, st, p, is_ret_address)?;
     let parent_ty = parent_ty.get_type();
     *p.consume.borrow_mut() = true;
     match parent_ty {
@@ -372,6 +390,17 @@ fn gen_il_method<'a>(
         Type::Numeric(Numeric::I32) if ident == "to_string" => {
             p.push_il_text(format!("\tcall instance string {}::ToString()", parent_ty.to_ilstr()));
             Ok(RRType::new(Type::String))
+        }
+        // 仮実装
+        Type::Vec(ref ty) if ident == "push" => {
+            let arg = args.into_iter().next().unwrap();
+            let token = arg.token;
+            let arg_ty = gen_il(arg, st, p, false)?;
+            if check_type(&arg_ty.get_type(), &ty.get_type()).is_err() {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &ty.get_type(), &arg_ty.get_type());
+            }
+            p.push_il_text(format!("\tcall instance void {}::Add(!0)", parent_ty.to_ilstr()));
+            Ok(RRType::new(Type::Void))
         }
         ty => {
             let message = format!("[compiler unimplemented!()] primitive type methods: {:?}", ty);

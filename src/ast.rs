@@ -48,6 +48,17 @@ pub struct Node<'a> {
     pub token: &'a [Token],
 }
 
+impl<'a> Node<'a> {
+    pub fn get_type(&self) -> Option<Type> {
+        // FIXME: とりあえず`Variable`だけ実装
+        match &self.kind {
+            NodeKind::Variable { obj } => Some(obj.borrow().ty.get_type()),
+            //NodeKind::Vec { ty, method: _ } => Some(ty.get_type()),
+            _ => None
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeKind<'a> {
     Integer {
@@ -63,6 +74,10 @@ pub enum NodeKind<'a> {
         str: String,  // ".*"
     },
     Box {
+        method: Box<Node<'a>>,
+    },
+    Vec {
+        ty: RRType,
         method: Box<Node<'a>>,
     },
     Builtin {
@@ -535,6 +550,19 @@ pub fn new_box_node<'a>(
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Box {
+            method: Box::new(method),
+        },
+        token,
+    }
+}
+
+pub fn new_vec_node<'a>(
+    method: Node<'a>,
+    token: &'a [Token],
+) -> Node<'a> {
+    Node {
+        kind: NodeKind::Vec {
+            ty: RRType::new(Type::Unknown),
             method: Box::new(method),
         },
         token,

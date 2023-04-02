@@ -313,6 +313,7 @@ impl<'a> Lexer<'a> {
                     "struct" => Token::new(TokenKind::Keyword(Keyword::Struct),    start..self.col+1, self.line),
                     "true"   => Token::new(TokenKind::Keyword(Keyword::True),      start..self.col+1, self.line),
                     "return" => Token::new(TokenKind::Keyword(Keyword::Return),    start..self.col+1, self.line),
+                    "Vec"    => Token::new(TokenKind::Keyword(Keyword::Vec),       start..self.col+1, self.line),
                     "while"  => Token::new(TokenKind::Keyword(Keyword::While),     start..self.col+1, self.line),
                     _ => Token::new(TokenKind::Identifier(ident), start..self.col+1, self.line)
                 }
