@@ -29,6 +29,9 @@ pub fn gen_il<'a>(node: Node, st: &SymbolTable, p: &'a Program<'a>, is_ret_addre
         NodeKind::Box { method } => {
             gen_il_box(node.token, st, p, *method)
         }
+        NodeKind::Vec { ty, method } => {
+            gen_il_vec(node.token, st, p, ty, *method)
+        }
         NodeKind::Builtin { kind, args } => {
             gen_il_builtin(node.token, st, kind, args, p)
         }
@@ -174,6 +177,20 @@ fn gen_il_box<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>
                 let boxed_ty = gen_il(args.into_iter().next().unwrap(), st, p, false)?;
                 p.push_il_text(format!("\tbox {}", boxed_ty.to_ilstr()));
                 Ok(RRType::new(Type::Box(boxed_ty)))
+            }
+            _ => unreachable!()
+        }
+    } else {
+        unreachable!()
+    }
+}
+
+fn gen_il_vec<'a>(_current_token: &[Token], _st: &SymbolTable, p: &'a Program<'a>, ty: RRType, method: Node) -> Result<RRType> {
+    if let NodeKind::Call { name, args: _ } = method.kind {
+        match name.as_str() {
+            "new" => {
+                p.push_il_text(format!("\tnewobj instance void {}::.ctor()", ty.to_ilstr()));
+                Ok(RRType::clone(&ty))
             }
             _ => unreachable!()
         }
@@ -372,6 +389,17 @@ fn gen_il_method<'a>(
         Type::Numeric(Numeric::I32) if ident == "to_string" => {
             p.push_il_text(format!("\tcall instance string {}::ToString()", parent_ty.to_ilstr()));
             Ok(RRType::new(Type::String))
+        }
+        // 仮実装
+        Type::Vec(ref ty) if ident == "push" => {
+            let arg = args.into_iter().next().unwrap();
+            let token = arg.token;
+            let arg_ty = gen_il(arg, st, p, false)?;
+            if check_type(&arg_ty.get_type(), &ty.get_type()).is_err() {
+                e0012(Rc::clone(&p.errors), (p.path, &p.lines, token), &ty.get_type(), &arg_ty.get_type());
+            }
+            p.push_il_text(format!("\tcall instance void {}::Add(!0)", parent_ty.to_ilstr()));
+            Ok(RRType::new(Type::Void))
         }
         ty => {
             let message = format!("[compiler unimplemented!()] primitive type methods: {:?}", ty);

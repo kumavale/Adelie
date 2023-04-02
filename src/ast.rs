@@ -65,6 +65,10 @@ pub enum NodeKind<'a> {
     Box {
         method: Box<Node<'a>>,
     },
+    Vec {
+        ty: RRType,
+        method: Box<Node<'a>>,
+    },
     Builtin {
         kind: Builtin,
         args: Vec<Node<'a>>,
@@ -535,6 +539,19 @@ pub fn new_box_node<'a>(
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Box {
+            method: Box::new(method),
+        },
+        token,
+    }
+}
+
+pub fn new_vec_node<'a>(
+    method: Node<'a>,
+    token: &'a [Token],
+) -> Node<'a> {
+    Node {
+        kind: NodeKind::Vec {
+            ty: RRType::new(Type::Unknown),
             method: Box::new(method),
         },
         token,
