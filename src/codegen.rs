@@ -322,7 +322,8 @@ fn gen_il_method<'a>(
         }
     }
     *p.consume.borrow_mut() = false;
-    let parent_ty = gen_il(expr, st, p, true)?;
+    let is_ret_address = !matches!(expr.get_type(), Some(Type::Vec(_)));
+    let parent_ty = gen_il(expr, st, p, is_ret_address)?;
     let parent_ty = parent_ty.get_type();
     *p.consume.borrow_mut() = true;
     match parent_ty {
