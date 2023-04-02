@@ -113,6 +113,10 @@ pub enum NodeKind<'a> {
     Variable {
         obj: Rc<RefCell<Object>>,
     },
+    ArrayRef {
+        idx: Box<Node<'a>>,
+        obj: Rc<RefCell<Object>>,
+    },
     Enum {
         obj: EnumObject,
     },
@@ -506,6 +510,20 @@ pub fn new_variable_node<'a>(
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Variable {
+            obj: Rc::clone(obj),
+        },
+        token,
+    }
+}
+
+pub fn new_array_ref_node<'a>(
+    idx: Node<'a>,
+    obj: &Rc<RefCell<Object>>,
+    token: &'a [Token],
+) -> Node<'a> {
+    Node {
+        kind: NodeKind::ArrayRef {
+            idx: Box::new(idx),
             obj: Rc::clone(obj),
         },
         token,

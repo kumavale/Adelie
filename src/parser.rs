@@ -91,6 +91,7 @@ use std::rc::Rc;
 //   | GroupedExpression
 //   | StructExpression
 //   | CallExpression
+//   | ArrayRefExpression
 //   | FieldExpression
 //   | ReturnExpression
 //   | LambdaExpression
@@ -135,6 +136,9 @@ use std::rc::Rc;
 //
 // FieldExpression :
 //     Expression `.` IDENTIFIER
+//
+// ArrayRefExpression :
+//     Expression `[` Expression `]`
 //
 // ReturnExpression :
 //     `return` Expression ?
@@ -1821,6 +1825,19 @@ impl<'a> Parser<'a> {
                 tokens,
                 current_mod,
             )
+        } else if self.eat(TokenKind::OpenDelim(Delimiter::Bracket)) {
+            // array ref
+            let begin = self.idx - 1;
+            let idx = self.parse_expr();
+            self.expect(TokenKind::CloseDelim(Delimiter::Bracket));
+            if let Some(obj) = self.current_fn().symbol_table.borrow().find(name) {
+                new_array_ref_node(idx, obj, &self.tokens[begin..self.idx])
+            } else {
+                e0007(Rc::clone(&self.errors), self.errorset(self.idx..=self.idx), name);
+                // return dummy
+                let obj = EnumObject::new(name.to_string(), 0);
+                new_enum_node(obj, &self.tokens[self.idx-1..self.idx])
+            }
         } else {
             // local variable or parameter
             if let Some(local_fn) = &self.current_lambda {

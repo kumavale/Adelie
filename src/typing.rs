@@ -76,6 +76,9 @@ pub fn typing<'a>(node: Node, st: &mut SymbolTable, p: &'a Program<'a>, is_ret_a
         NodeKind::Variable { obj } => {
             typing_variable(node.token, st, p, obj)
         }
+        NodeKind::ArrayRef { idx: _, obj } => {
+            typing_array_ref(node.token, st, p, obj)
+        }
         NodeKind::Enum { obj } => {
             typing_enum(node.token, st, p, obj)
         }
@@ -564,6 +567,40 @@ fn typing_variable(current_token: &[Token], st: &mut SymbolTable, p: &Program, o
         Ok(obj.borrow().ty.clone().into_mutable())
     } else {
         Ok(obj.borrow().ty.clone())
+    }
+}
+
+fn typing_array_ref(_current_token: &[Token], _st: &mut SymbolTable, _p: &Program, obj: Rc<RefCell<Object>>) -> Result<RRType> {
+    // TODO: 変数チェック
+    //if st.find_mut(&obj.borrow().name).is_none() {
+    //    if obj.borrow().name.ends_with(">nested_class") {
+    //        let message = format!("[compiler unimplemented!()] cannot find value: `{}`", &obj.borrow().name);
+    //        warning(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+    //    } else {
+    //        e0007(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.borrow().name);
+    //        return Err(());
+    //    }
+    //}
+    //if !obj.borrow().ty.get_type().copyable() && obj.borrow().used {
+    //    let message = format!("use of moved value: `{}`", obj.borrow().name);
+    //    e0000(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &message);
+    //    return Err(());
+    //}
+    //if !obj.borrow().assigned {
+    //    e0027(Rc::clone(&p.errors), (p.path, &p.lines, current_token), &obj.borrow().name);
+    //    return Err(());
+    //}
+
+    // TODO: 型チェック
+
+    // move
+    //p.consume.borrow().then(|| obj.borrow_mut().consume());
+
+    match obj.borrow().ty.get_type() {
+        Type::Vec(ty) => {
+            Ok(ty)
+        }
+        _ => unimplemented!()
     }
 }
 
