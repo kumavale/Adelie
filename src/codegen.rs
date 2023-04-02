@@ -56,6 +56,9 @@ pub fn gen_il<'a>(node: Node, st: &SymbolTable, p: &'a Program<'a>, is_ret_addre
         NodeKind::Variable { obj } => {
             gen_il_variable(node.token, st, p, is_ret_address, obj.borrow())
         }
+        NodeKind::ArrayRef { idx, obj } => {
+            gen_il_array_ref(node.token, st, p, is_ret_address, idx, obj.borrow())
+        }
         NodeKind::Enum { obj } => {
             gen_il_enum(node.token, st, p, obj)
         }
@@ -625,6 +628,22 @@ fn gen_il_variable(_current_token: &[Token], _st: &SymbolTable, p: &Program, is_
         Ok(obj.ty.clone().into_mutable())
     } else {
         Ok(obj.ty.clone())
+    }
+}
+
+fn gen_il_array_ref<'a>(_current_token: &[Token], st: &SymbolTable, p: &'a Program<'a>, is_ret_address: bool, idx: Box<Node>, obj: Ref<Object>) -> Result<RRType> {
+    let ret_address = *p.ret_address.borrow();
+    *p.ret_address.borrow_mut() = is_ret_address;
+    // TODO: param, ret_address, is_reftype()
+    p.push_il_text(format!("\tldloc {}", obj.offset));
+    let idx_type = gen_il(*idx, st, p, false)?;
+    p.push_il_text(format!("\tcall instance !0 {}::get_Item({})", obj.ty.to_ilstr(), idx_type.get_type().to_ilstr()));
+    *p.ret_address.borrow_mut() = ret_address;
+    match obj.ty.get_type() {
+        Type::Vec(ty) => {
+            Ok(ty)
+        }
+        _ => unimplemented!()
     }
 }
 
