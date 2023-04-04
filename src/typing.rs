@@ -376,6 +376,13 @@ fn typing_method<'a>(
             Ok(RRType::new(Type::String))
         }
         // 仮実装
+        Type::String if ident == "chars" => {
+            if !args.is_empty() {
+                e0029(Rc::clone(&p.errors), (p.path, &p.lines, current_token), 0, args.len());
+            }
+            Ok(RRType::new(Type::Vec(RRType::new(Type::Char))))
+        }
+        // 仮実装
         Type::Vec(ty) if ident == "push" => {
             let arg_ty = typing(args.into_iter().next().unwrap(), st, p, false)?;
             type_inference(&mut RRType::clone(ty), &arg_ty);
