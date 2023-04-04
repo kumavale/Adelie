@@ -580,7 +580,7 @@ pub fn new_vec_node<'a>(
 ) -> Node<'a> {
     Node {
         kind: NodeKind::Vec {
-            ty: RRType::new(Type::Unknown),
+            ty: RRType::new(Type::Vec(RRType::new(Type::Unknown))),
             method: Box::new(method),
         },
         token,

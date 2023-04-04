@@ -25,6 +25,7 @@ pub fn type_inference(source: &mut RRType, target: &RRType) {
             *source.borrow().borrow_mut() = ty;
         }
         (Type::Box(l), Type::Box(r)) |
+        (Type::Vec(l), Type::Vec(r)) |
         (Type::Ptr(l), Type::Ptr(r)) => type_inference(l, r),
         _ => (),  // Do nothing
     }
@@ -197,7 +198,7 @@ fn typing_vec<'a>(_current_token: &[Token], _st: &mut SymbolTable, p: &'a Progra
                 Ok(RRType::clone(&ty))
             }
             _ => {
-                e0014(Rc::clone(&p.errors), (p.path, &p.lines, method.token), &name, "Box");
+                e0014(Rc::clone(&p.errors), (p.path, &p.lines, method.token), &name, "Vec");
                 Err(())
             }
         }
