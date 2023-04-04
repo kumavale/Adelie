@@ -395,6 +395,11 @@ fn gen_il_method<'a>(
             Ok(RRType::new(Type::String))
         }
         // 仮実装
+        Type::String if ident == "chars" => {
+            p.push_il_text(format!("\tnewobj instance void class [mscorlib]System.Collections.Generic.List`1<char>::.ctor(class [mscorlib]System.Collections.Generic.IEnumerable`1<!0>)"));
+            Ok(RRType::new(Type::Vec(RRType::new(Type::Char))))
+        }
+        // 仮実装
         Type::Vec(ref ty) if ident == "push" => {
             let arg = args.into_iter().next().unwrap();
             let token = arg.token;
